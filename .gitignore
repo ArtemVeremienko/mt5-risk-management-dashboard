@@ -11,23 +11,12 @@ __pycache__/
 .coverage
 htmlcov/
 
-# Node & Build Outputs
-node_modules/
-frontend/node_modules/
-.pnpm-store/
-dist/
+# Backend Web Assets & Built Bundles (served by FastAPI)
 static/dist/
-frontend/dist/
-npm-debug.log*
-yarn-debug.log*
-pnpm-debug.log*
-
-# Environment & local overrides
-*.local
-.env
-.env.local
-.env.*.local
 *.log
+
+# Environment & Secrets
+.env
 
 # IDE & OS Specific
 .vscode/
