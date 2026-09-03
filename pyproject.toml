@@ -1,0 +1,26 @@
+[project]
+name = "mt5-risk-dashboard"
+version = "1.0.0"
+description = "MT5 Risk Management & Dynamic Lot Sizing Dashboard"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn>=0.30.0",
+    "websockets>=13.0",
+    "pydantic>=2.8.0",
+    "numpy>=1.26.0",
+    "metatrader5>=5.0.45",
+    "python-multipart>=0.0.9",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "httpx>=0.27.0",
+    "playwright>=1.46.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["test_risk_calculator.py"]

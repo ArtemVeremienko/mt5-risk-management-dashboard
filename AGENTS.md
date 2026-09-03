@@ -107,18 +107,18 @@ Surface Layering:
 
 ## 🛠️ 6. Build, Test, & Execution Commands
 
-Always use `uv` for Python environments and `npm` in `risk_management_dashboard/frontend/`:
+Always use `uv` for Python environments and `npm` (or `pnpm`) in `frontend/`:
 
 ```bash
 # 1. Build Frontend
-cd risk_management_dashboard/frontend
+cd frontend
 npm run build        # Compiles Vite output to ../static/dist/ in ~450ms
 
-# 2. Run Backend & Frontend Tests
-uv run pytest risk_management_dashboard/test_risk_calculator.py
+# 2. Run Backend Tests
+uv run pytest test_risk_calculator.py
 
 # 3. Start Development Server
-uv run python -m risk_management_dashboard.main
+uv run python run.py
 ```
 
 ---
@@ -126,7 +126,7 @@ uv run python -m risk_management_dashboard.main
 ## 📋 7. Agent Checklist Before Committing Changes
 
 - [ ] Ran `npm run build` inside `frontend/` and confirmed 0 compilation errors or TypeScript warnings.
-- [ ] Ran `uv run pytest risk_management_dashboard/test_risk_calculator.py` and ensured all tests pass.
+- [ ] Ran `uv run pytest test_risk_calculator.py` and ensured all tests pass.
 - [ ] Checked that Solid.js props are not destructured.
 - [ ] Ensured numerical inputs are governed by `tabular-nums` and contrast ratios satisfy WCAG AA ($> 4.5:1$).
 - [ ] Confirmed that 500ms Turbo Mode streaming does not cause input focus resets or DOM tearing.

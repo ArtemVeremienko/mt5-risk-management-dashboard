@@ -110,11 +110,11 @@ flowchart TB
 
 Start the backend server (automatically serves the compiled frontend from `static/dist/`):
 ```powershell
-uv run python -m risk_management_dashboard.run
+uv run python run.py
 ```
 Or directly with Uvicorn:
 ```powershell
-uv run uvicorn risk_management_dashboard.app:app --host 127.0.0.1 --port 8000 --reload
+uv run uvicorn app:app --host 127.0.0.1 --port 8000 --reload
 ```
 Open your browser at `http://127.0.0.1:8000`.
 
@@ -122,11 +122,11 @@ Open your browser at `http://127.0.0.1:8000`.
 
 ### 2. Frontend Development with Hot Module Replacement (HMR)
 
-The frontend is colocated in `risk_management_dashboard/frontend/` with Vite proxying API and WebSocket traffic to `:8000`:
+The frontend is colocated in `frontend/` with Vite proxying API and WebSocket traffic to `:8000`:
 
 ```powershell
 # 1. Navigate to the frontend directory
-cd risk_management_dashboard/frontend
+cd frontend
 
 # 2. Install dependencies (using pnpm or npm)
 pnpm install
@@ -146,12 +146,12 @@ Open `http://localhost:3000` in your browser. All UI changes will hot-reload ins
 When you make changes to the Solid.js components and want to build the optimized production assets:
 
 ```powershell
-cd risk_management_dashboard/frontend
+cd frontend
 pnpm build
 # or: npm run build
 ```
 
-This compiles optimized bundles to `risk_management_dashboard/static/dist/` (JavaScript ~20 KB gzipped, CSS ~4 KB gzipped), ready to be served by FastAPI.
+This compiles optimized bundles to `static/dist/` (JavaScript ~20 KB gzipped, CSS ~4 KB gzipped), ready to be served by FastAPI.
 
 ---
 
@@ -191,9 +191,9 @@ frontend/src/
 
 ## 🧪 Automated Testing
 
-Run the full pytest test suite (17 unit and API integration tests):
+Run the full pytest test suite (23 unit and API integration tests):
 
 ```powershell
-uv run pytest risk_management_dashboard/test_risk_calculator.py -v
+uv run pytest test_risk_calculator.py -v
 ```
 

@@ -6,16 +6,29 @@ import pytest
 import numpy as np
 from fastapi.testclient import TestClient
 
-from risk_management_dashboard.risk_calculator import (
-    calculate_kelly_fraction,
-    calculate_trade_statistics,
-    clamp_lot_to_broker_specs,
-    calculate_required_margin,
-    calculate_lot_for_symbol,
-    evaluate_sample_size,
-    SampleSizeTier
-)
-from risk_management_dashboard.app import app, compute_effective_sl_pips
+try:
+    from risk_calculator import (
+        calculate_kelly_fraction,
+        calculate_trade_statistics,
+        clamp_lot_to_broker_specs,
+        calculate_required_margin,
+        calculate_lot_for_symbol,
+        evaluate_sample_size,
+        SampleSizeTier
+    )
+    from app import app, compute_effective_sl_pips
+except ImportError:
+    from risk_management_dashboard.risk_calculator import (
+        calculate_kelly_fraction,
+        calculate_trade_statistics,
+        clamp_lot_to_broker_specs,
+        calculate_required_margin,
+        calculate_lot_for_symbol,
+        evaluate_sample_size,
+        SampleSizeTier
+    )
+    from risk_management_dashboard.app import app, compute_effective_sl_pips
+
 
 
 def test_fractional_lot_calculation():
@@ -300,7 +313,10 @@ def test_websocket_stream():
 
 def test_symbol_categorization():
     """Verify that USDJPY is correctly classified as Forex Majors and not Indices."""
-    from risk_management_dashboard.feed import feed
+    try:
+        from feed import feed
+    except ImportError:
+        from risk_management_dashboard.feed import feed
     assert feed._determine_category("USDJPY") == "Forex Majors"
     assert feed._determine_category("EURUSD") == "Forex Majors"
     assert feed._determine_category("GBPUSD") == "Forex Majors"
@@ -315,7 +331,10 @@ def test_symbol_categorization():
 
 def test_send_market_order_feed():
     """Test order pricing, SL/TP calculation, and execution structure in feed."""
-    from risk_management_dashboard.feed import MT5RiskFeed
+    try:
+        from feed import MT5RiskFeed
+    except ImportError:
+        from risk_management_dashboard.feed import MT5RiskFeed
     mock_feed = MT5RiskFeed(mock_mode=True)
     
     # 1. Buy Order with 1.5 R:R
@@ -358,7 +377,10 @@ def test_send_market_order_feed():
 
 def test_execute_order_endpoint(monkeypatch):
     """Test POST /api/order/execute endpoint validation and execution."""
-    from risk_management_dashboard.app import feed
+    try:
+        from app import feed
+    except ImportError:
+        from risk_management_dashboard.app import feed
     
     monkeypatch.setattr(
         feed,
@@ -397,7 +419,10 @@ def test_execute_order_endpoint(monkeypatch):
 def test_volatility_ttl_cache():
     """Test in-memory ADR/ATR TTL caching and refresh behavior."""
     import time
-    from risk_management_dashboard.feed import MT5RiskFeed
+    try:
+        from feed import MT5RiskFeed
+    except ImportError:
+        from risk_management_dashboard.feed import MT5RiskFeed
     mock_feed = MT5RiskFeed(mock_mode=True)
     
     # 1. Populate cache
@@ -448,7 +473,10 @@ def test_turbo_mode_websocket_rate_update():
 def test_fast_symbol_polling_performance():
     """Test sub-millisecond execution of get_market_symbols with cached volatility."""
     import time
-    from risk_management_dashboard.feed import MT5RiskFeed
+    try:
+        from feed import MT5RiskFeed
+    except ImportError:
+        from risk_management_dashboard.feed import MT5RiskFeed
     mock_feed = MT5RiskFeed(mock_mode=True)
     mock_feed.refresh_volatility_cache()
 
@@ -498,7 +526,10 @@ def test_positions_api_endpoints():
 
 def test_stock_cfd_margin_calculation():
     """Verify that stock CFDs (e.g. AMD.O, AAPL.O) calculate margin using share price and CFD margin rate."""
-    from risk_management_dashboard.risk_calculator import calculate_required_margin
+    try:
+        from risk_calculator import calculate_required_margin
+    except ImportError:
+        from risk_management_dashboard.risk_calculator import calculate_required_margin
     # AMD.O: 21.07 lots @ $455.00 per share, contract size 1.0
     # Expected notional = 21.07 * 1.0 * 455.0 = $9,586.85
     # Stock 4% CFD margin = $9,586.85 * 0.04 = $383.47
@@ -526,7 +557,10 @@ def test_stock_cfd_margin_calculation():
 def test_position_id_grouping_logic():
     """Verify that multiple scale-outs for a position_id are aggregated into 1 completed trade."""
     from types import SimpleNamespace
-    from risk_management_dashboard.feed import MT5RiskFeed
+    try:
+        from feed import MT5RiskFeed
+    except ImportError:
+        from risk_management_dashboard.feed import MT5RiskFeed
 
     # Mock deal objects as returned by mt5.history_deals_get
     deal_1 = SimpleNamespace(position_id=1001, ticket=501, type=0, entry=0, profit=0.0, commission=-3.50, swap=0.0, fee=0.0, time=100, symbol="EURUSD")
@@ -565,7 +599,12 @@ def test_immutable_initial_risk_and_positive_stop_rmultiple():
     """Verify that trailing SL to BE/profit does not distort R-Multiple calculation."""
     from types import SimpleNamespace
     from unittest.mock import MagicMock
-    from risk_management_dashboard.feed import MT5RiskFeed
+    try:
+        from feed import MT5RiskFeed
+        import feed as feed_module
+    except ImportError:
+        from risk_management_dashboard.feed import MT5RiskFeed
+        import risk_management_dashboard.feed as feed_module
 
     feed = MT5RiskFeed(mock_mode=True)
     feed._is_connected = True
@@ -595,8 +634,6 @@ def test_immutable_initial_risk_and_positive_stop_rmultiple():
         "open_price": 1.15952,
         "type": "SELL"
     }
-
-    import risk_management_dashboard.feed as feed_module
 
     mock_info = SimpleNamespace(
         digits=5,
@@ -636,8 +673,12 @@ def test_universal_cost_absorbing_be_calculation():
     """Verify that universal BE absorbs commission, swap, and spread across asset classes."""
     from types import SimpleNamespace
     from unittest.mock import MagicMock
-    from risk_management_dashboard.feed import MT5RiskFeed
-    import risk_management_dashboard.feed as feed_module
+    try:
+        from feed import MT5RiskFeed
+        import feed as feed_module
+    except ImportError:
+        from risk_management_dashboard.feed import MT5RiskFeed
+        import risk_management_dashboard.feed as feed_module
 
     feed = MT5RiskFeed(mock_mode=True)
     feed._is_connected = True
@@ -705,8 +746,12 @@ def test_bulk_be_and_tp1_profitability_filtering():
     """Verify that break_even_all and close_50_all skip trades in drawdown."""
     from types import SimpleNamespace
     from unittest.mock import MagicMock
-    from risk_management_dashboard.feed import MT5RiskFeed
-    import risk_management_dashboard.feed as feed_module
+    try:
+        from feed import MT5RiskFeed
+        import feed as feed_module
+    except ImportError:
+        from risk_management_dashboard.feed import MT5RiskFeed
+        import risk_management_dashboard.feed as feed_module
 
     feed = MT5RiskFeed(mock_mode=True)
     feed._is_connected = True
@@ -795,7 +840,10 @@ def test_bulk_be_and_tp1_profitability_filtering():
 def test_rmultiple_expectancy_and_monthly_metrics():
     """Verify calculation of expectancy_r, total_r, and MTD monthly_r."""
     import time
-    from risk_management_dashboard.risk_calculator import calculate_trade_statistics
+    try:
+        from risk_calculator import calculate_trade_statistics
+    except ImportError:
+        from risk_management_dashboard.risk_calculator import calculate_trade_statistics
 
     # 1. 50% WR, 1.5 Payoff -> Expectancy = (0.50 * 1.5) - 0.50 = +0.25 R
     stats_override = calculate_trade_statistics(override_win_rate=0.50, override_payoff_ratio=1.5, override_total_trades=100)

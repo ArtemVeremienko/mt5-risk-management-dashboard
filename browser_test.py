@@ -221,7 +221,7 @@ async def run_browser_tests():
         print(f"    Toast: [{toast_title.strip()}] {toast_msg.strip()}")
 
         # Take final screenshot
-        screenshot_path = "d:/projects/metatrader5/risk_management_dashboard/output_screenshot.png"
+        screenshot_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output_screenshot.png")
         await page.screenshot(path=screenshot_path)
         print(f"\n[14] Captured screenshot to: {screenshot_path}")
 
