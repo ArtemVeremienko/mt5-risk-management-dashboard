@@ -1,0 +1,729 @@
+/**
+ * ============================================================================
+ * MT5 Institutional Risk Terminal — Layer 3: Risk Screener Matrix View
+ * ============================================================================
+ * Screener table, virtual grid columns, column filtering popover, 14D ADR,
+ * inline Stop Loss editor, dynamic lot sizing, and BUY/SELL execution triggers.
+ */
+
+/* Matrix Section & Tables */
+.matrix-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-height: calc(100vh - 76px);
+}
+
+.table-card {
+  background: var(--sys-color-surface-container);
+  border: 1px solid var(--sys-color-outline);
+  border-radius: var(--sys-radius-lg);
+  overflow: visible;
+  box-shadow: var(--sys-shadow-card);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 480px;
+}
+
+.table-responsive {
+  overflow-x: auto;
+  overflow-y: visible;
+  flex: 1;
+  min-height: 440px;
+}
+
+.risk-matrix-table,
+.positions-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+th {
+  background: #10141e;
+  color: var(--sys-color-on-surface-variant);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--sys-color-outline);
+  white-space: nowrap;
+  user-select: none;
+}
+
+th.cursor-pointer:hover {
+  color: #ffffff;
+}
+
+.sort-icon {
+  font-size: 10px;
+  color: var(--sys-color-primary);
+}
+
+/* ==========================================================================
+   AG-Grid Style Column Header Filter Popover
+   ========================================================================== */
+
+.col-symbol-header {
+  position: relative;
+  padding: 8px 12px 8px 16px !important;
+}
+
+.col-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.col-header-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.col-filter-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.col-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--sys-radius-sm);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--sys-color-on-surface-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.col-filter-btn:hover,
+.col-filter-btn.open {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.col-filter-btn.active {
+  color: var(--sys-color-secondary);
+  background: rgba(0, 242, 254, 0.15);
+  border-color: rgba(0, 242, 254, 0.4);
+  box-shadow: 0 0 8px rgba(0, 242, 254, 0.35);
+}
+
+.filter-icon-svg {
+  transition: transform 0.15s ease;
+}
+
+.col-filter-btn.active .filter-icon-svg {
+  transform: scale(1.05);
+}
+
+.filter-active-dot {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--sys-color-secondary);
+  box-shadow: 0 0 4px var(--sys-color-secondary);
+}
+
+/* Floating AG-Grid Filter Popover */
+.ag-grid-filter-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 1100;
+  min-width: 240px;
+  background: #141824;
+  border: 1px solid var(--sys-color-primary);
+  border-radius: var(--sys-radius-md);
+  padding: 10px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.95);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  user-select: none;
+}
+
+.ag-filter-search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.ag-filter-search-icon {
+  position: absolute;
+  left: 8px;
+  font-size: 11px;
+  color: var(--sys-color-on-surface-muted);
+  pointer-events: none;
+}
+
+.ag-filter-search-input {
+  width: 100%;
+  background: var(--sys-color-surface-inset);
+  border: 1px solid var(--sys-color-outline);
+  color: #ffffff;
+  padding: 5px 24px 5px 26px;
+  border-radius: var(--sys-radius-sm);
+  font-size: 11px;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s ease;
+}
+
+.ag-filter-search-input:focus {
+  border-color: var(--sys-color-primary);
+  box-shadow: 0 0 6px rgba(41, 98, 255, 0.4);
+}
+
+.ag-filter-clear-btn {
+  position: absolute;
+  right: 6px;
+  background: transparent;
+  border: none;
+  color: var(--sys-color-on-surface-muted);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 2px 4px;
+}
+
+.ag-filter-clear-btn:hover {
+  color: #ffffff;
+}
+
+.ag-filter-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 1px 0;
+}
+
+.ag-filter-checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.ag-filter-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 6px;
+  border-radius: var(--sys-radius-sm);
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--sys-color-on-surface-variant);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.ag-filter-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+}
+
+.ag-filter-item.select-all {
+  font-weight: 700;
+  color: var(--sys-color-on-surface);
+  padding-bottom: 5px;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
+  margin-bottom: 2px;
+}
+
+.ag-filter-item input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: var(--sys-color-primary);
+  width: 13px;
+  height: 13px;
+}
+
+.ag-filter-label {
+  flex: 1;
+}
+
+.ag-filter-count {
+  font-family: var(--sys-font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--sys-color-on-surface-muted);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 1px 5px;
+  border-radius: var(--sys-radius-full);
+}
+
+.ag-filter-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.btn-reset-filter {
+  background: transparent;
+  border: none;
+  color: var(--sys-color-secondary);
+  cursor: pointer;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 3px 6px;
+  border-radius: var(--sys-radius-sm);
+  transition: background 0.15s ease;
+}
+
+.btn-reset-filter:hover:not(:disabled) {
+  background: rgba(0, 242, 254, 0.1);
+}
+
+.btn-reset-filter:disabled {
+  color: var(--sys-color-on-surface-muted);
+  opacity: 0.5;
+  cursor: default;
+}
+
+.btn-reset-order-compact {
+  background: rgba(255, 152, 0, 0.1);
+  border: 1px solid rgba(255, 152, 0, 0.3);
+  color: var(--sys-color-warning);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: var(--sys-radius-sm);
+  transition: all 0.15s ease;
+}
+
+.btn-reset-order-compact:hover {
+  background: rgba(255, 152, 0, 0.2);
+}
+
+.table-responsive {
+  overflow-x: auto;
+}
+
+.risk-matrix-table,
+.positions-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+th {
+  background: #10141e;
+  color: var(--sys-color-on-surface-variant);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--sys-color-outline);
+  white-space: nowrap;
+  user-select: none;
+}
+
+th.cursor-pointer:hover {
+  color: #ffffff;
+}
+
+.sort-icon {
+  font-size: 10px;
+  color: var(--sys-color-primary);
+}
+
+td {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--sys-color-outline-subtle);
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+tbody tr:hover {
+  background: var(--sys-color-surface-container-hover);
+}
+
+tr.is-pinned {
+  background: rgba(0, 242, 254, 0.03);
+  border-left: 3px solid var(--sys-color-secondary);
+}
+
+tr.is-dragging {
+  opacity: 0.4;
+}
+
+tr.drag-over {
+  border-top: 2px solid var(--sys-color-primary);
+}
+
+/* Table Utilities & Alignment */
+.tabular-num {
+  font-family: var(--sys-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.text-right {
+  text-align: right !important;
+}
+
+.text-center {
+  text-align: center !important;
+}
+
+/* Cells */
+.symbol-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.drag-handle {
+  color: var(--sys-color-on-surface-muted);
+  cursor: grab;
+  font-size: 14px;
+}
+
+.pin-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  opacity: 0.4;
+  transition: opacity 0.2s ease;
+}
+
+.pin-btn:hover,
+.pin-btn.pinned {
+  opacity: 1;
+}
+
+.symbol-name {
+  font-weight: 700;
+  font-size: 14px;
+  color: #ffffff;
+  letter-spacing: 0.3px;
+}
+
+/* Stacked Market Price & Spread */
+.price-stacked {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.price-bid-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.price-bid {
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.spread-pill-mini {
+  font-size: 9.5px;
+  font-weight: 600;
+  font-family: var(--sys-font-mono);
+  font-variant-numeric: tabular-nums;
+  background: rgba(148, 163, 184, 0.10);
+  color: #94a3b8;
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid rgba(148, 163, 184, 0.20);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.price-ask-row {
+  font-size: 11px;
+}
+
+.price-ask {
+  color: #a2a8b8;
+  font-weight: 500;
+}
+
+.adr-val {
+  font-family: var(--sys-font-mono);
+  font-variant-numeric: tabular-nums;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   STOP LOSS INPUT - EXPANDED & ERGONOMIC (84px + Tabular Alignment)
+   ========================================================================== */
+.sl-input-cell-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.sl-input {
+  min-width: 78px;
+  width: 84px;
+  max-width: 100px;
+  height: 30px;
+  text-align: center;
+  background: #161b26;
+  border: 1px solid #283044;
+  color: #f0f3fa;
+  padding: 4px 6px;
+  border-radius: var(--sys-radius-sm);
+  font-family: var(--sys-font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sl-input::-webkit-outer-spin-button,
+.sl-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.sl-input:hover {
+  border-color: #3d4760;
+  background: #1c2230;
+}
+
+.sl-input:focus {
+  border-color: var(--sys-color-primary);
+  background: #131722;
+  box-shadow: 0 0 0 2px rgba(41, 98, 255, 0.35);
+  outline: none;
+}
+
+.sl-input-custom {
+  border-color: var(--sys-color-secondary);
+  color: var(--sys-color-secondary);
+  background: rgba(0, 242, 254, 0.04);
+}
+
+.sl-input-custom:focus {
+  box-shadow: 0 0 0 2px rgba(0, 242, 254, 0.35);
+}
+
+.quick-sl-reset-btn {
+  background: #1e2433;
+  border: 1px solid var(--sys-color-secondary);
+  color: var(--sys-color-secondary);
+  width: 24px;
+  height: 24px;
+  border-radius: var(--sys-radius-sm);
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.quick-sl-reset-btn:hover {
+  background: var(--sys-color-secondary);
+  color: #0b0e14;
+}
+
+/* Lot Size Cell */
+.lot-cell-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  cursor: default;
+}
+
+.executable-lot-val {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.risk-alert-icon {
+  font-size: 12px;
+  cursor: help;
+}
+
+/* Stacked Risk & Required Margin */
+.risk-stacked-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: var(--sys-radius-sm);
+  transition: background-color 0.15s ease;
+}
+
+.risk-stacked-cell:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.risk-stacked-cell:hover .risk-amount-tag {
+  color: var(--sys-color-secondary);
+}
+
+.risk-main-row {
+  display: flex;
+  align-items: center;
+}
+
+.risk-amount-tag {
+  font-weight: 700;
+  font-size: 13px;
+  color: #ffffff;
+}
+
+.risk-amount-tag.risk-elevated {
+  color: var(--sys-color-warning);
+}
+
+.margin-sub-row {
+  display: flex;
+  align-items: center;
+}
+
+.margin-sub-text {
+  font-size: 11px;
+  color: #8a92a6;
+  font-family: var(--sys-font-mono);
+  font-weight: 500;
+}
+
+.margin-status-pill.margin-healthy {
+  background: rgba(8, 153, 129, 0.15);
+  color: var(--sys-color-buy);
+}
+
+.margin-status-pill.margin-warning {
+  background: rgba(255, 152, 0, 0.15);
+  color: var(--sys-color-warning);
+}
+
+.margin-status-pill.margin-exceeded {
+  background: rgba(242, 54, 69, 0.2);
+  color: var(--sys-color-sell);
+}
+
+/* ==========================================================================
+   EXECUTION BUTTONS - DUAL ACTION HIT-BOX & COLORIMETRY
+   ========================================================================== */
+.trade-btn-group {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+}
+
+/* ==========================================================================
+   EXECUTION BUTTONS - INSTITUTIONAL GHOST / OUTLINE DE-BIASED PARADIGM
+   ========================================================================== */
+.btn-trade {
+  border: 1px solid transparent;
+  min-width: 58px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: var(--sys-radius-sm);
+  font-weight: 700;
+  font-size: 11.5px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+/* BUY (Pine Emerald): Institutional Ghost at rest */
+.btn-trade.btn-buy {
+  background: rgba(8, 153, 129, 0.12);
+  border: 1px solid rgba(8, 153, 129, 0.45);
+  color: #34d399;
+  box-shadow: none;
+}
+
+/* Row Hover: subtle armed focus */
+.symbol-row:hover .btn-trade.btn-buy {
+  background: rgba(8, 153, 129, 0.22);
+  border-color: rgba(8, 153, 129, 0.70);
+  color: #4ade80;
+}
+
+/* Button Hover: fully armed solid emerald */
+.btn-trade.btn-buy:hover {
+  background: #089981 !important;
+  border-color: #0cd4b4 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 12px rgba(8, 153, 129, 0.45);
+  transform: translateY(-1px);
+}
+
+.btn-trade.btn-buy:active {
+  background: #067865 !important;
+  transform: translateY(1px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+/* SELL (Crimson Coral): Institutional Ghost at rest */
+.btn-trade.btn-sell {
+  background: rgba(242, 54, 69, 0.12);
+  border: 1px solid rgba(242, 54, 69, 0.45);
+  color: #f87171;
+  box-shadow: none;
+}
+
+/* Row Hover: subtle armed focus */
+.symbol-row:hover .btn-trade.btn-sell {
+  background: rgba(242, 54, 69, 0.22);
+  border-color: rgba(242, 54, 69, 0.70);
+  color: #fb7185;
+}
+
+/* Button Hover: fully armed solid crimson */
+.btn-trade.btn-sell:hover {
+  background: #f23645 !important;
+  border-color: #ff6b78 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 12px rgba(242, 54, 69, 0.45);
+  transform: translateY(-1px);
+}
+
+.btn-trade.btn-sell:active {
+  background: #d02735 !important;
+  transform: translateY(1px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  opacity: 0.6;
+  font-size: 13px;
+}
+
+.btn-icon:hover {
+  opacity: 1;
+}
+
