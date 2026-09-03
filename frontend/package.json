@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "description": "High-frequency fine-grained reactive risk management dashboard for MT5",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

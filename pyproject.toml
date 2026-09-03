@@ -3,6 +3,7 @@ name = "mt5-risk-dashboard"
 version = "1.0.0"
 description = "MT5 Risk Management & Dynamic Lot Sizing Dashboard"
 readme = "README.md"
+license = { text = "PolyForm-Noncommercial-1.0.0" }
 requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.115.0",
