@@ -1,0 +1,87 @@
+PolyForm Noncommercial License 1.0.0
+
+https://polyformproject.org/licenses/noncommercial/1.0.0
+
+## Acceptance
+
+In order to get any license under these terms, you must agree to them as both
+strict conditions and terms to both the license and any grant of rights under
+it. If you do not agree to each and every condition and term, you do not get any
+license to use the software.
+
+## Noncommercial License
+
+The licensor grants you a copyright license for the software to do everything
+you might do with the software that does not amount to a commercial use.
+
+Commercial use means use with the primary purpose of obtaining a commercial
+advantage or monetary compensation. For clarity, commercial use includes, but is
+not limited to, using the software for:
+
+1. Developing or providing a commercial product or service
+2. Internal business operations of a commercial entity (including hedge funds,
+   proprietary trading firms, CTAs, family offices, or institutional brokers)
+3. Managing capital or assets on behalf of third parties for a fee (including
+   PAMM, MAM, or commercial copy-trading accounts)
+4. Selling, reselling, sublicensing, or bundling the software into paid
+   subscriptions, trading rooms, or educational courses
+
+## Personal & Evaluative Trading Exception
+
+For the avoidance of doubt, the following uses are deemed noncommercial under
+this license:
+
+1. Personal trading on demo, live, or personal retail broker accounts using
+   individual personal capital.
+2. Individual participation in proprietary trading firm (prop firm) evaluations
+   or individual funded trader accounts, provided that the individual trades
+   exclusively for their own personal benefit and does not operate an investment
+   fund, asset management entity, syndicate, or paid signal service.
+3. Personal study, academic research, and noncommercial software modification
+   or sharing with other individuals for noncommercial purposes.
+
+## Commercial Licensing
+
+If you wish to use the software for commercial purposes, including institutional
+deployment, hedge funds, asset management operations, commercial syndicates,
+SaaS hosting, or commercial redistribution, you must obtain a separate written
+commercial license from the licensor.
+
+To inquire about commercial licensing, please open an issue in the project
+repository or contact the repository maintainer.
+
+## Notices
+
+You must ensure that everyone who gets a copy of any part of this software from
+you, with or without changes, also gets the text of these terms or a link to
+https://polyformproject.org/licenses/noncommercial/1.0.0.
+
+## Fair Use
+
+You may have "fair use" rights for the software under the law. These terms do
+not take those rights away.
+
+## No Other Rights
+
+These terms do not grant you any patent license, trademark license, or any
+other right, only the copyright license for noncommercial use explicitly
+stated.
+
+## Defense In Lawsuit
+
+If someone accuses you of infringing a patent for technology in the software,
+your license from the licensor for that software ends immediately.
+
+## Disclaimer
+
+As far as the law allows, the software comes as is, without any warranty or
+condition, and the licensor will not be liable to anyone for any damages
+related to the software or these terms, under any kind of legal claim.
+
+## Financial Risk Notice
+
+This software is an analytical pre-trade risk management tool and does not
+constitute financial, investment, or legal advice. Trading foreign exchange,
+equities, indices, commodities, and derivatives carries substantial risk of
+capital loss. Neither the author nor contributors shall be held liable for any
+financial losses incurred from using this software.

@@ -197,3 +197,19 @@ Run the full pytest test suite (23 unit and API integration tests):
 uv run pytest test_risk_calculator.py -v
 ```
 
+---
+
+## 📄 License
+
+This project is licensed under the **[PolyForm Noncommercial License 1.0.0](LICENSE)** (`PolyForm-Noncommercial-1.0.0`).
+
+### 👤 Free for Individuals
+- **Personal Trading**: Free to use on personal demo and live retail broker accounts with individual capital.
+- **Prop Firm Evaluations**: Free for individual participation in proprietary trading firm (prop firm) evaluations or individual funded accounts, provided you trade exclusively for your own personal benefit.
+- **Sharing & Modifications**: Free to study, modify, and share with other individuals for non-commercial purposes.
+
+### 🏢 Commercial Licensing
+Any commercial use—including hedge funds, institutional prop trading desks, asset managers (PAMM/MAM), commercial copy-trading services, SaaS hosting, or redistributing the software for a fee—requires a separate written commercial license.
+
+To inquire about commercial licensing, please open an issue in the project repository or contact the maintainer.
+
