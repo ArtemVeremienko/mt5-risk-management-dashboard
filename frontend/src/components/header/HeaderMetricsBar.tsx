@@ -235,7 +235,7 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
             <div
               class="header-nav-pill stats-pill read-only"
               style={{
-                '--tier-color': sampleInfo()?.badge_color || 'var(--accent-blue)',
+                '--tier-color': sampleInfo()?.badge_color || 'var(--sys-color-primary)',
               }}
             >
               <span class="pill-icon">📊</span>

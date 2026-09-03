@@ -84,7 +84,7 @@ export const StrategyStatsBanner: Component = () => {
                 fallback={
                   <>
                     <div class="stat-mini-label">ACTIVE SIZING TARGET</div>
-                    <div class="stat-mini-val" style={{ color: 'var(--accent-blue)' }}>
+                    <div class="stat-mini-val" style={{ color: 'var(--sys-color-primary)' }}>
                       {preferencesStore.customRiskPct().toFixed(1)}% Fixed
                     </div>
                     <div class="stat-mini-sub">
@@ -94,7 +94,7 @@ export const StrategyStatsBanner: Component = () => {
                 }
               >
                 <div class="stat-mini-label">QUANTITATIVE RISK BOUNDS</div>
-                <div class="stat-mini-val" style={{ color: 'var(--accent-blue)' }}>
+                <div class="stat-mini-val" style={{ color: 'var(--sys-color-primary)' }}>
                   {preferencesStore.minRiskFloorPct().toFixed(2)}% ↔ {preferencesStore.maxRiskCeilingPct().toFixed(2)}%
                 </div>
                 <div class="stat-mini-sub">
