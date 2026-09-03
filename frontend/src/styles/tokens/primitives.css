@@ -1,0 +1,118 @@
+/**
+ * ============================================================================
+ * MT5 Institutional Risk Terminal — Layer 1: Primitives Design Tokens
+ * ============================================================================
+ * Pure, context-free raw definitions for colors, typography, metrics,
+ * shadows, and transitions. Never consumed directly by UI components.
+ */
+
+:root {
+  /* --------------------------------------------------------------------------
+   * 1. Neutral Palette (Institutional Deep Slate)
+   * -------------------------------------------------------------------------- */
+  --ref-color-neutral-0: #ffffff;
+  --ref-color-neutral-50: #f0f3fa;
+  --ref-color-neutral-100: #d1d4dc;
+  --ref-color-neutral-200: #b2b5be;
+  --ref-color-neutral-300: #9598a1;
+  --ref-color-neutral-400: #787b86;
+  --ref-color-neutral-500: #606470;
+  --ref-color-neutral-600: #363c4e;
+  --ref-color-neutral-700: #2a2e39;
+  --ref-color-neutral-750: #20242f;
+  --ref-color-neutral-800: #1e222d;
+  --ref-color-neutral-850: #1b202e;
+  --ref-color-neutral-900: #131722;
+  --ref-color-neutral-950: #0b0e14;
+  --ref-color-neutral-1000: #000000;
+
+  /* --------------------------------------------------------------------------
+   * 2. Accent & Domain Palettes
+   * -------------------------------------------------------------------------- */
+  /* Institutional Brand Blue */
+  --ref-color-blue-400: #4facfe;
+  --ref-color-blue-500: #2962ff;
+  --ref-color-blue-600: #1e4bd8;
+  --ref-color-blue-700: #153bb5;
+  --ref-color-blue-rgb: 41, 98, 255;
+
+  /* Cyan Highlight */
+  --ref-color-cyan-400: #00f2fe;
+  --ref-color-cyan-500: #00d2fe;
+  --ref-color-cyan-rgb: 0, 242, 254;
+
+  /* Pine Emerald (Long / BUY / Profit) */
+  --ref-color-emerald-400: #0eb398;
+  --ref-color-emerald-500: #089981;
+  --ref-color-emerald-600: #067865;
+  --ref-color-emerald-700: #04584a;
+  --ref-color-emerald-rgb: 8, 153, 129;
+
+  /* Crimson Coral (Short / SELL / Loss) */
+  --ref-color-coral-400: #f45b68;
+  --ref-color-coral-500: #f23645;
+  --ref-color-coral-600: #d02735;
+  --ref-color-coral-700: #b01a27;
+  --ref-color-coral-rgb: 242, 54, 69;
+
+  /* Amber Warning */
+  --ref-color-amber-400: #ffa726;
+  --ref-color-amber-500: #ff9800;
+  --ref-color-amber-600: #f57c00;
+  --ref-color-amber-rgb: 255, 152, 0;
+
+  /* Purple Specialty */
+  --ref-color-purple-400: #ab47bc;
+  --ref-color-purple-500: #9c27b0;
+  --ref-color-purple-rgb: 171, 71, 188;
+
+  /* --------------------------------------------------------------------------
+   * 3. Geometric Spacing Scale
+   * -------------------------------------------------------------------------- */
+  --ref-space-1: 2px;
+  --ref-space-2: 4px;
+  --ref-space-3: 6px;
+  --ref-space-4: 8px;
+  --ref-space-5: 10px;
+  --ref-space-6: 12px;
+  --ref-space-7: 14px;
+  --ref-space-8: 16px;
+  --ref-space-9: 20px;
+  --ref-space-10: 24px;
+  --ref-space-11: 32px;
+  --ref-space-12: 48px;
+
+  /* --------------------------------------------------------------------------
+   * 4. Border Radius Scale
+   * -------------------------------------------------------------------------- */
+  --ref-radius-xs: 2px;
+  --ref-radius-sm: 4px;
+  --ref-radius-md: 8px;
+  --ref-radius-lg: 12px;
+  --ref-radius-xl: 16px;
+  --ref-radius-full: 9999px;
+
+  /* --------------------------------------------------------------------------
+   * 5. Elevation & Depth Shadows
+   * -------------------------------------------------------------------------- */
+  --ref-shadow-card: 0 4px 20px rgba(0, 0, 0, 0.4);
+  --ref-shadow-modal: 0 12px 40px rgba(0, 0, 0, 0.7);
+  --ref-shadow-dropdown: 0 8px 24px rgba(0, 0, 0, 0.5);
+
+  /* --------------------------------------------------------------------------
+   * 6. Typography Stacks
+   * -------------------------------------------------------------------------- */
+  --ref-font-mono: 'JetBrains Mono', monospace;
+  --ref-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* --------------------------------------------------------------------------
+   * 7. Motion & Transitions
+   * -------------------------------------------------------------------------- */
+  --ref-duration-instant: 100ms;
+  --ref-duration-quick: 150ms;
+  --ref-duration-normal: 250ms;
+  --ref-duration-slow: 350ms;
+  --ref-ease-standard: cubic-bezier(0.4, 0.0, 0.2, 1);
+  --ref-ease-decelerate: cubic-bezier(0.0, 0.0, 0.2, 1);
+  --ref-ease-accelerate: cubic-bezier(0.4, 0.0, 1, 1);
+}

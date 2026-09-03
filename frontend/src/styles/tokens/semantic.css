@@ -1,0 +1,105 @@
+/**
+ * ============================================================================
+ * MT5 Institutional Risk Terminal — Layer 2: Semantic System Tokens
+ * ============================================================================
+ * Contextual roles mapping reference primitives to dark-mode institutional UI
+ * semantics and financial domain execution rules.
+ */
+
+:root {
+  /* --------------------------------------------------------------------------
+   * 1. Surface Roles (Institutional Layering)
+   * -------------------------------------------------------------------------- */
+  /* Base viewport canvas (#0b0e14) */
+  --sys-color-surface: var(--ref-color-neutral-950);
+
+  /* Primary cards & panels (#131722) */
+  --sys-color-surface-container: var(--ref-color-neutral-900);
+
+  /* Interactive card & row hover state (#1b202e) */
+  --sys-color-surface-container-hover: var(--ref-color-neutral-850);
+
+  /* Inset panels, input backgrounds, nested boxes (#1e222d) */
+  --sys-color-surface-inset: var(--ref-color-neutral-800);
+
+  /* --------------------------------------------------------------------------
+   * 2. Outline & Structural Divider Roles
+   * -------------------------------------------------------------------------- */
+  /* Standard component borders & table dividers (#2a2e39) */
+  --sys-color-outline: var(--ref-color-neutral-700);
+
+  /* Subtle dividers, disabled borders, row outlines (#20242f) */
+  --sys-color-outline-subtle: var(--ref-color-neutral-750);
+
+  /* Active focus borders */
+  --sys-color-outline-focus: var(--ref-color-blue-500);
+
+  /* --------------------------------------------------------------------------
+   * 3. On-Surface Typography & Content Roles
+   * -------------------------------------------------------------------------- */
+  /* High-emphasis primary headings and data values (#f0f3fa) */
+  --sys-color-on-surface: var(--ref-color-neutral-50);
+
+  /* Medium-emphasis secondary text, labels, and table headers (#9598a1) */
+  --sys-color-on-surface-variant: var(--ref-color-neutral-300);
+
+  /* Low-emphasis muted text, captions, and placeholders (#606470) */
+  --sys-color-on-surface-muted: var(--ref-color-neutral-500);
+
+  /* --------------------------------------------------------------------------
+   * 4. Brand & Action Accent Roles
+   * -------------------------------------------------------------------------- */
+  --sys-color-primary: var(--ref-color-blue-500);
+  --sys-color-primary-hover: var(--ref-color-blue-600);
+  --sys-color-primary-active: var(--ref-color-blue-700);
+
+  --sys-color-secondary: var(--ref-color-cyan-400);
+  --sys-color-secondary-hover: var(--ref-color-cyan-500);
+  --sys-color-secondary-container: rgba(0, 242, 254, 0.12);
+
+  --sys-color-primary-container: rgba(41, 98, 255, 0.15);
+
+  --sys-color-tertiary: var(--ref-color-purple-400);
+
+  /* --------------------------------------------------------------------------
+   * 5. Trading Domain & Pre-Trade Execution Semantics
+   * -------------------------------------------------------------------------- */
+  /* Long / BUY Actions & Floating Profit (#089981 Pine Emerald) */
+  --sys-color-buy: var(--ref-color-emerald-500);
+  --sys-color-buy-hover: var(--ref-color-emerald-600);
+  --sys-color-profit: var(--ref-color-emerald-500);
+  --sys-color-success: var(--ref-color-emerald-500);
+
+  /* Short / SELL Actions & Floating Loss (#f23645 Crimson Coral) */
+  --sys-color-sell: var(--ref-color-coral-500);
+  --sys-color-sell-hover: var(--ref-color-coral-600);
+  --sys-color-loss: var(--ref-color-coral-500);
+  --sys-color-error: var(--ref-color-coral-500);
+
+  /* Pre-Trade Warnings & Alerts (#ff9800 Amber) */
+  --sys-color-warning: var(--ref-color-amber-500);
+
+  /* --------------------------------------------------------------------------
+   * 6. Structural Shapes & Elevation Roles
+   * -------------------------------------------------------------------------- */
+  --sys-radius-sm: var(--ref-radius-sm);
+  --sys-radius-md: var(--ref-radius-md);
+  --sys-radius-lg: var(--ref-radius-lg);
+  --sys-radius-full: var(--ref-radius-full);
+
+  --sys-shadow-card: var(--ref-shadow-card);
+  --sys-shadow-modal: var(--ref-shadow-modal);
+  --sys-shadow-dropdown: var(--ref-shadow-dropdown);
+
+  /* --------------------------------------------------------------------------
+   * 7. System Typography Stacks
+   * -------------------------------------------------------------------------- */
+  --sys-font-mono: var(--ref-font-mono);
+  --sys-font-sans: var(--ref-font-sans);
+
+  /* --------------------------------------------------------------------------
+   * 8. System Motion Roles
+   * -------------------------------------------------------------------------- */
+  --sys-motion-quick: var(--ref-duration-quick) var(--ref-ease-standard);
+  --sys-motion-normal: var(--ref-duration-normal) var(--ref-ease-standard);
+}
