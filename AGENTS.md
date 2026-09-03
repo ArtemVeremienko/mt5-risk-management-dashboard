@@ -14,6 +14,10 @@ The **MT5 Risk Management & Dynamic Lot Sizing Dashboard** is an institutional-g
 - **Styling**: Vanilla CSS Design System with Institutional Dark Mode tokens (`#0b0e14` canvas, `#131722` card, `#161b26` inset) and zero-jitter tabular typography (`font-variant-numeric: tabular-nums`).
 - **Build Output**: Compiled via Vite directly into `risk_management_dashboard/static/dist/`, served automatically by FastAPI with fallback to legacy `static/index.html`.
 
+### 📚 Documentation Taxonomy & Architectural Boundaries
+- **`docs/` Directory**: **Strictly Full-Stack & System-Level Architecture Only**. Reserved exclusively for cross-cutting full-stack monographs, quantitative finance models, pre-trade OMS risk math, trading psychology/ergonomics, and MT5 Python IPC concurrency. **Never place frontend-only UI/CSS or backend-isolated implementation notes here.**
+- **`frontend/` Directory**: **Frontend-Specific Architecture & Guides**. All frontend design system documentation, Material Design 3 token specifications, Solid.js reactivity patterns, and component guides MUST reside under `frontend/` (e.g. [`frontend/DESIGN_SYSTEM.md`](./frontend/DESIGN_SYSTEM.md) or [`frontend/src/styles/README.md`](./frontend/src/styles/README.md)).
+
 ---
 
 ## ⚡ 2. Core Frontend Reactivity Principles (Solid.js)
@@ -70,6 +74,22 @@ Surface Layering:
 │  └──────────────────────────────────────────────────┘  │
 └────────────────────────────────────────────────────────┘
 ```
+
+### 🏛️ 3-Layer Design Token Architecture (M3 Standard)
+The frontend styling system is strictly partitioned into 3 decoupled layers under `frontend/src/styles/`:
+1. **Layer 1: Primitives** (`tokens/primitives.css` via `--ref-*`):
+   Context-free raw values (palettes, spacing scales `2px–48px`, radii scales, elevation shadows, typography stacks, easing curves).
+2. **Layer 2: Semantics** (`tokens/semantic.css` via `--sys-*`):
+   Dark-mode institutional roles (`--sys-color-surface`, `--sys-color-outline`, `--sys-color-on-surface`, etc.) and pre-trade execution semantics (`--sys-color-buy`, `--sys-color-sell`, `--sys-color-profit`, `--sys-color-loss`, `--sys-color-warning`).
+3. **Layer 3: Views** (`views/*.css`):
+   Modularized view stylesheets:
+   - `main.css`: App shell, layout, header command bar, controls, stats banner, common modals, toasts.
+   - `matrix.css`: Risk screener table, filters, 14D ADR, Stop Loss inline editor, dynamic lot sizing, BUY/SELL triggers.
+   - `positions.css`: Open positions table, floating P&L, dedicated SL/TP cells, SL/TP Hub modal, bulk toolbar.
+- **Master Entrypoint** (`frontend/src/index.css`):
+   Acts as a clean barrel stylesheet importing all layers in cascade order.
+- **Strict Enforcement Rule**:
+   Never use hardcoded hex colors or legacy `--bg-*` / `--accent-*` tokens in component styles. Always consume `--sys-*` tokens.
 
 1. **Header Command Bar (56px Single-Row)**:
    - **Left**: Brand + Workspace Switcher Segmented Buttons (`[🎯 Screener (17) 1]` | `[💼 Positions (0) 2]`).
@@ -130,3 +150,5 @@ uv run python run.py
 - [ ] Checked that Solid.js props are not destructured.
 - [ ] Ensured numerical inputs are governed by `tabular-nums` and contrast ratios satisfy WCAG AA ($> 4.5:1$).
 - [ ] Confirmed that 500ms Turbo Mode streaming does not cause input focus resets or DOM tearing.
+- [ ] Confirmed any frontend-specific architecture docs live in `frontend/` (not in `docs/`).
+- [ ] Confirmed all stylesheet modifications exclusively consume `--sys-*` semantic tokens (zero legacy tokens or raw hex colors).
