@@ -176,7 +176,7 @@ async def get_trade_stats_payload() -> Tuple[Dict[str, Any], Dict[str, Any]]:
     trades_pnl = await asyncio.to_thread(feed.fetch_closed_deals_history)
     trade_records = getattr(feed, "_cached_trade_records", None)
     stats = calculate_trade_statistics(trades_pnl, trades_records=trade_records)
-    stats_dict = dataclasses.asdict(stats)
+    stats_dict = stats.model_dump() if hasattr(stats, "model_dump") else dataclasses.asdict(stats)
     return stats_dict, stats_dict.get("sample_info", {})
 
 

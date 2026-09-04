@@ -91,6 +91,7 @@ docs/
 | **Sizing Math & Risk Clamps** | [`risk_calculator.py`](../risk_calculator.py) |
 | **MT5 IPC Adapter & Universal BE** | [`feed.py`](../feed.py) |
 | **Concurrency & Streaming** | [`ARCHITECTURE.md`](../ARCHITECTURE.md), [`STREAMING_PLAN.md`](../STREAMING_PLAN.md) |
+| **Backend Architecture & Refactoring** | [`BACKEND_REFACTORING_PLAN.md`](../BACKEND_REFACTORING_PLAN.md) |
 | **Frontend Execution Matrix** | [`frontend/src/components/matrix/MarketMatrixGrid.tsx`](../frontend/src/components/matrix/MarketMatrixGrid.tsx) |
 | **Strategy HUD & Popovers** | [`frontend/src/components/header/HeaderMetricsBar.tsx`](../frontend/src/components/header/HeaderMetricsBar.tsx) |
 | **CSS Tokens & Design System** | [`frontend/src/index.css`](../frontend/src/index.css) |

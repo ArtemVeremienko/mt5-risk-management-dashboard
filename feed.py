@@ -24,6 +24,8 @@ except ImportError:
     mt5 = None
 
 from margin_engine import resolve_margin_specs, calculate_broker_margin, get_category_leverage
+from domain.models.break_even import BreakEvenInputs
+from domain.math.break_even import calculate_break_even_price
 
 _log_level = logging.DEBUG if (os.getenv("VERBOSE", "").lower() in ("1", "true", "yes") or os.getenv("LOG_LEVEL", "").upper() == "DEBUG") else logging.INFO
 logging.basicConfig(level=_log_level, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -1380,46 +1382,28 @@ class MT5RiskFeed:
 
                 # 3. Live Spread Cost
                 spread_points = (tick.ask - tick.bid) if (tick.ask and tick.bid) else (info.spread * point)
-                spread_dollars = (spread_points / tick_size) * tick_val * vol if tick_size > 0 else (5.0 * vol)
 
-                # 4. Nominal Safety Pad ($0.50 - $1.00 or 0.5 pip equivalent)
-                pip_val_for_pos = (pip_size / tick_size) * tick_val * vol if tick_size > 0 else (10.0 * vol)
-                safety_pad_dollars = max(1.0, 0.5 * pip_val_for_pos)
-
-                # Total Cost to Absorb
-                total_cost_dollars = commission_total + fee_total + swap_cost + spread_dollars + safety_pad_dollars
-
-                # Exact Price Offset Required
-                price_offset = total_cost_dollars / point_val_for_pos if point_val_for_pos > 0 else (spread_points + 0.5 * pip_size)
-
-                # Calculate Target BE Price
-                is_buy = (pos.type == mt5.ORDER_TYPE_BUY)
-                if is_buy:
-                    target_be = float(pos.price_open) + price_offset
-                    curr_price = float(tick.bid)
-                    is_profitable = (curr_price > target_be + (info.trade_stops_level * point))
-                else:
-                    target_be = float(pos.price_open) - price_offset
-                    curr_price = float(tick.ask)
-                    is_profitable = (curr_price < target_be - (info.trade_stops_level * point))
-
-                rounded_be = round(target_be, digits)
-
-                return {
-                    "success": True,
-                    "ticket": ticket,
-                    "symbol": symbol,
-                    "type": "BUY" if is_buy else "SELL",
-                    "price_open": float(pos.price_open),
-                    "current_price": curr_price,
-                    "target_be_price": rounded_be,
-                    "is_profitable": is_profitable,
-                    "commission_cost": round(commission_total + fee_total, 2),
-                    "swap_cost": round(swap_cost, 2),
-                    "spread_dollars": round(spread_dollars, 2),
-                    "total_cost_absorbed": round(total_cost_dollars, 2),
-                    "stops_level": info.trade_stops_level
-                }
+                inputs = BreakEvenInputs(
+                    ticket=ticket,
+                    symbol=symbol,
+                    is_buy=(pos.type == mt5.ORDER_TYPE_BUY),
+                    price_open=float(pos.price_open),
+                    volume=vol,
+                    commission_total=commission_total + fee_total,
+                    swap_cost=swap_cost,
+                    spread_points=spread_points,
+                    point=point,
+                    digits=digits,
+                    tick_size=tick_size,
+                    tick_value=tick_val,
+                    current_bid=float(tick.bid) if tick.bid else float(pos.price_open),
+                    current_ask=float(tick.ask) if tick.ask else float(pos.price_open),
+                    trade_stops_level=int(info.trade_stops_level),
+                    safety_pad_pips=0.5,
+                    min_safety_pad_dollars=1.00
+                )
+                res = calculate_break_even_price(inputs)
+                return res.model_dump()
             except Exception as e:
                 logger.error(f"Error calculating universal BE price for #{ticket}: {e}")
                 return {"success": False, "message": str(e)}
