@@ -866,5 +866,182 @@ def test_rmultiple_expectancy_and_monthly_metrics():
     assert stats_real.monthly_r == 1.0
 
 
+def test_margin_engine_category_leverage_caps():
+    """Verify margin_engine category leverage caps for all asset classes."""
+    from margin_engine import get_category_leverage
+
+    # Account leverage is 2000
+    acc_lev = 2000.0
+    assert get_category_leverage("Forex Majors", "EURUSD", acc_lev) == 2000.0
+    assert get_category_leverage("Forex Minors", "EURGBP", acc_lev) == 2000.0
+    assert get_category_leverage("Energies", "BRENT", acc_lev) == 500.0
+    assert get_category_leverage("Energies", "WTI", acc_lev) == 500.0
+    assert get_category_leverage("Metals", "GOLD", acc_lev) == 888.0
+    assert get_category_leverage("Metals", "SILVER", acc_lev) == 888.0
+    assert get_category_leverage("Indices", "#USNDAQ100", acc_lev) == 500.0
+    assert get_category_leverage("Indices", "#USSPX500", acc_lev) == 500.0
+    assert get_category_leverage("Stocks", "AAPL.O", acc_lev) == 25.0
+    assert get_category_leverage("Crypto", "BTCUSD", acc_lev) == 200.0
+
+
+def test_margin_engine_anomaly_shielding_and_exact_broker_margins():
+    """
+    Verify shielding against MT5 CFD IPC unscaled return values
+    and check exact dollar margins matching live MT5 terminal positions.
+    """
+    from margin_engine import resolve_margin_specs, calculate_broker_margin
+
+    acc_lev = 2000.0
+
+    # 1. BRENT: 0.11 lot @ 93.877 (MT5 charged $20.65)
+    # When MT5 order_calc_margin returns corrupted 0.09 (implied leverage > 1,000,000)
+    brent_specs = resolve_margin_specs(
+        symbol="BRENT",
+        category="Energies",
+        contract_size=1000.0,
+        ask=93.877,
+        acc_leverage=acc_lev,
+        raw_order_margin=0.09  # Corrupted base value from MT5 CFD IPC
+    )
+    # Must discard 0.09 and use 1:500 leverage -> margin_per_lot = 1000 * 93.877 / 500 = 187.754
+    assert abs(brent_specs["margin_per_lot"] - 187.754) < 0.1
+    brent_margin = calculate_broker_margin(
+        symbol="BRENT",
+        lots=0.11,
+        price=93.877,
+        acc_leverage=acc_lev,
+        margin_per_lot=brent_specs["margin_per_lot"],
+        category="Energies"
+    )
+    assert brent_margin == 20.65
+
+    # 2. WTI: 0.11 lot @ 88.63 (MT5 leverage 1:500)
+    wti_specs = resolve_margin_specs(
+        symbol="WTI",
+        category="Energies",
+        contract_size=1000.0,
+        ask=88.63,
+        acc_leverage=acc_lev,
+        raw_order_margin=0.09
+    )
+    assert abs(wti_specs["margin_per_lot"] - 177.26) < 0.1
+    wti_margin = calculate_broker_margin(
+        symbol="WTI",
+        lots=0.11,
+        price=88.63,
+        acc_leverage=acc_lev,
+        margin_per_lot=wti_specs["margin_per_lot"],
+        category="Energies"
+    )
+    assert wti_margin == 19.50
+
+    # 3. GOLD: 0.03 lot @ 4433.67 (MT5 charged $14.98)
+    # When MT5 order_calc_margin returns corrupted 0.44
+    gold_specs = resolve_margin_specs(
+        symbol="GOLD",
+        category="Metals",
+        contract_size=100.0,
+        ask=4433.67,
+        acc_leverage=acc_lev,
+        raw_order_margin=0.44  # Corrupted base value from MT5 CFD IPC
+    )
+    # Must discard 0.44 and use 1:888 leverage -> margin_per_lot = 100 * 4433.67 / 888 = 499.288
+    assert abs(gold_specs["margin_per_lot"] - 499.288) < 0.1
+    gold_margin = calculate_broker_margin(
+        symbol="GOLD",
+        lots=0.03,
+        price=4433.67,
+        acc_leverage=acc_lev,
+        margin_per_lot=gold_specs["margin_per_lot"],
+        category="Metals"
+    )
+    assert gold_margin == 14.98
+
+    # 4. #USNDAQ100: 0.85 lot @ 29484.65 (MT5 charged $50.12)
+    nasdaq_specs = resolve_margin_specs(
+        symbol="#USNDAQ100",
+        category="Indices",
+        contract_size=1.0,
+        ask=29484.65,
+        acc_leverage=acc_lev,
+        raw_order_margin=0.03  # Corrupted base value
+    )
+    assert abs(nasdaq_specs["margin_per_lot"] - 58.969) < 0.1
+    nasdaq_margin = calculate_broker_margin(
+        symbol="#USNDAQ100",
+        lots=0.85,
+        price=29484.65,
+        acc_leverage=acc_lev,
+        margin_per_lot=nasdaq_specs["margin_per_lot"],
+        category="Indices"
+    )
+    assert nasdaq_margin == 50.12
+
+    # 5. EURUSD: 1.0 lot @ 1.16185 (MT5 charged $58.09)
+    eurusd_specs = resolve_margin_specs(
+        symbol="EURUSD",
+        category="Forex Majors",
+        contract_size=100000.0,
+        ask=1.16185,
+        acc_leverage=acc_lev,
+        raw_order_margin=58.09  # Valid Forex return
+    )
+    assert abs(eurusd_specs["margin_per_lot"] - 58.09) < 0.01
+    eurusd_margin = calculate_broker_margin(
+        symbol="EURUSD",
+        lots=1.0,
+        price=1.16185,
+        acc_leverage=acc_lev,
+        margin_per_lot=eurusd_specs["margin_per_lot"],
+        category="Forex Majors"
+    )
+    assert eurusd_margin == 58.09
+
+
+def test_full_broker_tree_margin_coverage():
+    """
+    Verifies that all broker tree categories (ETFs, Base Metals, Futures Commodities,
+    Spot Indices, 365 series, Cryptos) compute accurate margin requirements.
+    """
+    from margin_engine import get_category_leverage, resolve_margin_specs, calculate_broker_margin
+
+    acc_lev = 2000.0
+
+    # 1. ETFs: 4% regulatory CFD margin (1:25 leverage)
+    assert get_category_leverage("ETFs", "ARKB.N", acc_lev) == 25.0
+    assert get_category_leverage("ETFs", "SPY.N", acc_lev) == 25.0
+    etf_specs = resolve_margin_specs("ARKB.N", "ETFs", contract_size=1.0, ask=26.44, acc_leverage=acc_lev)
+    assert abs(etf_specs["margin_rate"] - 0.04) < 1e-4
+    assert abs(etf_specs["margin_per_lot"] - 1.0576) < 1e-2
+
+    # 2. Base Metals: Capped at 1:100 leverage
+    assert get_category_leverage("Metals", "ALUMINIUM", acc_lev) == 100.0
+    assert get_category_leverage("Metals", "COPPER", acc_lev) == 100.0
+    al_specs = resolve_margin_specs("ALUMINIUM", "Metals", contract_size=25.0, ask=3297.95, acc_leverage=acc_lev)
+    # Notional = 25 * 3297.95 = 82,448.75. At 1:100 leverage, margin = $824.49
+    assert abs(al_specs["margin_per_lot"] - 824.49) < 0.1
+
+    # 3. Futures Commodities: Capped at 1:200 leverage
+    assert get_category_leverage("Futures", "#USOil_V26", acc_lev) == 200.0
+    assert get_category_leverage("Futures", "#Corn_U26", acc_lev) == 200.0
+    oil_fut_specs = resolve_margin_specs("#USOil_V26", "Futures", contract_size=1000.0, ask=90.84, acc_leverage=acc_lev)
+    # Notional = 1000 * 90.84 = 90,840. At 1:200 leverage, margin = $454.20
+    assert abs(oil_fut_specs["margin_per_lot"] - 454.20) < 0.5
+
+    # 4. Spot Indices: Capped at 1:500 leverage
+    assert get_category_leverage("Indices", "#Germany40", acc_lev) == 500.0
+    assert get_category_leverage("Indices", "#AUS200", acc_lev) == 500.0
+
+    # 5. 365 Series: Handled via underlying asset rules
+    assert get_category_leverage("365 Series", "GOLD365", acc_lev) == 888.0
+    assert get_category_leverage("365 Series", "WTI365", acc_lev) == 500.0
+
+    # 6. Cryptos: Capped at 1:200 leverage
+    assert get_category_leverage("Crypto", "AAVE", acc_lev) == 200.0
+    assert get_category_leverage("Crypto", "BITCOIN", acc_lev) == 200.0
+
+
+
+
 
 

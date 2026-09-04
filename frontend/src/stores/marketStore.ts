@@ -27,7 +27,7 @@ function createMarketStore() {
   const [draggedSymbol, setDraggedSymbol] = createSignal<string | null>(null);
   const [dragOverSymbol, setDragOverSymbol] = createSignal<string | null>(null);
 
-  const categories = ['All', 'Forex Majors', 'Forex Minors', 'Metals', 'Energies', 'Indices', 'Stocks', 'Crypto'];
+  const categories = ['All', 'Forex Majors', 'Forex Minors', 'Metals', 'Energies', 'Indices', 'Stocks', 'Crypto', 'ETFs', 'Futures', '365 Series'];
 
   // Map of symbol -> CalculatedSymbolResult
   const calculatedResultsMap = createMemo<Map<string, CalculatedSymbolResult>>(() => {

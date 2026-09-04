@@ -116,15 +116,80 @@ export function computeLocalRiskForResult(
       const notionalEur = lots * contractSize * marketPrice;
       m = (notionalEur * 1.16) / (lev / 30.0);
     } else if (
+      spec.category === 'ETFs' ||
       spec.category === 'Stocks' ||
       symUpper.includes('.O') ||
       symUpper.includes('.N') ||
       contractSize <= 10.0
     ) {
-      // Equities / Single-Stock CFDs: 4% regulatory CFD margin (1:25 leverage)
+      // ETFs & Equities: 4% regulatory CFD margin (1:25 leverage)
       const notionalUsd = lots * contractSize * marketPrice;
       const stockMarginRate = spec.margin_rate && spec.margin_rate > 0 && spec.margin_rate < 1.0 ? spec.margin_rate : 0.04;
       m = notionalUsd * stockMarginRate;
+    } else if (
+      symUpper.includes('ALUMINIUM') ||
+      symUpper.includes('ALUMINUM') ||
+      symUpper.includes('COPPER') ||
+      symUpper.includes('LEAD') ||
+      symUpper.includes('ZINC') ||
+      symUpper.includes('NICKEL')
+    ) {
+      // Base Metals (1:100 leverage)
+      const effLev = Math.min(lev, 100.0);
+      m = (lots * contractSize * marketPrice) / effLev;
+    } else if (
+      spec.category === 'Energies' ||
+      symUpper.includes('BRENT') ||
+      symUpper.includes('WTI') ||
+      symUpper.includes('OIL') ||
+      symUpper.includes('CRUDE') ||
+      symUpper.includes('NGAS') ||
+      symUpper.includes('NAT.GAS')
+    ) {
+      const effLev = (symUpper.includes('NAT.GAS') || symUpper.includes('NGAS') || symUpper.includes('#USOIL')) ? Math.min(lev, 200.0) : Math.min(lev, 500.0);
+      m = (lots * contractSize * marketPrice) / effLev;
+    } else if (
+      symUpper.includes('CORN') ||
+      symUpper.includes('WHEAT') ||
+      symUpper.includes('SOY') ||
+      symUpper.includes('COFFEE') ||
+      symUpper.includes('SUGAR') ||
+      symUpper.includes('COTTON') ||
+      symUpper.includes('COCOA')
+    ) {
+      // Commodity Futures (1:200 leverage)
+      const effLev = Math.min(lev, 200.0);
+      m = (lots * contractSize * marketPrice) / effLev;
+    } else if (
+      spec.category === 'Metals' ||
+      symUpper.includes('GOLD') ||
+      symUpper.includes('SILVER') ||
+      symUpper.includes('XAU') ||
+      symUpper.includes('XAG') ||
+      symUpper.includes('PLATINUM') ||
+      symUpper.includes('PALLADIUM')
+    ) {
+      const effLev = Math.min(lev, 888.0);
+      m = (lots * contractSize * marketPrice) / effLev;
+    } else if (
+      spec.category === 'Indices' ||
+      symUpper.includes('500') ||
+      symUpper.includes('TECH') ||
+      symUpper.includes('DOW') ||
+      symUpper.includes('NAS') ||
+      symUpper.includes('NDAQ') ||
+      symUpper.includes('AUS200') ||
+      symUpper.includes('CHINA') ||
+      symUpper.includes('GERMANY') ||
+      symUpper.includes('FRANCE') ||
+      symUpper.includes('SWISS') ||
+      symUpper.includes('SPAIN')
+    ) {
+      const effLev = Math.min(lev, 500.0);
+      m = (lots * contractSize * marketPrice) / effLev;
+    } else if (spec.category === 'Crypto' || symUpper.includes('BTC') || symUpper.includes('ETH') || symUpper.includes('AAVE')) {
+      const effLev = Math.min(lev, 200.0);
+      m = (lots * contractSize * marketPrice) / effLev;
     } else if (
       spec.category === 'Forex Majors' ||
       (symUpper.length === 6 && symUpper.startsWith('USD') && contractSize >= 10000)

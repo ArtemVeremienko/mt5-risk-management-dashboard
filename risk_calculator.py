@@ -15,6 +15,8 @@ from enum import Enum
 from typing import Dict, List, Optional, Tuple, Any
 import numpy as np
 
+from margin_engine import get_category_leverage
+
 
 class SampleSizeTier(str, Enum):
     INFORMATIONAL = "informational"    # < 100 trades
@@ -383,16 +385,18 @@ def calculate_required_margin(
         else:
             currency_base = "EUR" if "EUR" in sym_upper else "USD"
 
+    cat_leverage = get_category_leverage("", sym_upper, leverage)
+
     # If base currency is USD for standard Forex pairs (e.g. USDJPY, USDCAD, USDCHF)
     is_forex_usd_base = len(sym_upper) == 6 and sym_upper.isalpha() and (sym_upper.startswith("USD") or currency_base == "USD") and contract_size >= 10000
     if is_forex_usd_base:
         notional_usd = lots * contract_size
-        effective_rate = margin_rate if (0 < margin_rate < 1.0) else (1.0 / leverage)
+        effective_rate = margin_rate if (0 < margin_rate < 1.0) else (1.0 / cat_leverage)
         margin = notional_usd * effective_rate
     else:
-        # Default non-USD base (EURUSD, GBPUSD, XAUUSD, BTCUSD)
+        # Default non-USD base (EURUSD, GBPUSD, XAUUSD, BTCUSD, BRENT, WTI)
         notional_usd = lots * contract_size * market_price
-        effective_rate = margin_rate if (0 < margin_rate < 1.0) else (1.0 / leverage)
+        effective_rate = margin_rate if (0 < margin_rate < 1.0) else (1.0 / cat_leverage)
         margin = notional_usd * effective_rate
 
     return round(float(margin), 2)

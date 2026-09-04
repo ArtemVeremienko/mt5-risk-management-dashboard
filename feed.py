@@ -23,6 +23,8 @@ try:
 except ImportError:
     mt5 = None
 
+from margin_engine import resolve_margin_specs, calculate_broker_margin, get_category_leverage
+
 _log_level = logging.DEBUG if (os.getenv("VERBOSE", "").lower() in ("1", "true", "yes") or os.getenv("LOG_LEVEL", "").upper() == "DEBUG") else logging.INFO
 logging.basicConfig(level=_log_level, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("RiskFeed")
@@ -266,38 +268,70 @@ class MT5RiskFeed:
         s = symbol.upper()
         p = path.upper()
         
+        # Check root folder of symbol path (e.g. "ETFS", "FUTURES", "SPOT", "365", "METALS", "CRYPTOS")
+        root_folder = p.split('\\')[0] if '\\' in p else ""
+
         # 1. Check Forex Majors first (including broker prefixes/suffixes)
         majors = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "USDCHF", "NZDUSD"]
         if any(m in s for m in majors):
             return "Forex Majors"
 
-        # 2. Metals
-        if any(m in s for m in ["XAU", "XAG", "GOLD", "SILVER", "PLATINUM", "PALLADIUM"]) or "METALS" in p:
+        # 2. ETFs
+        if root_folder == "ETFS" or "ETF" in p:
+            return "ETFs"
+
+        # 3. 365 Series (24/7 contracts)
+        if root_folder == "365" or s.endswith("365"):
+            return "365 Series"
+
+        # 4. Metals (Precious & Base)
+        if (
+            root_folder == "METALS"
+            or "METALS" in p
+            or any(m in s for m in ["XAU", "XAG", "GOLD", "SILVER", "PLATINUM", "PALLADIUM", "ALUMINIUM", "ALUMINUM", "COPPER", "LEAD", "ZINC", "NICKEL"])
+        ):
             return "Metals"
 
-        # 3. Energies
-        if any(e in s for e in ["OIL", "BRENT", "WTI", "GAS", "CRUDE", "NGAS"]) or "ENERGY" in p or "ENERGIES" in p:
+        # 5. Energies (BRENT, WTI, OIL, NAT.GAS)
+        if (
+            "ENERGY" in p
+            or "ENERGIES" in p
+            or any(e in s for e in ["OIL", "BRENT", "WTI", "GAS", "CRUDE", "NGAS"])
+        ):
             return "Energies"
 
-        # 4. Crypto
-        if any(c in s for c in ["BTC", "ETH", "SOL", "XRP", "LTC", "DOGE", "ADA", "BNB"]) or "CRYPTO" in p:
+        # 6. Crypto / Cryptos
+        if (
+            root_folder in ("CRYPTO", "CRYPTOS")
+            or "CRYPTO" in p
+            or any(c in s for c in ["BTC", "ETH", "SOL", "XRP", "LTC", "DOGE", "ADA", "BNB", "AAVE"])
+        ):
             return "Crypto"
 
-        # 5. Indices (avoid broad 2-letter matches like 'DJ' that match currency pairs)
+        # 7. Indices (Cash Spot & Futures)
         index_keywords = [
             "500", "TECH", "DOW", "DAX", "FTSE", "NIKKEI", "NAS", "NASDAQ", "NDAQ",
             "SPX", "DJ30", "DJIA", "US30", "JP225", "JAPAN", "DE40", "DE30", "GERMANY",
-            "UK100", "US100", "US500", "HK50", "WS30", "CAC", "STOXX", "RUSSELL", "US2000"
+            "UK100", "US100", "US500", "HK50", "WS30", "CAC", "STOXX", "RUSSELL", "US2000",
+            "AUS200", "CHINA", "SWISS", "SPAIN"
         ]
         if any(idx in s for idx in index_keywords) or "INDEX" in p or "INDICES" in p:
             return "Indices"
 
-        # 6. Equities / Stocks (e.g. AMD.O, AAPL.O, TSLA.O, NVDA.O, MSFT.O or STOCK/EQUITY paths)
-        if any(ext in s for ext in [".O", ".N", ".US", ".UK", ".DE", "AMD", "AAPL", "TSLA", "NVDA", "MSFT", "AMZN", "GOOG", "META"]) or any(k in p for k in ["STOCK", "EQUITY", "EQUITIES", "SHARES"]):
+        # 8. Futures (non-indices, e.g. commodities / energies futures)
+        if root_folder == "FUTURES" or "FUTURES" in p:
+            return "Futures"
+
+        # 9. Equities / Stocks (e.g. AMD.O, AAPL.O, TSLA.O, NVDA.O, MSFT.O or STOCK/EQUITY paths)
+        if (
+            root_folder == "STOCKS"
+            or any(ext in s for ext in [".O", ".N", ".US", ".UK", ".DE", "AMD", "AAPL", "TSLA", "NVDA", "MSFT", "AMZN", "GOOG", "META"])
+            or any(k in p for k in ["STOCK", "EQUITY", "EQUITIES", "SHARES"])
+        ):
             return "Stocks"
 
-        # 7. Forex Minors / Crosses
-        if len(s) >= 6 and any(s.startswith(cur) or cur in s for cur in ["EUR", "GBP", "USD", "AUD", "CAD", "CHF", "NZD", "JPY"]):
+        # 10. Forex Minors / Crosses
+        if root_folder == "FOREX" or (len(s) >= 6 and any(s.startswith(cur) or cur in s for cur in ["EUR", "GBP", "USD", "AUD", "CAD", "CHF", "NZD", "JPY"])):
             return "Forex Minors"
 
         return "Other"
@@ -489,18 +523,22 @@ class MT5RiskFeed:
                             category = self._determine_category(info.name, info.path)
                             acc = mt5.account_info() if self.is_live else None
                             lev = float(acc.leverage) if (acc and acc.leverage > 0) else 2000.0
-                            default_rate = 0.04 if category == "Stocks" else (1.0 / lev)
-                            base_margin_rate = default_rate
+                            raw_m = None
                             try:
                                 tick = mt5.symbol_info_tick(symbol)
                                 init_price = float(tick.ask) if tick and tick.ask else 1.0
                                 raw_m = mt5.order_calc_margin(mt5.ORDER_TYPE_BUY, symbol, 1.0, init_price)
-                                if raw_m is not None and raw_m > 0:
-                                    n_1lot = float(info.trade_contract_size) * init_price
-                                    if n_1lot > 0:
-                                        base_margin_rate = round(float(raw_m) / n_1lot, 6)
                             except Exception:
-                                pass
+                                init_price = 1.0
+
+                            m_specs = resolve_margin_specs(
+                                symbol=info.name,
+                                category=category,
+                                contract_size=float(info.trade_contract_size) if info.trade_contract_size > 0 else 100000.0,
+                                ask=init_price,
+                                acc_leverage=lev,
+                                raw_order_margin=raw_m
+                            )
 
                             # Cache base static specs
                             self._specs_cache[symbol] = {
@@ -519,7 +557,8 @@ class MT5RiskFeed:
                                 "currency_base": info.currency_base,
                                 "currency_profit": info.currency_profit,
                                 "currency_margin": info.currency_margin,
-                                "margin_rate": base_margin_rate
+                                "margin_rate": m_specs["margin_rate"],
+                                "margin_per_lot": m_specs["margin_per_lot"]
                             }
                             # Calculate ADR/ATR
                             self._calculate_adr_and_atr(symbol, point, digits)
@@ -575,17 +614,21 @@ class MT5RiskFeed:
                             category = self._determine_category(info.name, info.path)
                             acc = mt5.account_info() if self.is_live else None
                             lev = float(acc.leverage) if (acc and acc.leverage > 0) else 2000.0
-                            default_rate = 0.04 if category == "Stocks" else (1.0 / lev)
-                            base_margin_rate = default_rate
+                            raw_m = None
                             try:
                                 init_price = float(tick.ask) if tick and tick.ask else 1.0
                                 raw_m = mt5.order_calc_margin(mt5.ORDER_TYPE_BUY, symbol, 1.0, init_price)
-                                if raw_m is not None and raw_m > 0:
-                                    n_1lot = float(info.trade_contract_size) * init_price
-                                    if n_1lot > 0:
-                                        base_margin_rate = round(float(raw_m) / n_1lot, 6)
                             except Exception:
-                                pass
+                                init_price = 1.0
+
+                            m_specs = resolve_margin_specs(
+                                symbol=info.name,
+                                category=category,
+                                contract_size=float(info.trade_contract_size) if info.trade_contract_size > 0 else 100000.0,
+                                ask=init_price,
+                                acc_leverage=lev,
+                                raw_order_margin=raw_m
+                            )
 
                             base_spec = {
                                 "symbol": info.name,
@@ -603,7 +646,8 @@ class MT5RiskFeed:
                                 "currency_base": info.currency_base,
                                 "currency_profit": info.currency_profit,
                                 "currency_margin": info.currency_margin,
-                                "margin_rate": base_margin_rate
+                                "margin_rate": m_specs["margin_rate"],
+                                "margin_per_lot": m_specs["margin_per_lot"]
                             }
                             self._specs_cache[symbol] = base_spec
 
@@ -636,9 +680,19 @@ class MT5RiskFeed:
 
                         contract_size = base_spec["trade_contract_size"]
                         m_price = float(ask) if ask else 1.0
-                        notional_1lot = contract_size * m_price
-                        margin_rate = base_spec.get("margin_rate", 0.04 if base_spec["category"] == "Stocks" else 0.0005)
-                        margin_per_lot = round(notional_1lot * margin_rate, 4)
+                        acc = mt5.account_info() if self.is_live else None
+                        lev = float(acc.leverage) if (acc and acc.leverage > 0) else 2000.0
+                        
+                        live_m_specs = resolve_margin_specs(
+                            symbol=base_spec["symbol"],
+                            category=base_spec["category"],
+                            contract_size=contract_size,
+                            ask=m_price,
+                            acc_leverage=lev,
+                            raw_order_margin=None
+                        )
+                        margin_rate = base_spec.get("margin_rate", live_m_specs["margin_rate"])
+                        margin_per_lot = live_m_specs["margin_per_lot"]
 
                         return {
                             **base_spec,
@@ -677,9 +731,15 @@ class MT5RiskFeed:
 
                 contract_size = item["trade_contract_size"]
                 m_price = item["ask"]
-                notional_1lot = contract_size * m_price
-                margin_per_lot = round(notional_1lot * 0.04 if item["category"] == "Stocks" else notional_1lot / 300.0, 4)
-                margin_rate = round(margin_per_lot / notional_1lot, 6) if notional_1lot > 0 else 0.0033
+                mock_m_specs = resolve_margin_specs(
+                    symbol=item["symbol"],
+                    category=item["category"],
+                    contract_size=contract_size,
+                    ask=m_price,
+                    acc_leverage=300.0
+                )
+                margin_per_lot = mock_m_specs["margin_per_lot"]
+                margin_rate = mock_m_specs["margin_rate"]
 
                 return {
                     **item,
@@ -734,26 +794,33 @@ class MT5RiskFeed:
                 results.append(spec)
         return results
 
-    def calculate_margin(self, symbol: str, lots: float, price: float, leverage: float = 300.0) -> Optional[float]:
+    def calculate_margin(self, symbol: str, lots: float, price: float, leverage: Optional[float] = None) -> Optional[float]:
         """
-        Calculates exact broker margin using mt5.order_calc_margin when live,
-        scaled by custom leverage if selected by the user.
+        Calculates exact broker margin scaled by volume and user leverage using margin_engine.
         """
         if self.is_live:
             with self._mt5_lock:
                 try:
                     acc = mt5.account_info()
-                    acc_leverage = float(acc.leverage) if (acc and acc.leverage > 0) else 300.0
-                    raw_margin = mt5.order_calc_margin(mt5.ORDER_TYPE_BUY, symbol, lots, price)
-                    if raw_margin is not None and raw_margin > 0:
-                        info = mt5.symbol_info(symbol)
-                        is_fixed_margin = info and (getattr(info, "trade_calc_mode", 0) in (2, 32) or info.trade_contract_size <= 10.0)
-                        if is_fixed_margin:
-                            return round(float(raw_margin), 2)
-                        scale = (acc_leverage / leverage) if (leverage > 0 and abs(acc_leverage - leverage) > 0.1) else 1.0
-                        return round(float(raw_margin) * scale, 2)
+                    acc_leverage = float(acc.leverage) if (acc and acc.leverage > 0) else 2000.0
+                    spec = self.get_symbol_specs(symbol)
+                    mpl = spec.get("margin_per_lot") if spec else None
+                    ref_p = spec.get("ask") if spec else price
+                    cat = spec.get("category", "") if spec else ""
+                    cs = spec.get("trade_contract_size", 100000.0) if spec else 100000.0
+                    return calculate_broker_margin(
+                        symbol=symbol,
+                        lots=lots,
+                        price=price,
+                        acc_leverage=acc_leverage,
+                        user_leverage=leverage,
+                        margin_per_lot=mpl,
+                        ref_price=ref_p,
+                        category=cat,
+                        contract_size=cs
+                    )
                 except Exception as e:
-                    logger.debug(f"order_calc_margin error for {symbol}: {e}")
+                    logger.debug(f"calculate_margin error for {symbol}: {e}")
         return None
 
     def fetch_closed_deals_history(
