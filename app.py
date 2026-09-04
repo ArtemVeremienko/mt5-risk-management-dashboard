@@ -28,9 +28,11 @@ try:
         TradeStats,
         LotCalculationResult,
         SampleSizeTier,
-        evaluate_sample_size
+        evaluate_sample_size,
+        calculate_broker_margin
     )
     from risk_management_dashboard.feed import MT5RiskFeed
+    from risk_management_dashboard.application.broadcaster import BroadcastHub
 except ImportError:
     from risk_calculator import (
         calculate_trade_statistics,
@@ -38,9 +40,11 @@ except ImportError:
         TradeStats,
         LotCalculationResult,
         SampleSizeTier,
-        evaluate_sample_size
+        evaluate_sample_size,
+        calculate_broker_margin
     )
     from feed import MT5RiskFeed
+    from application.broadcaster import BroadcastHub
 
 logger = logging.getLogger("RiskApp")
 feed = MT5RiskFeed()
@@ -69,49 +73,13 @@ class ManualStatsRequest(BaseModel):
     total_trades: int = Field(default=150, ge=1)
 
 
-class LiveConnectionManager:
-    """Manages active WebSocket connections and client-configurable streaming intervals."""
-    def __init__(self):
-        self.active_intervals: Dict[WebSocket, float] = {}
-        self.lock = asyncio.Lock()
-
-    async def connect(self, websocket: WebSocket, initial_interval: float = 2.0):
-        await websocket.accept()
-        async with self.lock:
-            self.active_intervals[websocket] = initial_interval
-
-    async def disconnect(self, websocket: WebSocket):
-        async with self.lock:
-            self.active_intervals.pop(websocket, None)
-
-    async def set_interval(self, websocket: WebSocket, interval_seconds: float):
-        async with self.lock:
-            if websocket in self.active_intervals:
-                self.active_intervals[websocket] = max(0.1, interval_seconds)
-
-    def get_interval(self, websocket: WebSocket) -> float:
-        return self.active_intervals.get(websocket, 2.0)
-
-    async def broadcast(self, message: Dict[str, Any]):
-        async with self.lock:
-            to_remove = set()
-            for ws in list(self.active_intervals.keys()):
-                try:
-                    await ws.send_json(message)
-                except Exception:
-                    to_remove.add(ws)
-            for ws in to_remove:
-                self.active_intervals.pop(ws, None)
-
-
-manager = LiveConnectionManager()
+manager = BroadcastHub()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 1. Proactive background volatility cache worker (refreshes 14D ADR/ATR every 15 minutes)
     async def volatility_cache_task():
-        # Initial warm up
         await asyncio.to_thread(feed.refresh_volatility_cache)
         while True:
             await asyncio.sleep(900)  # 15 minutes
@@ -120,9 +88,43 @@ async def lifespan(app: FastAPI):
             except Exception as e:
                 logger.error(f"Error refreshing volatility cache: {e}")
 
-    cache_task = asyncio.create_task(volatility_cache_task())
+    # 2. Centralized single-producer market broadcast loop (eliminates per-client polling storms)
+    last_pos_count = -1
+    last_stats_time = asyncio.get_event_loop().time()
+
+    async def produce_live_snapshot():
+        nonlocal last_pos_count, last_stats_time
+        symbols = await asyncio.to_thread(feed.get_market_symbols)
+        account = await asyncio.to_thread(feed.get_account_summary)
+        positions = await asyncio.to_thread(feed.get_open_positions)
+        curr_pos_count = len(positions) if positions else 0
+        now_time = asyncio.get_event_loop().time()
+
+        payload = {
+            "type": "symbols_update",
+            "symbols": symbols,
+            "account": account,
+            "positions": positions,
+            "timestamp": now_time
+        }
+
+        # Check stats if position count decreased (e.g. SL/TP hit in MT5) or 5-second heartbeat
+        if (last_pos_count != -1 and curr_pos_count < last_pos_count) or (now_time - last_stats_time >= 5.0):
+            stats, sample_info = await get_trade_stats_payload()
+            payload["trade_stats"] = stats
+            payload["sample_info"] = sample_info
+            last_stats_time = now_time
+
+        last_pos_count = curr_pos_count
+        return payload
+
+    vol_task = asyncio.create_task(volatility_cache_task())
+    broadcast_task = asyncio.create_task(manager.run_loop(produce_live_snapshot))
     yield
-    cache_task.cancel()
+    vol_task.cancel()
+    manager.stop()
+    broadcast_task.cancel()
+    feed.shutdown()
 
 
 app = FastAPI(
@@ -202,6 +204,8 @@ async def calculate_risk_matrix(req: CalculationRequest):
     trade_records = getattr(feed, "_cached_trade_records", None)
     trade_stats = calculate_trade_statistics(trades_pnl, trades_records=trade_records)
     symbols_specs = await asyncio.to_thread(feed.get_market_symbols)
+    account = await asyncio.to_thread(feed.get_account_summary)
+    acc_leverage = float(account.get("leverage", 2000.0))
     
     if req.symbols:
         requested_set = {s.upper() for s in req.symbols}
@@ -214,17 +218,34 @@ async def calculate_risk_matrix(req: CalculationRequest):
     for spec in symbols_specs:
         sym = spec["symbol"]
         sl_pips = compute_effective_sl_pips(spec, req.global_sl_mode, req.global_sl_pips, req.symbol_sl_overrides)
+        ref_price = spec.get("ask", spec.get("bid", 1.0))
+        cat = spec.get("category", "")
+        cs = spec.get("trade_contract_size", 100000.0)
+        mpl = spec.get("margin_per_lot")
+
+        def resolve_margin(exec_lot: float) -> float:
+            return calculate_broker_margin(
+                symbol=sym,
+                lots=exec_lot,
+                price=spec["ask"],
+                acc_leverage=acc_leverage,
+                user_leverage=req.leverage,
+                margin_per_lot=mpl,
+                ref_price=ref_price,
+                category=cat,
+                contract_size=cs
+            )
         
         pre_calc = calculate_lot_for_symbol(
             symbol=sym, working_capital=req.working_capital, deposited_cash=req.deposited_cash, leverage=req.leverage,
             sl_pips=sl_pips, pip_value_per_lot=spec["pip_value_per_lot"], market_price=spec["ask"],
-            contract_size=spec["trade_contract_size"], volume_min=spec["volume_min"], volume_max=spec["volume_max"],
+            contract_size=cs, volume_min=spec["volume_min"], volume_max=spec["volume_max"],
             volume_step=spec["volume_step"], risk_method=req.risk_method, custom_risk_pct=req.custom_risk_pct,
             trade_stats=trade_stats, currency_base=spec.get("currency_base", "USD"),
             currency_profit=spec.get("currency_profit", "USD"), currency_margin=spec.get("currency_margin", "USD")
         )
         
-        broker_margin = feed.calculate_margin(sym, pre_calc.executable_lot, spec["ask"], req.leverage)
+        broker_margin = resolve_margin(pre_calc.executable_lot)
         
         calc = calculate_lot_for_symbol(
             symbol=sym,
@@ -234,7 +255,7 @@ async def calculate_risk_matrix(req: CalculationRequest):
             sl_pips=sl_pips,
             pip_value_per_lot=spec["pip_value_per_lot"],
             market_price=spec["ask"],
-            contract_size=spec["trade_contract_size"],
+            contract_size=cs,
             volume_min=spec["volume_min"],
             volume_max=spec["volume_max"],
             volume_step=spec["volume_step"],
@@ -254,20 +275,20 @@ async def calculate_risk_matrix(req: CalculationRequest):
         if calc.is_margin_exceeded:
             margin_exceeded_count += 1
 
-        # Comparison calculations
+        # Comparison calculations (pure in-memory, zero MT5 IPC overhead)
         alt_frac_pre = calculate_lot_for_symbol(
             symbol=sym, working_capital=req.working_capital, deposited_cash=req.deposited_cash, leverage=req.leverage,
             sl_pips=sl_pips, pip_value_per_lot=spec["pip_value_per_lot"], market_price=spec["ask"],
-            contract_size=spec["trade_contract_size"], volume_min=spec["volume_min"], volume_max=spec["volume_max"],
+            contract_size=cs, volume_min=spec["volume_min"], volume_max=spec["volume_max"],
             volume_step=spec["volume_step"], risk_method="fractional", custom_risk_pct=1.0, trade_stats=trade_stats,
             currency_base=spec.get("currency_base", "USD"), currency_profit=spec.get("currency_profit", "USD"),
             currency_margin=spec.get("currency_margin", "USD")
         )
-        margin_frac = feed.calculate_margin(sym, alt_frac_pre.executable_lot, spec["ask"], req.leverage)
+        margin_frac = resolve_margin(alt_frac_pre.executable_lot)
         alt_fractional = calculate_lot_for_symbol(
             symbol=sym, working_capital=req.working_capital, deposited_cash=req.deposited_cash, leverage=req.leverage,
             sl_pips=sl_pips, pip_value_per_lot=spec["pip_value_per_lot"], market_price=spec["ask"],
-            contract_size=spec["trade_contract_size"], volume_min=spec["volume_min"], volume_max=spec["volume_max"],
+            contract_size=cs, volume_min=spec["volume_min"], volume_max=spec["volume_max"],
             volume_step=spec["volume_step"], risk_method="fractional", custom_risk_pct=1.0, trade_stats=trade_stats,
             currency_base=spec.get("currency_base", "USD"), currency_profit=spec.get("currency_profit", "USD"),
             currency_margin=spec.get("currency_margin", "USD"), exact_broker_margin=margin_frac
@@ -276,17 +297,17 @@ async def calculate_risk_matrix(req: CalculationRequest):
         alt_hk_pre = calculate_lot_for_symbol(
             symbol=sym, working_capital=req.working_capital, deposited_cash=req.deposited_cash, leverage=req.leverage,
             sl_pips=sl_pips, pip_value_per_lot=spec["pip_value_per_lot"], market_price=spec["ask"],
-            contract_size=spec["trade_contract_size"], volume_min=spec["volume_min"], volume_max=spec["volume_max"],
+            contract_size=cs, volume_min=spec["volume_min"], volume_max=spec["volume_max"],
             volume_step=spec["volume_step"], risk_method="kelly_half", custom_risk_pct=1.0, trade_stats=trade_stats,
             currency_base=spec.get("currency_base", "USD"), currency_profit=spec.get("currency_profit", "USD"),
             currency_margin=spec.get("currency_margin", "USD"), min_risk_floor_pct=req.min_risk_floor_pct,
             max_risk_ceiling_pct=req.max_risk_ceiling_pct
         )
-        margin_hk = feed.calculate_margin(sym, alt_hk_pre.executable_lot, spec["ask"], req.leverage)
+        margin_hk = resolve_margin(alt_hk_pre.executable_lot)
         alt_half_kelly = calculate_lot_for_symbol(
             symbol=sym, working_capital=req.working_capital, deposited_cash=req.deposited_cash, leverage=req.leverage,
             sl_pips=sl_pips, pip_value_per_lot=spec["pip_value_per_lot"], market_price=spec["ask"],
-            contract_size=spec["trade_contract_size"], volume_min=spec["volume_min"], volume_max=spec["volume_max"],
+            contract_size=cs, volume_min=spec["volume_min"], volume_max=spec["volume_max"],
             volume_step=spec["volume_step"], risk_method="kelly_half", custom_risk_pct=1.0, trade_stats=trade_stats,
             currency_base=spec.get("currency_base", "USD"), currency_profit=spec.get("currency_profit", "USD"),
             currency_margin=spec.get("currency_margin", "USD"), exact_broker_margin=margin_hk,
@@ -485,48 +506,9 @@ async def close_50_all_positions():
 async def websocket_live(websocket: WebSocket):
     """
     Real-time WebSocket streaming with dynamic client-configurable refresh interval.
-    Supports sub-second Turbo Mode (500ms) and standard monitoring (2000ms).
+    Powered by centralized single-producer BroadcastHub with Turbo Mode (500ms).
     """
     await manager.connect(websocket, initial_interval=2.0)
-    
-    # Per-client streaming worker
-    async def client_streamer():
-        last_pos_count = -1
-        last_stats_time = asyncio.get_event_loop().time()
-        try:
-            while True:
-                interval = manager.get_interval(websocket)
-                await asyncio.sleep(interval)
-                symbols = await asyncio.to_thread(feed.get_market_symbols)
-                account = await asyncio.to_thread(feed.get_account_summary)
-                positions = await asyncio.to_thread(feed.get_open_positions)
-                
-                curr_pos_count = len(positions) if positions else 0
-                now_time = asyncio.get_event_loop().time()
-                
-                payload = {
-                    "type": "symbols_update",
-                    "symbols": symbols,
-                    "account": account,
-                    "positions": positions,
-                    "timestamp": now_time
-                }
-                
-                # Check stats if position count decreased (e.g. SL/TP hit in MT5) or 5-second heartbeat
-                if (last_pos_count != -1 and curr_pos_count < last_pos_count) or (now_time - last_stats_time >= 5.0):
-                    stats, sample_info = await get_trade_stats_payload()
-                    payload["trade_stats"] = stats
-                    payload["sample_info"] = sample_info
-                    last_stats_time = now_time
-                
-                last_pos_count = curr_pos_count
-                await websocket.send_json(payload)
-        except asyncio.CancelledError:
-            pass
-        except Exception as e:
-            logger.error(f"WebSocket client_streamer error: {e}", exc_info=True)
-
-    streamer_task = asyncio.create_task(client_streamer())
     try:
         # Send initial symbols, account state, open positions, and trade statistics
         symbols = await asyncio.to_thread(feed.get_market_symbols)
@@ -561,9 +543,8 @@ async def websocket_live(websocket: WebSocket):
     except WebSocketDisconnect:
         pass
     except Exception as e:
-        logger.error(f"WebSocket unexpected error: {e}", exc_info=True)
+        logger.debug(f"WebSocket unexpected error: {e}")
     finally:
-        streamer_task.cancel()
         await manager.disconnect(websocket)
 
 

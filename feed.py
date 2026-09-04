@@ -26,6 +26,7 @@ except ImportError:
 from margin_engine import resolve_margin_specs, calculate_broker_margin, get_category_leverage
 from domain.models.break_even import BreakEvenInputs
 from domain.math.break_even import calculate_break_even_price
+from infrastructure.ipc.mt5_worker import MT5IPCWorker
 
 _log_level = logging.DEBUG if (os.getenv("VERBOSE", "").lower() in ("1", "true", "yes") or os.getenv("LOG_LEVEL", "").upper() == "DEBUG") else logging.INFO
 logging.basicConfig(level=_log_level, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -151,7 +152,8 @@ class MT5RiskFeed:
         self._is_connected = False
         self._mock_mode = mock_mode
         self._cached_trades: List[float] = []
-        self._mt5_lock = threading.RLock()
+        self._ipc_worker = MT5IPCWorker()
+        self._mt5_lock = self._ipc_worker._lock
         
         # In-memory caches for high-speed sub-second polling
         self._specs_cache: Dict[str, Dict[str, Any]] = {}
@@ -162,6 +164,13 @@ class MT5RiskFeed:
 
         if not mock_mode:
             self._init_mt5()
+
+    def shutdown(self):
+        """Cleanly shut down MT5 worker queue and IPC connection."""
+        try:
+            self._ipc_worker.shutdown(wait=False)
+        except Exception as e:
+            logger.debug(f"Error shutting down MT5 worker: {e}")
 
     def _init_mt5(self) -> bool:
         if mt5 is None:

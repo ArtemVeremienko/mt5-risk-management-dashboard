@@ -277,10 +277,10 @@ Phase 1: Domain Decoupling & Unified Margin Engine (Zero Regressions) [COMPLETED
    ├── [x] 1.2 Extract pure break-even math from feed.py into domain/math/break_even.py
    └── [x] 1.3 Standardize domain models & API schemas on Pydantic v2
 
-Phase 2: Concurrency & Event Loop Safeguarding
-   ├── 2.1 Implement MT5IPCWorker (Dedicated max_workers=1 ThreadPoolExecutor for MT5 C-extension)
-   ├── 2.2 Implement BroadcastHub (Pub/Sub WebSocket hub eliminating per-client polling storms)
-   └── 2.3 Eliminate event loop blocking calls in /api/calculate
+Phase 2: Concurrency & Event Loop Safeguarding [COMPLETED]
+   ├── [x] 2.1 Implement MT5IPCWorker (Dedicated max_workers=1 ThreadPoolExecutor for MT5 C-extension)
+   ├── [x] 2.2 Implement BroadcastHub (Pub/Sub WebSocket hub eliminating per-client polling storms)
+   └── [x] 2.3 Eliminate event loop blocking calls in /api/calculate
 
 Phase 3: Provider Abstraction & FastAPI Dependency Injection
    ├── 3.1 Define IMarketDataProvider and IExecutionProvider abstract interfaces
