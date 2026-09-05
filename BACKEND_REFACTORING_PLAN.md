@@ -65,6 +65,34 @@ This document serves as the master architectural refactoring blueprint to decoup
 
 ---
 
+### 2.4 Architectural Audit & Hexagonal Review Findings (Post-Phase 3 Audit)
+
+An architectural audit of the Phase 3 implementation by the Principal Systems Architect identified the following institutional gaps and critical concurrency nuances:
+
+* **2.4.1 MT5 IPC Thread-Pinning Defect in `MT5NativeProvider` (Critical Concurrency Flaw)**:
+  * **Finding**: While `MT5IPCWorker` instantiated a dedicated single-threaded executor (`ThreadPoolExecutor(max_workers=1, thread_name_prefix="MT5_IPC_Serial")`), `MT5NativeProvider` did not dispatch calls to this executor. Instead, it acquired `self._mt5_lock = self._ipc_worker._lock` within synchronous methods invoked via `asyncio.to_thread()`.
+  * **Risk**: Work was executed on arbitrary worker threads allocated from Python's unbounded thread pool. Although the lock prevented concurrent execution, MetaTrader 5's `.pyd` Win32 IPC channel relies on thread-local resources and named pipe state. Invoking MT5 across shifting OS thread IDs risks Win32 memory access violations (`0xC0000005`), IPC handle corruption, or driver stalls under heavy load.
+  * **Remedy**: Bind all MT5 C-extension invocations strictly to the dedicated serial thread via `self._ipc_worker.call(func, *args, **kwargs)` or `self._ipc_worker.run(...)`.
+
+* **2.4.2 Resolution of the "Compatibility Facade" Anti-Pattern (Domain Model Purity)**:
+  * **Finding**: `feed.py` initially retained an `MT5RiskFeed` subclass that overrode provider methods to return `.model_dump()` dictionaries to satisfy outdated test assertions. This violated the `IMarketDataProvider` interface contract and caused `AttributeError: 'dict' object has no attribute 'leverage'` in business services.
+  * **Remedy**: Eliminated dictionary emulation methods (`__getitem__`, `__contains__`, `get`) on domain models. Domain entities are pure immutable Pydantic v2 models (`DomainModel`), and tests/services strictly access fields using dot-notation attribute syntax (`pos.r_multiple`, `sym.adr_14_pips`).
+
+* **2.4.3 Pre-Trade Risk Gatekeeper Gap in `ExecutionService` (Institutional OMS Nuance)**:
+  * **Finding**: `ExecutionService.send_market_order()` currently operates as a naive pass-through router to `provider.send_market_order()`.
+  * **Risk**: Missing pre-trade validation leaves the terminal vulnerable to high slippage during spread blowouts (e.g. rollover or news spikes), account margin exhaustion, or duplicate orders from rapid accidental double-clicks.
+  * **Remedy**: Implement a Pre-Trade Risk Gatekeeper in `ExecutionService`:
+    1. **Spread Blowout Guard**: Intercept and block/warn if `current_spread > 2.5 * median_spread`.
+    2. **Pre-Flight Margin Utilization Check**: Reject order if projected `margin_utilization > 80%` or `required_margin > free_margin * 0.95`.
+    3. **Order Debouncing / Idempotency Key**: Enforce a 300ms debounce window and validate optional `client_order_id` to eliminate duplicate fills.
+
+* **2.4.4 The "$0 Delta" Liquidation Gap (Smart Flatten vs. Basic Close)**:
+  * **Finding**: `ExecutionService.close_all_positions()` only iterates through market positions (`positions_get`). It does not cancel active pending orders (`orders_get` — Buy/Sell Limits, Buy/Sell Stops).
+  * **Risk**: In institutional and prop trading, clicking "Emergency Flatten" requires guaranteed **$0 Delta Exposure**. Leaving open limit orders on the book exposes the account to latent execution if the market swings into order levels.
+  * **Remedy**: Introduce `IExecutionProvider.cancel_all_orders()` and a dedicated `LiquidationService` implementing a two-phase atomic flatten sequence: cancel 100% of pending orders, then liquidate 100% of market positions.
+
+---
+
 ## 3. Target Architecture: Hexagonal / Ports & Adapters
 
 ```
@@ -287,10 +315,15 @@ Phase 3: Provider Abstraction & FastAPI Dependency Injection [COMPLETED]
    ├── [x] 3.2 Refactor feed.py into MT5NativeProvider and MockDataProvider
    └── [x] 3.3 Split app.py into modular routers with FastAPI Depends() injection
 
-Phase 4: Implementation of TODO.md Features
-   ├── 4.1 LiquidationService: Smart Flatten (Positions + Pending Orders) vs Close All
-   ├── 4.2 Pre-Trade Risk Gatekeeper: Spread blowout guard (>2.5x median) & pre-flight margin checks
-   └── 4.3 Session ADR Exhaustion Telemetry in 500ms broadcast stream
+Phase 4: Implementation of TODO.md Features & Institutional Hardening
+   ├── 4.1 Pin MT5 IPC to Dedicated Worker Thread (P0 Concurrency Defect)
+   │     Route all MT5 C-extension operations through MT5IPCWorker.call() rather than random threads
+   ├── 4.2 Smart Flatten ($0 Delta) Engine & LiquidationService (P1 Liquidation Gap)
+   │     Add cancel_all_orders() to IExecutionProvider, cancel active pending orders prior to position liquidation
+   ├── 4.3 Pre-Trade Risk Gatekeeper & Idempotency Pipeline (P2 OMS Gate)
+   │     Spread blowout guard (>2.5x median), pre-flight margin utilization check, and order debouncing
+   └── 4.4 Session ADR Exhaustion Telemetry in 500ms broadcast stream (P3 HUD Telemetry)
+         Intraday D1 extremes, adr_used_pct, room_up_pips, room_down_pips in 500ms broadcast stream
 
 Phase 5: Native MQL5 TCP Socket Push Bridge (STREAMING_PLAN.md)
    ├── 5.1 Asyncio TCP server (:9090 / :9091) for NDJSON stream ingestion
