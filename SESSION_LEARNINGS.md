@@ -197,4 +197,57 @@
 2. **Tabular Numbers Invariance**:
    - All monetary, pip, and $R$-multiple figures must strictly enforce `font-variant-numeric: tabular-nums` to prevent horizontal micro-jitter when numbers fluctuate between positive, negative, and masked states.
 
+---
 
+## 📈 10. Dual-Buffer Zero-Allocation Sparklines, Persistent Overrides & Portfolio Heat
+
+### System & Architectural Insights
+* **The "Caller-Allocated Buffer" Memory Leak Anti-Pattern**:
+  * **Observation**: In early ring buffer prototypes, the data structure returned a newly instantiated array on each call (`createRenderBuffer(): Float32Array`), or required callers to pass their own destination buffers (`copyTo(dest)`).
+  * **Impact**: In a high-frequency trading terminal with 26 instruments streaming at 500ms Turbo Mode ($52\text{ messages/sec}$), component-level array allocations create steady garbage collection pressure. Under Chrome or WebKit, periodic GC sweeps cause 15–30ms micro-stutters and frame drops during high-volatility tick bursts. Furthermore, requiring the component to manage buffer instances leaked capacity magic numbers (`120`) across multiple UI files.
+  * **Architectural Rule**: Implement the **Class-Internal Dual-Buffer Pattern**. The buffer instance (`CircularPriceBuffer`) owns both the raw ring buffer (`rawBuffer: Float32Array(120)`) and the unrolled chronological buffer (`renderBuffer: Float32Array(120)`). When `getChronological(outMetrics)` is invoked, it unrolls into its internal `renderBuffer` and computes `min`, `max`, `first`, and `last` in a single contiguous memory sweep ($< 3\mu\text{s}$), writing results to a pre-allocated metrics object. Zero heap memory is allocated on tick arrival or render loops.
+* **Canvas Rendering Budgeting via Pinned / Hovered Gating**:
+  * **Observation**: Canvas repaints across 26 simultaneous table rows on every 500ms broadcast introduce significant GPU compositing overhead, even when price movement is minimal.
+  * **Architectural Rule**: Separate **data ingestion** from **canvas rendering**. Ring buffers continuously ingest quotes in memory for all symbols ($O(1)$ updates). However, canvas `<canvas>` rendering and `requestAnimationFrame` hooks are strictly gated to rows that are **Pinned (`📌`)** or currently **Hovered**. Default unpinned rows remain dormant until inspected or pinned, keeping UI frame rate locked at 60 FPS ($< 0.05\text{ms}$ rendering overhead).
+
+### Gotchas, Traps & Framework Quirks
+* **Input Desynchronization vs. `isFocused` Shielding**:
+  * **Gotcha**: In high-frequency 500ms streaming, if an inline Stop Loss input synchronizes reactively with incoming props or store signals, an active operator typing a replacement value (e.g. `35.0`) will have their typing interrupted or overwritten by the next tick.
+  * **Remedy**: Always maintain a local signal (`localVal`) inside the row component paired with an `isFocused` flag. Synchronize external state changes to `localVal` strictly when `!isFocused()`. Provide `onFocus={(e) => e.currentTarget.select()}` for instant single-keystroke replacement.
+* **Solid.js Store Initialization vs. Module Singleton Exports**:
+  * **Gotcha**: When unit tests or subagents inspect browser state, referencing unexported stores or trying to inspect stores from the global `window` fails unless explicitly exposed or accessed through Solid's reactivity tree.
+  * **Workaround**: Never rely on ad-hoc monkey-patching of stores on `window` in production code. Use standard typed services (`api.ts`, `wsService.ts`) and let Solid.js reactive signals propagate to the DOM, where end-to-end accessibility trees and data attributes can be inspected cleanly by testing agents.
+
+### Domain & API Nuances
+* **Normalized Portfolio Heat in Risk Multiples ($R$)**:
+  * **Nuance**: In multi-position trading, raw dollar heat ($-\$1,250.00$) varies drastically depending on account size, whereas percentage heat ($12.5\%$) masks how many distinct risk units are at stake.
+  * **Mathematical Formulation**: Define baseline $1R$ dollar risk as:
+    $$1R = \text{Working Capital} \times \text{Risk \%} \quad (\text{e.g. } \$8,558.02 \times 0.01 = \$85.58)$$
+    Portfolio Heat in $R$-multiples is then dynamically computed as:
+    $$\text{Heat}_R = \frac{\text{Total Open Risk Dollars}}{1R} = \frac{\sum (\text{SL Risk Amount})}{1R}$$
+    This allows a discretionary trader to immediately see that they are risking e.g. **$2.50R$ across 3 positions**, regardless of whether their PnL display is set to Currency, R-Multiple, or Stealth Mask mode.
+* **Multi-Currency Directional Vector Deconstruction**:
+  * **Nuance**: Direct lot volume summation across currency pairs is meaningless (e.g., $1.0$ lot EURUSD BUY vs. $1.0$ lot USDJPY BUY represents opposing dollar commitments, not additive risk).
+  * **Rule**: To compute true directional exposure, deconstruct each symbol into base and quote components:
+    * EURUSD BUY $0.50$ lots $\implies$ `+0.50 EUR`, `-0.50 USD`
+    * GBPUSD SELL $0.30$ lots $\implies$ `-0.30 GBP`, `+0.30 USD`
+    * Net Exposure: `+0.50 EUR`, `-0.30 GBP`, `-0.20 USD`.
+
+### Negative Knowledge (What NOT to Do)
+1. **DO NOT introduce floating hover preset chip popups (`[¼]`, `[⅓]`, etc.) in high-frequency tabular inputs**:
+   - *Why*: Floating preset chips create visual clutter, obscure neighboring cells (Lot Size / Effective Risk), and trigger unintended clicks during rapid mouse navigation. A clean numeric input with instant select-on-focus and a persistent `localStorage` override mechanism is vastly superior for discretionary intraday execution.
+2. **DO NOT re-allocate typed arrays inside component render loops**:
+   - *Why*: Instantiating `new Float32Array()` or `.slice()` in 500ms intervals triggers unavoidable garbage collector pauses. Always pre-allocate fixed-size buffers inside utility classes.
+3. **DO NOT mask the risk percentage when Stealth Mask mode is active**:
+   - *Why*: Stealth mode is designed to eliminate emotional bias caused by large floating dollar numbers, **not** to obscure account risk. The percentage of Working Capital (`(1.6% of WC)`) must remain visible at all times to maintain pre-trade safety awareness.
+
+### Reusable Conventions & Rules
+1. **Dual-Buffer Utility Encapsulation**:
+   - Any time-series visualization utility requiring unrolling or normalization must manage both ring buffer and render buffer internally. The caller must only request a read view (`getChronological()`).
+2. **Persistent Custom Overrides Contract**:
+   - Symbol-specific parameter overrides (such as custom Stop Loss points) must be persisted in `localStorage` under namespaced keys (e.g. `mt5_sl_overrides`) and paired with an unambiguous reset affordance (`↺`) that removes the key and immediately restores the global rule.
+3. **Multi-Mode Value Formatting Hierarchy**:
+   - Any telemetry metric reflecting PnL or risk must strictly respect the global `pnlDisplayMode`:
+     - `currency`: `$X,XXX.XX`
+     - `r_multiple`: `+X.XX R` / `-X.XX R`
+     - `stealth_mask`: `***.**` (preserving sign indicator where applicable)

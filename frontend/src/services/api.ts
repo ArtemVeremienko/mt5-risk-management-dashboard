@@ -59,12 +59,23 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
+    if (!res.ok) {
+      let errMsg = `HTTP ${res.status}: Failed to execute order`;
+      try {
+        const err = await res.json();
+        if (err?.message) errMsg = err.message;
+        else if (err?.detail) errMsg = typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail);
+      } catch {
+        // fallback to default errMsg
+      }
+      return { success: false, message: errMsg };
+    }
     return res.json();
   },
 
   async fetchPositions(): Promise<{ positions: OpenPosition[]; count: number }> {
     const res = await fetch('/api/positions');
-    if (!res.ok) throw new Error('Failed to fetch positions');
+    if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to fetch positions`);
     return res.json();
   },
 
@@ -74,6 +85,17 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ticket, volume }),
     });
+    if (!res.ok) {
+      let errMsg = `HTTP ${res.status}: Failed to close position #${ticket}`;
+      try {
+        const err = await res.json();
+        if (err?.message) errMsg = err.message;
+        else if (err?.detail) errMsg = typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail);
+      } catch {
+        // fallback to default errMsg
+      }
+      return { success: false, message: errMsg };
+    }
     return res.json();
   },
 
@@ -83,6 +105,17 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ticket, sl, tp }),
     });
+    if (!res.ok) {
+      let errMsg = `HTTP ${res.status}: Failed to modify position #${ticket}`;
+      try {
+        const err = await res.json();
+        if (err?.message) errMsg = err.message;
+        else if (err?.detail) errMsg = typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail);
+      } catch {
+        // fallback to default errMsg
+      }
+      return { success: false, message: errMsg };
+    }
     return res.json();
   },
 

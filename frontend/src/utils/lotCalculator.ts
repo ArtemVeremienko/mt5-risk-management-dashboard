@@ -69,9 +69,9 @@ export function computeLocalRiskForResult(
   const exactLot = riskPerLot > 0 ? targetRiskAmount / riskPerLot : 0.0;
 
   // 3. Broker Volume Clamping
-  const volumeMin = spec.volume_min || 0.01;
-  const volumeMax = spec.volume_max || 100.0;
-  const volumeStep = spec.volume_step || 0.01;
+  const volumeMin = spec.volume_min && spec.volume_min > 0 ? spec.volume_min : 0.01;
+  const volumeMax = spec.volume_max && spec.volume_max > 0 ? spec.volume_max : 100.0;
+  const volumeStep = spec.volume_step && spec.volume_step > 0 ? spec.volume_step : 0.01;
 
   const steps = Math.round(exactLot / volumeStep);
   const steppedLot = Math.round(steps * volumeStep * 1000000) / 1000000;
@@ -90,7 +90,7 @@ export function computeLocalRiskForResult(
     isClampedMax = true;
   }
 
-  const decimals = volumeStep < 1 ? Math.max(0, Math.ceil(-Math.log10(volumeStep))) : 2;
+  const decimals = volumeStep < 1 ? Math.min(8, Math.max(0, Math.ceil(-Math.log10(volumeStep)))) : 2;
   executableLot = parseFloat(executableLot.toFixed(decimals));
 
   // 4. Effective Risk

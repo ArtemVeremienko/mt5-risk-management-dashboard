@@ -35,12 +35,12 @@ export function calculatePortfolioHeat(
     }
 
     protectedCount++;
-    const pipSize = pos.pip_size || (pos.digits === 3 || pos.digits === 5 ? 0.0001 : 0.01);
-    const distPips = Math.abs(pos.price_open - pos.sl) / pipSize;
+    const pipSize = pos.pip_size && pos.pip_size > 0 ? pos.pip_size : (pos.digits === 3 || pos.digits === 5 ? 0.0001 : 0.01);
+    const distPips = pipSize > 0 ? Math.abs(pos.price_open - pos.sl) / pipSize : 0;
 
     // Get pip value from marketStore calculation or fallback
     const res = getSymbolResult(pos.symbol);
-    const pipValPerLot = res?.calc.pip_value_per_lot || (pos.digits === 3 || pos.digits === 5 ? 10.0 : 10.0);
+    const pipValPerLot = res?.calc.pip_value_per_lot || 10.0;
 
     const posRisk = distPips * pipValPerLot * pos.volume;
     if (!isNaN(posRisk) && posRisk > 0) {

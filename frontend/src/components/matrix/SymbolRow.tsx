@@ -61,12 +61,21 @@ export const SymbolRow: Component<Props> = (props) => {
     }
   });
 
-  const handleSlCommit = (inputStr: string) => {
+  const handleSlCommit = (inputStr: string, isDraft: boolean = false) => {
     const val = parseFloat(inputStr);
     const def = defaultSL();
-    if (isNaN(val) || val <= 0 || Math.abs(val - def) < 0.0001) {
+    if (isNaN(val) || val <= 0) {
+      if (!isDraft) {
+        preferencesStore.resetSymbolSL(props.symbol);
+        setLocalVal(def.toString());
+      }
+      return;
+    }
+    if (Math.abs(val - def) < 0.0001) {
       preferencesStore.resetSymbolSL(props.symbol);
-      setLocalVal(def.toString());
+      if (!isDraft) {
+        setLocalVal(def.toString());
+      }
     } else {
       preferencesStore.setSymbolSL(props.symbol, val);
     }
@@ -373,15 +382,19 @@ export const SymbolRow: Component<Props> = (props) => {
                 }}
                 onBlur={(e) => {
                   setIsFocused(false);
-                  handleSlCommit(e.currentTarget.value);
+                  handleSlCommit(e.currentTarget.value, false);
                 }}
                 onInput={(e) => {
-                  setLocalVal(e.currentTarget.value);
-                  handleSlCommit(e.currentTarget.value);
+                  const raw = e.currentTarget.value;
+                  setLocalVal(raw);
+                  const val = parseFloat(raw);
+                  if (!isNaN(val) && val > 0) {
+                    handleSlCommit(raw, true);
+                  }
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    handleSlCommit(e.currentTarget.value);
+                    handleSlCommit(e.currentTarget.value, false);
                     e.currentTarget.blur();
                   }
                 }}
