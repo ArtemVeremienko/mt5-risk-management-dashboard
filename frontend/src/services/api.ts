@@ -1,4 +1,5 @@
 import { AccountSummary, OpenPosition, TradeStats, SampleSizeInfo, SymbolSpec } from '../types';
+import { httpClient, ApiError } from './httpClient';
 
 export interface ExecuteOrderPayload {
   symbol: string;
@@ -22,111 +23,79 @@ export interface CalculateApiPayload {
   symbol_sl_overrides: Record<string, number>;
 }
 
+export interface OrderActionResult {
+  success: boolean;
+  message: string;
+  ticket?: number;
+  [key: string]: any;
+}
+
 export const api = {
-  async fetchAccount(): Promise<AccountSummary> {
-    const res = await fetch('/api/account');
-    if (!res.ok) throw new Error('Failed to fetch account info');
-    return res.json();
+  fetchAccount(): Promise<AccountSummary> {
+    return httpClient.get<AccountSummary>('/api/account');
   },
 
-  async fetchTradeHistory(): Promise<{
+  fetchTradeHistory(): Promise<{
     stats: TradeStats;
     sample_info: SampleSizeInfo;
     twr_curve?: Array<{ f: number; twr: number }>;
     recent_trades?: any[];
   }> {
-    const res = await fetch('/api/trade-history');
-    if (!res.ok) throw new Error('Failed to fetch trade history from MT5');
-    return res.json();
+    return httpClient.get('/api/trade-history');
   },
 
-  async fetchInitialCalculate(payload: CalculateApiPayload): Promise<{
+  fetchInitialCalculate(payload: CalculateApiPayload): Promise<{
     results: Array<{ spec: SymbolSpec }>;
     trade_stats: TradeStats;
   }> {
-    const res = await fetch('/api/calculate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) throw new Error('Failed to fetch calculate data');
-    return res.json();
+    return httpClient.post('/api/calculate', payload);
   },
 
-  async executeOrder(payload: ExecuteOrderPayload): Promise<{ success: boolean; message: string; ticket?: number }> {
-    const res = await fetch('/api/order/execute', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      let errMsg = `HTTP ${res.status}: Failed to execute order`;
-      try {
-        const err = await res.json();
-        if (err?.message) errMsg = err.message;
-        else if (err?.detail) errMsg = typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail);
-      } catch {
-        // fallback to default errMsg
-      }
-      return { success: false, message: errMsg };
+  async executeOrder(payload: ExecuteOrderPayload): Promise<OrderActionResult> {
+    try {
+      const res = await httpClient.post<OrderActionResult>('/api/order/execute', payload);
+      return res;
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err instanceof ApiError ? err.message : (err?.message || 'Failed to execute order'),
+      };
     }
-    return res.json();
   },
 
-  async fetchPositions(): Promise<{ positions: OpenPosition[]; count: number }> {
-    const res = await fetch('/api/positions');
-    if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to fetch positions`);
-    return res.json();
+  fetchPositions(): Promise<{ positions: OpenPosition[]; count: number }> {
+    return httpClient.get<{ positions: OpenPosition[]; count: number }>('/api/positions');
   },
 
-  async closePosition(ticket: number, volume?: number): Promise<{ success: boolean; message: string }> {
-    const res = await fetch('/api/position/close', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ticket, volume }),
-    });
-    if (!res.ok) {
-      let errMsg = `HTTP ${res.status}: Failed to close position #${ticket}`;
-      try {
-        const err = await res.json();
-        if (err?.message) errMsg = err.message;
-        else if (err?.detail) errMsg = typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail);
-      } catch {
-        // fallback to default errMsg
-      }
-      return { success: false, message: errMsg };
+  async closePosition(ticket: number, volume?: number): Promise<OrderActionResult> {
+    try {
+      const res = await httpClient.post<OrderActionResult>('/api/position/close', { ticket, volume });
+      return res;
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err instanceof ApiError ? err.message : (err?.message || `Failed to close position #${ticket}`),
+      };
     }
-    return res.json();
   },
 
-  async modifyPosition(ticket: number, sl?: number, tp?: number): Promise<{ success: boolean; message: string }> {
-    const res = await fetch('/api/position/modify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ticket, sl, tp }),
-    });
-    if (!res.ok) {
-      let errMsg = `HTTP ${res.status}: Failed to modify position #${ticket}`;
-      try {
-        const err = await res.json();
-        if (err?.message) errMsg = err.message;
-        else if (err?.detail) errMsg = typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail);
-      } catch {
-        // fallback to default errMsg
-      }
-      return { success: false, message: errMsg };
+  async modifyPosition(ticket: number, sl?: number, tp?: number): Promise<OrderActionResult> {
+    try {
+      const res = await httpClient.post<OrderActionResult>('/api/position/modify', { ticket, sl, tp });
+      return res;
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err instanceof ApiError ? err.message : (err?.message || `Failed to modify position #${ticket}`),
+      };
     }
-    return res.json();
   },
 
-  async closeAllPositions(): Promise<{ results: Array<{ success: boolean; message: string }>; count: number }> {
-    const res = await fetch('/api/position/close-all', {
-      method: 'POST',
-    });
-    return res.json();
+  closeAllPositions(): Promise<{ results: Array<{ success: boolean; message: string }>; count: number }> {
+    return httpClient.post('/api/position/close-all');
   },
 
-  async flattenAll(): Promise<{
+  flattenAll(): Promise<{
     success: boolean;
     orders_cancelled: number;
     positions_closed: number;
@@ -135,38 +104,29 @@ export const api = {
     message: string;
     timestamp: number;
   }> {
-    const res = await fetch('/api/position/flatten-all', {
-      method: 'POST',
-    });
-    return res.json();
+    return httpClient.post('/api/position/flatten-all');
   },
 
-  async cancelAllOrders(): Promise<{
+  cancelAllOrders(): Promise<{
     success: boolean;
     cancelled_count: number;
     total_count: number;
     results: Array<{ success: boolean; message?: string }>;
   }> {
-    const res = await fetch('/api/order/cancel-all', {
-      method: 'POST',
-    });
-    return res.json();
+    return httpClient.post('/api/order/cancel-all');
   },
 
-  async breakEvenAllPositions(): Promise<{
+  breakEvenAllPositions(): Promise<{
     success: boolean;
     count_modified: number;
     count_skipped: number;
     total_positions: number;
     results: Array<any>;
   }> {
-    const res = await fetch('/api/position/break-even-all', {
-      method: 'POST',
-    });
-    return res.json();
+    return httpClient.post('/api/position/break-even-all');
   },
 
-  async close50AllPositions(): Promise<{
+  close50AllPositions(): Promise<{
     success: boolean;
     count_scaled_out: number;
     count_be_locked: number;
@@ -174,38 +134,22 @@ export const api = {
     total_positions: number;
     results: Array<any>;
   }> {
-    const res = await fetch('/api/position/close-50-all', {
-      method: 'POST',
-    });
-    return res.json();
+    return httpClient.post('/api/position/close-50-all');
   },
 
-  async submitManualStats(params: {
+  submitManualStats(params: {
     win_rate: number;
     payoff_ratio: number;
     total_trades: number;
     worst_loss: number;
   }): Promise<TradeStats> {
-    const res = await fetch('/api/manual-stats', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(params),
-    });
-    if (!res.ok) throw new Error('Failed to apply manual stats');
-    return res.json();
+    return httpClient.post<TradeStats>('/api/manual-stats', params);
   },
 
-  async uploadTradesCsv(file: File): Promise<{ message: string }> {
+  uploadTradesCsv(file: File): Promise<{ message: string }> {
     const formData = new FormData();
     formData.append('file', file);
-    const res = await fetch('/api/upload-trades', {
-      method: 'POST',
-      body: formData,
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || 'Failed to upload CSV');
-    }
-    return res.json();
+    return httpClient.upload<{ message: string }>('/api/upload-trades', formData);
   },
 };
+

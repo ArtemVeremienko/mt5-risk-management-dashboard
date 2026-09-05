@@ -9,6 +9,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },
@@ -20,8 +22,10 @@
     "@typescript-eslint/parser": "^8.69.0",
     "eslint": "^10.9.1",
     "eslint-plugin-solid": "^0.17.0",
+    "jsdom": "^30.0.1",
     "typescript": "^5.7.3",
     "vite": "^6.2.0",
-    "vite-plugin-solid": "^2.11.6"
+    "vite-plugin-solid": "^2.11.6",
+    "vitest": "^5.0.0"
   }
 }

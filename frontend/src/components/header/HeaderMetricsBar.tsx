@@ -122,7 +122,8 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
     if (mode === 'stealth_mask') return '***.**';
     if (mode === 'r_multiple') {
       const pnl = floatingProfit();
-      const rVal = oneRCash() > 0 ? pnl / oneRCash() : 0;
+      const oneR = positionsStore.oneRCash();
+      const rVal = oneR > 0 ? pnl / oneR : 0;
       return `${rVal > 0 ? '+' : ''}${rVal.toFixed(2)} R`;
     }
     return formatCurrency(eq);
