@@ -396,7 +396,7 @@ def test_execute_order_endpoint(monkeypatch):
             "sl": 1.0830,
             "tp": 1.0890,
             "retcode": 10009,
-            "message": "Executed BUY 0.01 EURUSD @ 1.08500"
+            "message": "Executed BUY 0.1 EURUSD @ 1.08500"
         }
     )
     
@@ -404,7 +404,7 @@ def test_execute_order_endpoint(monkeypatch):
     payload = {
         "symbol": "EURUSD",
         "action": "BUY",
-        "volume": 0.01,
+        "volume": 0.1,
         "sl_pips": 25.0,
         "rr_ratio": 2.0,
         "comment": "TestExecution"

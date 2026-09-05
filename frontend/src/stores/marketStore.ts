@@ -3,6 +3,7 @@ import { SymbolSpec, CalculatedSymbolResult, TradeStats, SampleSizeInfo } from '
 import { computeLocalRiskForResult } from '../utils/lotCalculator';
 import { preferencesStore } from './preferencesStore';
 import { accountStore } from './accountStore';
+import { RISK_CONSTANTS } from '../config/constants';
 
 export type SortColumn = 'symbol' | 'bid' | 'spread' | 'adr' | 'lot' | 'risk_pct' | 'margin' | null;
 export type SortDirection = 'none' | 'asc' | 'desc';
@@ -33,8 +34,8 @@ function createMarketStore() {
   const calculatedResultsMap = createMemo<Map<string, CalculatedSymbolResult>>(() => {
     const symbols = rawSymbols();
     const wc = preferencesStore.workingCapital();
-    const depCash = accountStore.account().balance || 20.0;
-    const lev = accountStore.account().leverage || 300.0;
+    const depCash = accountStore.account().balance || RISK_CONSTANTS.DEFAULT_DEPOSITED_CASH;
+    const lev = accountStore.account().leverage || RISK_CONSTANTS.DEFAULT_ACCOUNT_LEVERAGE;
     const method = preferencesStore.riskMethod();
     const customPct = preferencesStore.customRiskPct();
     const minFloor = preferencesStore.minRiskFloorPct();

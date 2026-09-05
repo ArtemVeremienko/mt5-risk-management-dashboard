@@ -9,7 +9,7 @@ export const OrderManagementPanel: Component = () => {
   const positions = positionsStore.positions;
   const count = positionsStore.totalPositionsCount;
   const [isArmedCloseAll, setIsArmedCloseAll] = createSignal<boolean>(false);
-  let armedTimer: any;
+  let armedTimer: ReturnType<typeof setTimeout> | undefined;
 
   const totalPnl = () => positions().reduce((acc, p) => acc + (p.profit || 0), 0);
   const totalVolume = () => positions().reduce((acc, p) => acc + (p.volume || 0), 0);
