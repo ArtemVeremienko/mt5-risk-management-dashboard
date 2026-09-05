@@ -83,3 +83,18 @@
    - All tests and domain services must access model fields via dot-notation (`pos.r_multiple`, `sym.adr_14_pips`). Never use `pos["r_multiple"]`.
 3. **Selective `Field()` Usage**:
    - Use `Field(description=...)` exclusively on user-facing DTOs or when numerical constraints (`gt=0`, `le=1.0`) or default factories (`default_factory=list`) are strictly needed. Use plain type hints for pure computational domain objects.
+
+---
+
+## ⚡ 6. MT5 Concurrency & Market Watch Nuances (Session Update)
+
+### Worker Lock Deadlock on Startup
+* **Gotcha**: Holding `with self._mt5_lock:` on the main/caller thread while dispatching work to `MT5IPCWorker.call()` creates a classic mutex deadlock. The worker thread's guarded execution requires `self._lock`, but the caller thread is synchronously awaiting the future result while holding that exact lock.
+* **Impact**: The call timed out after 5.0 seconds (`MT5IPCTimeoutError`), causing `_init_mt5()` to catch the exception and silently degrade to `MockDataProvider` (`self._mock_mode = True`).
+* **Remedy**: Never acquire the IPC worker lock on the caller thread. Dispatch initialization logic directly onto the dedicated worker thread via `self._ipc_worker.call(self._init_mt5_sync)`.
+
+### MetaTrader 5 Symbol Discovery: `select` vs. `visible`
+* **Nuance**: `MetaTrader5.symbols_get()` returns all broker symbols. Each `SymbolInfo` contains two flags:
+  * `symbol.select`: True if the symbol is in the terminal's internal subscription cache (e.g. opened in background charts or previously added; 48 symbols).
+  * `symbol.visible`: True **only** if the symbol is actively shown in the user's Market Watch window (`25 / 2105` symbols).
+* **Remedy**: In `_sync_market_watch_symbols()`, filter strictly by `getattr(s, "visible", False)` to keep the screener synchronized with the trader's actual active Market Watch.

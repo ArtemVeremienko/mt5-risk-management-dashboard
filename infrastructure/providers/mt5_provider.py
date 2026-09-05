@@ -102,32 +102,39 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
             self._is_connected = False
             return False
 
-        with self._mt5_lock:
-            try:
-                if not mt5_lib.initialize():
-                    err = mt5_lib.last_error()
-                    logger.warning(f"MT5 initialize() returned False (Error: {err}). Falling back to Mock Data Mode.")
-                    self._mock_mode = True
-                    self._is_connected = False
-                    return False
-
-                terminal_info = mt5_lib.terminal_info()
-                if terminal_info is None:
-                    logger.warning("MT5 terminal info is None. Falling back to Mock Data Mode.")
-                    self._mock_mode = True
-                    self._is_connected = False
-                    return False
-
+        try:
+            success = self._ipc_worker.call(self._init_mt5_sync)
+            if success:
                 self._is_connected = True
                 self._mock_mode = False
                 logger.info("Successfully connected to live MT5 terminal.")
                 self.refresh_volatility_cache()
                 return True
-            except Exception as e:
-                logger.warning(f"Exception initializing MT5: {e}. Falling back to Mock Data Mode.")
+            else:
                 self._mock_mode = True
                 self._is_connected = False
                 return False
+        except Exception as e:
+            logger.warning(f"Exception initializing MT5: {e}. Falling back to Mock Data Mode.")
+            self._mock_mode = True
+            self._is_connected = False
+            return False
+
+    def _init_mt5_sync(self) -> bool:
+        mt5_lib = self._get_mt5()
+        if not mt5_lib:
+            return False
+        if not mt5_lib.initialize():
+            err = mt5_lib.last_error()
+            logger.warning(f"MT5 initialize() returned False (Error: {err}). Falling back to Mock Data Mode.")
+            return False
+
+        terminal_info = mt5_lib.terminal_info()
+        if terminal_info is None:
+            logger.warning("MT5 terminal info is None. Falling back to Mock Data Mode.")
+            return False
+
+        return True
 
     @property
     def is_connected(self) -> bool:
@@ -529,7 +536,8 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
             mt5_lib = self._get_mt5()
             symbols = mt5_lib.symbols_get() if mt5_lib else None
             if symbols:
-                self._cached_symbol_names = [s.name for s in symbols if s.select]
+                visible_names = [s.name for s in symbols if getattr(s, "visible", False)]
+                self._cached_symbol_names = visible_names if visible_names else [s.name for s in symbols if getattr(s, "select", False)]
                 self._last_symbol_sync_time = now
         except Exception as e:
             logger.error(f"Error fetching symbols: {e}")
