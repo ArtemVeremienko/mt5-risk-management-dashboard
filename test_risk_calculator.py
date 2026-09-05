@@ -134,10 +134,14 @@ def test_sample_size_reliability_tiers():
 
 def test_volume_clamping_and_stepping():
     """Test broker lot stepping and clamping logic."""
-    # Stepping test (0.017 should round to 0.02)
+    # Stepping test (0.017 floors to 0.01 to ensure risk percentage remains a strict ceiling)
     lot, min_c, max_c = clamp_lot_to_broker_specs(0.017, volume_min=0.01, volume_max=100.0, volume_step=0.01)
-    assert lot == 0.02
+    assert lot == 0.01
     assert not min_c and not max_c
+
+    # Epsilon edge test (e.g. 0.029999999999999995 should floor to 0.03 rather than 0.02 due to +1e-9)
+    lot_eps, _, _ = clamp_lot_to_broker_specs(0.029999999999999995, volume_min=0.01, volume_max=100.0, volume_step=0.01)
+    assert lot_eps == 0.03
 
     # Min volume clamp
     lot_min, is_min, _ = clamp_lot_to_broker_specs(0.003, volume_min=0.01, volume_max=50.0, volume_step=0.01)

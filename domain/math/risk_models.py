@@ -3,6 +3,7 @@ Pure quantitative risk models, lot sizing formulas, and statistical profiling.
 Zero external I/O, zero network or MT5 IPC dependencies.
 """
 
+import math
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple, Any
 import numpy as np
@@ -222,7 +223,7 @@ def clamp_lot_to_broker_specs(
 ) -> Tuple[float, bool, bool]:
     """
     Clamps exact mathematical lot size to broker specifications:
-    - Rounds to nearest volume_step.
+    - Floors to nearest volume_step (conservative risk ceiling).
     - Clamps to [volume_min, volume_max].
     Returns (executable_lot, is_clamped_to_min, is_clamped_to_max).
     """
@@ -233,7 +234,7 @@ def clamp_lot_to_broker_specs(
     if volume_max <= volume_min:
         volume_max = 100.0
 
-    steps = round(exact_lot / volume_step)
+    steps = math.floor(exact_lot / volume_step + 1e-9)
     stepped_lot = round(steps * volume_step, 6)
 
     is_clamped_to_min = False

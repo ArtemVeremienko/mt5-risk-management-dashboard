@@ -82,7 +82,7 @@ export function computeLocalRiskForResult(
   const volumeMax = spec.volume_max && spec.volume_max > 0 ? spec.volume_max : 100.0;
   const volumeStep = spec.volume_step && spec.volume_step > 0 ? spec.volume_step : 0.01;
 
-  const steps = Math.round(exactLot / volumeStep);
+  const steps = Math.floor(exactLot / volumeStep + 1e-9);
   const steppedLot = Math.round(steps * volumeStep * 1000000) / 1000000;
 
   let executableLot = steppedLot;
@@ -221,7 +221,7 @@ export function computeLocalRiskForResult(
   const calcCompare = (riskPct: number): ModelComparison => {
     const tAmt = workingCap * (riskPct / 100.0);
     const exLot = riskPerLot > 0 ? tAmt / riskPerLot : 0.0;
-    const st = Math.round(exLot / volumeStep) * volumeStep;
+    const st = Math.floor(exLot / volumeStep + 1e-9) * volumeStep;
     const cl = exLot <= 0 ? 0 : Math.max(volumeMin, Math.min(volumeMax, st));
     const cLot = parseFloat(cl.toFixed(decimals));
     return {
