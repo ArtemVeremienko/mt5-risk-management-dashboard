@@ -120,14 +120,6 @@ function createPreferences() {
     localStorage.setItem('mt5_active_view', view);
   };
 
-  const [emergencyActionMode, setEmergencyActionModeSignal] = createSignal<'close_only' | 'smart_flatten'>(
-    (localStorage.getItem('mt5_emergency_action_mode') as 'close_only' | 'smart_flatten') || 'smart_flatten'
-  );
-
-  const setEmergencyActionMode = (mode: 'close_only' | 'smart_flatten') => {
-    setEmergencyActionModeSignal(mode);
-    localStorage.setItem('mt5_emergency_action_mode', mode);
-  };
 
   const [showStatsBanner, setShowStatsBannerSignal] = createSignal<boolean>(
     localStorage.getItem('mt5_show_stats_banner') === 'true'
@@ -257,8 +249,6 @@ function createPreferences() {
     setOneClickEnabled,
     activeView,
     setActiveView,
-    emergencyActionMode,
-    setEmergencyActionMode,
     showStatsBanner,
     toggleStatsBanner,
     pinnedSymbols,

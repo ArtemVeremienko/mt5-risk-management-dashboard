@@ -66,8 +66,6 @@ export const OrderManagementPanel: Component = () => {
     }
   };
 
-  const isSmartFlatten = () => preferencesStore.emergencyActionMode() === 'smart_flatten';
-
   const handleLiquidationClick = async () => {
     if (!isArmedCloseAll()) {
       setIsArmedCloseAll(true);
@@ -83,21 +81,12 @@ export const OrderManagementPanel: Component = () => {
 
     try {
       positionsStore.setIsActionInProgress(true);
-      if (isSmartFlatten()) {
-        const res = await api.flattenAll();
-        toastStore.addToast(
-          'Smart Flatten Executed ($0 Delta)',
-          `Closed ${res.positions_closed} position(s) and cancelled ${res.orders_cancelled} pending order(s). Net exposure: $0.00`,
-          'warning'
-        );
-      } else {
-        const res = await api.closeAllPositions();
-        toastStore.addToast(
-          'Emergency Liquidation Executed',
-          `Closed ${res.count} positions across terminal`,
-          'warning'
-        );
-      }
+      const res = await api.flattenAll();
+      toastStore.addToast(
+        'Smart Flatten Executed ($0 Delta)',
+        `Closed ${res.positions_closed} position(s) and cancelled ${res.orders_cancelled} pending order(s). Net exposure: $0.00`,
+        'warning'
+      );
     } catch (e: any) {
       toastStore.addToast('Error', e.message || 'Failed to liquidate positions', 'error');
     } finally {
@@ -157,47 +146,18 @@ export const OrderManagementPanel: Component = () => {
               <span>✂️ Close 50% & BE All</span>
             </button>
 
-            {/* Liquidation Mode Toggle Segment */}
-            <div
-              class="liquidation-mode-selector"
-              title="Emergency Liquidation Target: Close open positions only vs Smart Flatten ($0 Delta) canceling all pending orders"
-            >
-              <button
-                type="button"
-                class="mode-btn"
-                classList={{ 'is-active': !isSmartFlatten() }}
-                onClick={() => preferencesStore.setEmergencyActionMode('close_only')}
-              >
-                Close Pos
-              </button>
-              <button
-                type="button"
-                class="mode-btn"
-                classList={{ 'is-active': isSmartFlatten() }}
-                onClick={() => preferencesStore.setEmergencyActionMode('smart_flatten')}
-              >
-                Flatten ($0 Δ)
-              </button>
-            </div>
-
             <button
               type="button"
-              class="btn-bulk-action"
+              class="btn-bulk-action btn-bulk-flatten"
               classList={{
-                'btn-bulk-close-all': !isSmartFlatten(),
-                'btn-bulk-flatten': isSmartFlatten(),
                 'btn-armed-critical': isArmedCloseAll(),
               }}
               onClick={handleLiquidationClick}
               disabled={positionsStore.isActionInProgress()}
               title={
                 isArmedCloseAll()
-                  ? isSmartFlatten()
-                    ? 'Click again to CONFIRM Smart Flatten ($0 Delta: Closes ALL positions & Cancels ALL pending orders)'
-                    : 'Click again to CONFIRM parallel liquidation of all open positions'
-                  : isSmartFlatten()
-                  ? 'Two-Phase Smart Flatten ($0 Delta): Closes all open positions and purges all active pending orders'
-                  : 'Parallel liquidation of all open market positions (2-step safety)'
+                  ? 'Click again to CONFIRM Smart Flatten ($0 Delta: Closes ALL positions & Cancels ALL pending orders)'
+                  : 'Two-Phase Smart Flatten ($0 Delta): Closes all open positions and purges all active pending orders'
               }
             >
               <svg class="btn-bulk-svg" viewBox="0 0 20 20" fill="currentColor">
@@ -205,12 +165,8 @@ export const OrderManagementPanel: Component = () => {
               </svg>
               <span>
                 {isArmedCloseAll()
-                  ? isSmartFlatten()
-                    ? `⚠️ Confirm FLATTEN ALL (${count()})`
-                    : `⚠️ Confirm Close ALL (${count()})`
-                  : isSmartFlatten()
-                  ? `🚨 Flatten All (${count()})`
-                  : `🛑 Close All (${count()})`}
+                  ? `⚠️ Confirm FLATTEN ALL (${count()})`
+                  : `🚨 Flatten All (${count()})`}
               </span>
             </button>
           </div>

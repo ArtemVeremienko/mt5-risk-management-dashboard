@@ -144,3 +144,24 @@
 3. **Two-Phase Liquidation Sequence**:
    - Emergency account liquidation routines must always execute: `cancel_all_orders()` $\to$ `close_all_positions()`.
 
+---
+
+## 🛡️ 8. Cognitive Ergonomics & Emergency Liquidation Control Patterns
+
+### System & Architectural Insights
+* **The "Mode Switch on Emergency Controls" Anti-Pattern**:
+  * **Observation**: Providing a segmented switch (`Close Pos` vs. `Flatten ($0 Δ)`) directly adjacent to an emergency liquidation trigger was intended to give user flexibility, but in practice consumed excessive toolbar width (~140px) and forced an unnatural cognitive choice.
+  * **Impact**: During emergency market conditions (flash crashes, economic spikes, runaway drawdowns), Easterbrook’s Hypothesis dictates acute **attentional narrowing** and prefrontal cortex inhibition. Forcing a trader to choose between two adjacent modes introduces friction and decision paralysis at the exact moment zero-latency certainty is needed.
+  * **Architectural Rule**: Per [`docs/01_institutional_terminal_design.md`](./docs/01_institutional_terminal_design.md), professional OMS terminals (Bloomberg AIM, TT, CQG) do not expose segmented mode toggles during panic exits. The emergency control must be a **single unified action**: **"Flatten All ($0 Δ)"** (Net Delta $\to 0.00$), protected by a two-phase 4-second safety arming countdown.
+
+### Domain & API Nuances
+* **Market-Order Invariance Under Smart Flatten**:
+  * **Nuance**: For pure market traders with zero pending orders, `Flatten All` executes in identical latency to `Close All` (cancels 0 pending orders, closes all positions). However, when resting limit or breakout stop orders exist, standard "Close All" leaves them active in MT5, risking immediate re-exposure once the trader leaves the desk.
+  * **Rule**: There is zero operational or execution penalty to always defaulting emergency liquidation to a two-phase smart flatten (`api.flattenAll()`).
+
+### Negative Knowledge (What NOT to Do)
+1. **DO NOT place mode-switching controls adjacent to high-consequence panic buttons**:
+   - *Why*: In acute stress, fine motor control degrades and cognitive load spikes. Emergency buttons must have singular, unambiguous intent.
+2. **DO NOT maintain dead store signals or UI preferences when an action can be consolidated**:
+   - *Why*: Redundant signals (`emergencyActionMode`) in `preferencesStore` introduce dead code paths and unnecessary `localStorage` churn. Always purge unused signals when unifying domain actions.
+
