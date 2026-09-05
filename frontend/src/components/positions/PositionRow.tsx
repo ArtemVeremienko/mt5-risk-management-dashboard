@@ -500,6 +500,14 @@ export const PositionRow: Component<Props> = (props) => {
               >
                 {pos().type}
               </span>
+              <Show when={(marketStore.getCalculatedResult(pos().symbol)?.spec?.adr_used_pct || 0) >= 90}>
+                <span
+                  class="adr-exhaustion-chip"
+                  title={`Statistical Exhaustion Warning: ${Math.round(marketStore.getCalculatedResult(pos().symbol)?.spec?.adr_used_pct || 0)}% ADR exhausted today`}
+                >
+                  ⚠️ ADR Cap
+                </span>
+              </Show>
             </div>
           </td>
 

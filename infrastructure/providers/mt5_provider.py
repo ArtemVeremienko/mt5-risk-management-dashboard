@@ -17,7 +17,7 @@ try:
 except ImportError:
     mt5 = None
 
-from margin_engine import resolve_margin_specs, calculate_broker_margin, get_category_leverage
+from domain.math.margin_engine import resolve_margin_specs, calculate_broker_margin, get_category_leverage
 from domain.models.account import AccountState
 from domain.models.symbol import SymbolSpec, StepRule
 from domain.models.position import Position
@@ -57,9 +57,28 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
         self._cached_trades: List[float] = []
         self._cached_trade_records: Optional[List[TradeRecord]] = None
         self._spread_history: Dict[str, List[float]] = {}
+        self._last_reconnect_attempt: float = 0.0
 
         if not mock_mode:
             self._init_mt5()
+
+    def ensure_live_connection(self) -> bool:
+        """
+        Attempts automatic reconnect if terminal connection was lost mid-session.
+        Throttled to avoid reconnection storms (min 5s interval).
+        """
+        if self._mock_mode:
+            return False
+        if self._is_connected:
+            return True
+
+        now = time.time()
+        if now - self._last_reconnect_attempt < 5.0:
+            return False
+
+        self._last_reconnect_attempt = now
+        logger.info("Attempting automatic MT5 terminal reconnection...")
+        return self._init_mt5()
 
     def shutdown(self) -> None:
         """Cleanly shut down MT5 worker queue and IPC connection."""
@@ -116,6 +135,8 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
 
     @property
     def is_live(self) -> bool:
+        if not self._is_connected and not self._mock_mode:
+            self.ensure_live_connection()
         return self._is_connected and not self._mock_mode
 
     def get_account_summary(self) -> AccountState:

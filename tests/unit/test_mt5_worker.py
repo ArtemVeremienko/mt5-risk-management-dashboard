@@ -72,3 +72,35 @@ async def test_mt5_worker_exception_propagation():
             await worker.run(faulty)
     finally:
         worker.shutdown()
+
+
+def test_mt5_worker_sync_timeout():
+    from infrastructure.ipc.mt5_worker import MT5IPCTimeoutError
+    worker = MT5IPCWorker(default_timeout_seconds=0.1)
+
+    def slow():
+        time.sleep(0.3)
+        return "done"
+
+    try:
+        with pytest.raises(MT5IPCTimeoutError):
+            worker.call(slow)
+    finally:
+        worker.shutdown(wait=False)
+
+
+@pytest.mark.anyio
+async def test_mt5_worker_async_timeout():
+    from infrastructure.ipc.mt5_worker import MT5IPCTimeoutError
+    worker = MT5IPCWorker(default_timeout_seconds=0.1)
+
+    def slow():
+        time.sleep(0.3)
+        return "done"
+
+    try:
+        with pytest.raises(MT5IPCTimeoutError):
+            await worker.run(slow)
+    finally:
+        worker.shutdown(wait=False)
+

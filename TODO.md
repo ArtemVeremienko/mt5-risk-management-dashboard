@@ -149,8 +149,8 @@
   - Embed an ultra-compact 60-second / 100-tick canvas sparkline ribbon within the Market Price & Spread cell.
   - Renders live tick trajectory, micro-momentum slope, and a pulsing live edge tick dot without increasing row height (fixed 34–36px) or triggering layout thrashing.
   - Gives the operator instant visual velocity feedback (breakout speed vs. stalled consolidation) right at the point of execution.
-- [ ] **Session ADR Exhaustion & Volatility Micro-Gauge (Matrix Column 3 Upgrade)**:
-  - **Quantitative Engine (`feed.py`)**:
+- [x] **Session ADR Exhaustion & Volatility Micro-Gauge (Matrix Column 3 Upgrade)**:
+  - **Quantitative Engine (`MT5NativeProvider` & `MockDataProvider`)**:
     - Query today's D1 bar (`mt5.copy_rates_from_pos(sym, TIMEFRAME_D1, 0, 1)`) to obtain real-time session extremes: $\text{Range}_{\text{today}} = \text{High}_{\text{today}} - \text{Low}_{\text{today}}$.
     - Derive session metrics:
       $$\text{Used \%} = \min\left(200\%, \frac{\text{Range}_{\text{today}}}{\text{ADR}_{14}} \times 100\%\right), \quad \text{Left}_{\text{pips}} = \max\left(0.0, \text{ADR}_{14} - \text{Range}_{\text{today}}\right)$$
@@ -158,18 +158,18 @@
       - $\text{Room Up} = (\text{Low}_{\text{today}} + \text{ADR}_{14}) - \text{Current Price}$
       - $\text{Room Down} = \text{Current Price} - (\text{High}_{\text{today}} - \text{ADR}_{14})$
     - Stream `adr_left_pips`, `adr_used_pct`, `today_range_pips`, `room_up_pips`, and `room_down_pips` in 500ms WebSocket broadcasts.
-  - **Matrix Grid Micro-Gauge UI (`SymbolRow.tsx` & `index.css`)**:
+  - **Matrix Grid Micro-Gauge UI (`SymbolRow.tsx` & `matrix.css`)**:
     - Transform Column 3 from a static string into a high-density stacked micro-gauge:
-      - **Top Line**: Tactile pips remaining (e.g. `42.5 p left`) with total ADR muted badge (`[68.4p]`).
-      - **Subtext Line**: Normalized session absorption (e.g. `38% used`).
+      - **Top Line**: Tactile pips remaining with total ADR muted badge (`[68.4p]`).
+      - **Subtext Line**: Normalized session absorption badge (e.g. `38%` / `⚠️ 92%`).
       - **Bottom Edge**: 3px hairline micro progress bar adhering to the 90-7-3 chromatic budget with 3 regime states:
-        - `0% – 70% Used`: Cool slate/cyan (`#64748b` / `#00b4d8`) $\implies$ *Healthy Trend Expansion*.
-        - `70% – 90% Used`: Muted functional amber (`#f59e0b`) $\implies$ *Mature Trend / Decelerating Momentum*.
-        - `≥ 90% Used`: Warning coral (`#f87171` or `#ff8c00`) with subtle `⚠️` badge $\implies$ *Statistical Exhaustion / Mean-Reversion Trap Warning*.
-    - Fixed 34px container height with strict `font-variant-numeric: tabular-nums` to eliminate layout shift.
+        - `0% – 70% Used`: Cool cyan (`--sys-color-secondary`) $\implies$ *Healthy Trend Expansion*.
+        - `70% – 90% Used`: Muted functional amber (`--sys-color-warning`) $\implies$ *Mature Trend / Decelerating Momentum*.
+        - `≥ 90% Used`: Warning coral (`--sys-color-loss`) with `⚠️` badge $\implies$ *Statistical Exhaustion / Mean-Reversion Trap Warning*.
+    - Fixed container height with strict `font-variant-numeric: tabular-nums` to eliminate layout shift.
   - **Rich Telemetry Hover Tooltip**:
-    - Hovering the cell reveals session extremes (`Today: High 1.16450 · Low 1.15908 · Range 54.2p`) and directional headroom (`+18.2p to ADR High · -8.4p to ADR Low`).
-  - **Positions Blotter Exhaustion Warning (`PositionRow.tsx`)**:
+    - Hovering the cell reveals session extremes (`Session Range: 54.2p (78% of ADR)`) and directional headroom (`Room: ↑18.2p · ↓8.4p`).
+  - **Positions Blotter Exhaustion Warning (`PositionRow.tsx` & `positions.css`)**:
     - Display an amber/coral warning chip (`⚠️ ADR Cap`) next to open positions when their symbol exceeds $90\%$ ADR, alerting the operator that intraday Take-Profit targets have low statistical fulfillment probability without an overnight hold.
 - [x] **Risk Controls Capsule UX/UI**:
   - Improve UX/UI for `'Click to configure Working Capital, Risk Model, SL Presets, and R:R Ratio'` capsule with micro-badge chips.

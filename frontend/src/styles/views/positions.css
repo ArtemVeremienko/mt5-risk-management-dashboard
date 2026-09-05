@@ -137,6 +137,20 @@
   color: var(--sys-color-loss);
 }
 
+.adr-exhaustion-chip {
+  font-family: var(--sys-font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: var(--sys-radius-sm);
+  background: rgba(242, 54, 69, 0.15);
+  color: var(--sys-color-loss);
+  border: 1px solid rgba(242, 54, 69, 0.35);
+  white-space: nowrap;
+  line-height: 1.1;
+  cursor: help;
+}
+
 .pos-volume {
   font-family: var(--sys-font-mono);
   font-size: 12px;

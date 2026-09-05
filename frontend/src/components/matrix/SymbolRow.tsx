@@ -144,9 +144,43 @@ export const SymbolRow: Component<Props> = (props) => {
             </div>
           </td>
 
-          {/* Col 3: 14D ADR */}
+          {/* Col 3: 14D ADR & Session Exhaustion Micro-Gauge */}
           <td class="text-right">
-            <span class="adr-val tabular-num">{data().spec.adr_display} p</span>
+            <div
+              class="adr-cell-stacked"
+              title={
+                data().spec.today_range_pips !== undefined
+                  ? `Session Range: ${data().spec.today_range_pips}p (${data().spec.adr_used_pct || 0}% of ADR)\nRoom: ↑${data().spec.room_up_pips || 0}p · ↓${data().spec.room_down_pips || 0}p`
+                  : `14D ADR: ${data().spec.adr_display} p`
+              }
+            >
+              <div class="adr-top-row">
+                <span class="adr-val tabular-num">{data().spec.adr_display}p</span>
+                <Show when={data().spec.adr_used_pct !== undefined}>
+                  <span
+                    class="adr-pct-badge tabular-num"
+                    classList={{
+                      'adr-warning': (data().spec.adr_used_pct || 0) >= 90,
+                      'adr-caution': (data().spec.adr_used_pct || 0) >= 70 && (data().spec.adr_used_pct || 0) < 90,
+                    }}
+                  >
+                    {(data().spec.adr_used_pct || 0) >= 90 ? '⚠️ ' : ''}{Math.round(data().spec.adr_used_pct || 0)}%
+                  </span>
+                </Show>
+              </div>
+              <Show when={data().spec.adr_used_pct !== undefined}>
+                <div class="adr-gauge-bar">
+                  <div
+                    class="adr-gauge-fill"
+                    classList={{
+                      'gauge-danger': (data().spec.adr_used_pct || 0) >= 90,
+                      'gauge-caution': (data().spec.adr_used_pct || 0) >= 70 && (data().spec.adr_used_pct || 0) < 90,
+                    }}
+                    style={{ width: `${Math.min(100, Math.max(2, data().spec.adr_used_pct || 0))}%` }}
+                  />
+                </div>
+              </Show>
+            </div>
           </td>
 
           {/* Col 4: Stop Loss (Wider 76px numeric input with Auto-Select & Custom Reset) */}

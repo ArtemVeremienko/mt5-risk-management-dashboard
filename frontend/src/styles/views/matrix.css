@@ -458,12 +458,76 @@ tr.drag-over {
   font-weight: 500;
 }
 
+.adr-cell-stacked {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  cursor: help;
+}
+
+.adr-top-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
 .adr-val {
   font-family: var(--sys-font-mono);
   font-variant-numeric: tabular-nums;
-  color: #ffffff;
+  color: var(--sys-color-on-surface);
   font-size: 13px;
   font-weight: 600;
+}
+
+.adr-pct-badge {
+  font-size: 9.5px;
+  font-weight: 600;
+  font-family: var(--sys-font-mono);
+  font-variant-numeric: tabular-nums;
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--sys-color-on-surface-muted);
+  padding: 1px 4px;
+  border-radius: 3px;
+  border: 1px solid rgba(148, 163, 184, 0.20);
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.adr-pct-badge.adr-caution {
+  color: var(--sys-color-warning);
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.30);
+}
+
+.adr-pct-badge.adr-warning {
+  color: var(--sys-color-loss);
+  background: rgba(242, 54, 69, 0.15);
+  border-color: rgba(242, 54, 69, 0.35);
+}
+
+.adr-gauge-bar {
+  width: 100%;
+  max-width: 68px;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.adr-gauge-fill {
+  height: 100%;
+  background: var(--sys-color-secondary);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.adr-gauge-fill.gauge-caution {
+  background: var(--sys-color-warning);
+}
+
+.adr-gauge-fill.gauge-danger {
+  background: var(--sys-color-loss);
 }
 
 /* ==========================================================================

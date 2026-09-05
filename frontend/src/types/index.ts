@@ -55,6 +55,13 @@ export interface SymbolSpec {
   step_rule?: StepRule;
   margin_per_lot?: number;
   margin_rate?: number;
+  // Session ADR Exhaustion & Directional Telemetry
+  today_range_pips?: number;
+  adr_used_pct?: number;
+  adr_left_pips?: number;
+  room_up_pips?: number;
+  room_down_pips?: number;
+  median_spread_pips?: number;
 }
 
 export interface ModelComparison {
