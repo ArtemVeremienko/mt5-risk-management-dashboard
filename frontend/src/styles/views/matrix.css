@@ -997,3 +997,84 @@ tr.drag-over {
   opacity: 1;
 }
 
+/* ----------------------------------------------------------------------------
+ * Universal Color Vision Deficiency (CVD) Overrides (Electric Cyan / Warm Amber)
+ * Standardizes protan/deuteran execution button semiotics per docs/01 §6
+ * ---------------------------------------------------------------------------- */
+:root[data-colorway="cvd"] .btn-trade.btn-buy,
+body[data-colorway="cvd"] .btn-trade.btn-buy {
+  background: rgba(0, 180, 216, 0.12);
+  border: 1px solid rgba(0, 180, 216, 0.45);
+  color: #00f2fe;
+}
+
+:root[data-colorway="cvd"] .symbol-row:hover .btn-trade.btn-buy:not(.btn-armed):not(.btn-dimmed):not(.btn-inflight),
+body[data-colorway="cvd"] .symbol-row:hover .btn-trade.btn-buy:not(.btn-armed):not(.btn-dimmed):not(.btn-inflight) {
+  background: rgba(0, 180, 216, 0.22);
+  border-color: rgba(0, 180, 216, 0.70);
+  color: #38bdf8;
+}
+
+:root[data-colorway="cvd"] .btn-trade.btn-buy:hover:not(.btn-armed):not(.btn-dimmed):not(.btn-inflight),
+body[data-colorway="cvd"] .btn-trade.btn-buy:hover:not(.btn-armed):not(.btn-dimmed):not(.btn-inflight) {
+  background: #00b4d8;
+  border-color: #00f2fe;
+  color: #08090c;
+  box-shadow: 0 0 10px rgba(0, 180, 216, 0.45);
+}
+
+:root[data-colorway="cvd"] .btn-trade.btn-sell,
+body[data-colorway="cvd"] .btn-trade.btn-sell {
+  background: rgba(255, 140, 0, 0.12);
+  border: 1px solid rgba(255, 140, 0, 0.45);
+  color: #ffaa33;
+}
+
+:root[data-colorway="cvd"] .symbol-row:hover .btn-trade.btn-sell:not(.btn-armed):not(.btn-dimmed):not(.btn-inflight),
+body[data-colorway="cvd"] .symbol-row:hover .btn-trade.btn-sell:not(.btn-armed):not(.btn-dimmed):not(.btn-inflight) {
+  background: rgba(255, 140, 0, 0.22);
+  border-color: rgba(255, 140, 0, 0.70);
+  color: #ffbb55;
+}
+
+:root[data-colorway="cvd"] .btn-trade.btn-sell:hover:not(.btn-armed):not(.btn-dimmed):not(.btn-inflight),
+body[data-colorway="cvd"] .btn-trade.btn-sell:hover:not(.btn-armed):not(.btn-dimmed):not(.btn-inflight) {
+  background: #ff8c00;
+  border-color: #ffa500;
+  color: #08090c;
+  box-shadow: 0 0 10px rgba(255, 140, 0, 0.45);
+}
+
+:root[data-colorway="cvd"] .btn-trade.btn-armed.btn-buy,
+body[data-colorway="cvd"] .btn-trade.btn-armed.btn-buy {
+  background: rgba(0, 180, 216, 0.28) !important;
+  border-color: #00f2fe !important;
+  box-shadow: 0 0 10px rgba(0, 180, 216, 0.45), inset 0 0 8px rgba(0, 180, 216, 0.2) !important;
+}
+
+:root[data-colorway="cvd"] .btn-trade.btn-armed.btn-sell,
+body[data-colorway="cvd"] .btn-trade.btn-armed.btn-sell {
+  background: rgba(255, 140, 0, 0.28) !important;
+  border-color: #ffaa33 !important;
+  box-shadow: 0 0 10px rgba(255, 140, 0, 0.45), inset 0 0 8px rgba(255, 140, 0, 0.2) !important;
+}
+
+:root[data-colorway="cvd"] .btn-trade.btn-buy:active,
+:root[data-colorway="cvd"] .btn-trade.btn-buy.btn-depressed,
+body[data-colorway="cvd"] .btn-trade.btn-buy:active,
+body[data-colorway="cvd"] .btn-trade.btn-buy.btn-depressed {
+  background: #00b4d8 !important;
+  border-color: #00f2fe !important;
+  color: #08090c !important;
+}
+
+:root[data-colorway="cvd"] .btn-trade.btn-sell:active,
+:root[data-colorway="cvd"] .btn-trade.btn-sell.btn-depressed,
+body[data-colorway="cvd"] .btn-trade.btn-sell:active,
+body[data-colorway="cvd"] .btn-trade.btn-sell.btn-depressed {
+  background: #ff8c00 !important;
+  border-color: #ffaa33 !important;
+  color: #08090c !important;
+}
+
+
