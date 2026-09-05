@@ -120,6 +120,48 @@ function createPreferences() {
     localStorage.setItem('mt5_active_view', view);
   };
 
+  const initialPnlMode =
+    (localStorage.getItem('mt5_pnl_display_mode') as 'currency' | 'r_multiple' | 'stealth_mask') || 'currency';
+  const [pnlDisplayMode, setPnlDisplayModeSignal] = createSignal<'currency' | 'r_multiple' | 'stealth_mask'>(initialPnlMode);
+
+  const cyclePnlDisplayMode = () => {
+    const current = pnlDisplayMode();
+    let next: 'currency' | 'r_multiple' | 'stealth_mask';
+    if (current === 'currency') next = 'r_multiple';
+    else if (current === 'r_multiple') next = 'stealth_mask';
+    else next = 'currency';
+
+    setPnlDisplayModeSignal(next);
+    localStorage.setItem('mt5_pnl_display_mode', next);
+    return next;
+  };
+
+  const setPnlDisplayMode = (mode: 'currency' | 'r_multiple' | 'stealth_mask') => {
+    setPnlDisplayModeSignal(mode);
+    localStorage.setItem('mt5_pnl_display_mode', mode);
+  };
+
+  const initialColorway = (localStorage.getItem('mt5_colorway') as 'standard' | 'cvd') || 'standard';
+  const [colorway, setColorwaySignal] = createSignal<'standard' | 'cvd'>(initialColorway);
+
+  // Initialize data-colorway attribute on html root
+  if (typeof document !== 'undefined') {
+    document.documentElement.setAttribute('data-colorway', initialColorway);
+  }
+
+  const setColorway = (val: 'standard' | 'cvd') => {
+    setColorwaySignal(val);
+    localStorage.setItem('mt5_colorway', val);
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-colorway', val);
+    }
+  };
+
+  const toggleColorway = () => {
+    const next = colorway() === 'standard' ? 'cvd' : 'standard';
+    setColorway(next);
+    return next;
+  };
 
   const [showStatsBanner, setShowStatsBannerSignal] = createSignal<boolean>(
     localStorage.getItem('mt5_show_stats_banner') === 'true'
@@ -249,6 +291,12 @@ function createPreferences() {
     setOneClickEnabled,
     activeView,
     setActiveView,
+    pnlDisplayMode,
+    cyclePnlDisplayMode,
+    setPnlDisplayMode,
+    colorway,
+    setColorway,
+    toggleColorway,
     showStatsBanner,
     toggleStatsBanner,
     pinnedSymbols,

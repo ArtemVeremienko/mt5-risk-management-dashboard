@@ -165,3 +165,36 @@
 2. **DO NOT maintain dead store signals or UI preferences when an action can be consolidated**:
    - *Why*: Redundant signals (`emergencyActionMode`) in `preferencesStore` introduce dead code paths and unnecessary `localStorage` churn. Always purge unused signals when unifying domain actions.
 
+---
+
+## 👁️ 9. Cognitive Ergonomics, Stealth PnL & Hardware Tick Flasher Architecture
+
+### System & Architectural Insights
+* **The Normalizing Power of the $R$-Multiple HUD**:
+  * **Observation**: In trading drawdowns, flashing negative dollar amounts ($-\$420.00$) triggers acute insula and amygdala activation, inducing the loss-aversion gamble ($\lambda \approx 2.25$) and revenge trading.
+  * **Impact**: Normalizing the account PnL and blotter metrics to $R$-multiples relative to target risk ($-0.42R$) reframes market retracements as normal statistical variance within an expected distribution, mitigating cortisol spikes and premature stop relocation.
+* **GPU-Composited Hardware Isolation for High-Frequency Streaming Quotes**:
+  * **Observation**: Applying CSS background transitions directly to high-frequency text nodes (`<td>` or `.price-bid`) causes constant DOM style recalculations, paint invalidations, and potential layout thrashing across all table rows.
+  * **Architectural Rule**: Per [`docs/01_institutional_terminal_design.md §5.3`](./docs/01_institutional_terminal_design.md), tick flasher components MUST use GPU-composited pseudo-elements (`::before`) with `opacity` decay and `transform: translateZ(0)` / `will-change: opacity`. This isolates repaints from the layout engine, achieving instant 0ms attack and smooth 350ms `cubic-bezier(0.16, 1, 0.3, 1)` decay without CPU reflows.
+
+### Gotchas, Traps & Framework Quirks
+* **Global Hotkey Focus Hijacking**:
+  * **Gotcha**: A global hotkey (like `H` for Stealth mode) can accidentally intercept operator typing when they enter a symbol search or write into an inline SL/TP input box.
+  * **Remedy**: Always guard keyboard event listeners by inspecting `document.activeElement`:
+    ```typescript
+    const isEditable = activeEl && (
+      activeEl.tagName === 'INPUT' ||
+      activeEl.tagName === 'TEXTAREA' ||
+      activeEl.tagName === 'SELECT' ||
+      (activeEl as HTMLElement).isContentEditable
+    );
+    if (isEditable) return;
+    ```
+
+### Reusable Conventions & Rules
+1. **HTML Root Dynamic Colorway Contracting**:
+   - To provide instantaneous, zero-re-render theme switching (such as Universal CVD Cyan/Amber), apply a declarative attribute on the root (`document.documentElement.setAttribute('data-colorway', val)`). CSS semantic tokens consume this attribute to remap variables cleanly across the entire DOM tree without component re-renders.
+2. **Tabular Numbers Invariance**:
+   - All monetary, pip, and $R$-multiple figures must strictly enforce `font-variant-numeric: tabular-nums` to prevent horizontal micro-jitter when numbers fluctuate between positive, negative, and masked states.
+
+

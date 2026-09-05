@@ -481,6 +481,56 @@ export const RiskConfigModal: Component<Props> = (props) => {
 
             <div class="modal-section-divider" />
 
+            {/* Visual Ergonomics, Cognitive De-Biasing & CVD */}
+            <div class="form-group">
+              <label class="form-label" for="modal-colorway">
+                COLOR VISION DEFICIENCY (CVD) COLORWAY:
+              </label>
+              <select
+                id="modal-colorway"
+                class="control-select"
+                value={preferencesStore.colorway()}
+                onInput={(e) => preferencesStore.setColorway(e.currentTarget.value as 'standard' | 'cvd')}
+                onChange={(e) => preferencesStore.setColorway(e.currentTarget.value as 'standard' | 'cvd')}
+              >
+                <option value="standard">Standard Institutional (Emerald Buy · Coral Sell)</option>
+                <option value="cvd">Universal CVD High-Contrast (Electric Cyan Buy · Warm Amber Sell)</option>
+              </select>
+              <span class="form-help-text">
+                Universal protan/deuteran accessible chromatic semiotics (Cyan/Amber) per docs/01 §6.
+              </span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="modal-pnl-mode">
+                PNL & DRAWDOWN DISPLAY MODE (HOTKEY: H):
+              </label>
+              <select
+                id="modal-pnl-mode"
+                class="control-select"
+                value={preferencesStore.pnlDisplayMode()}
+                onInput={(e) =>
+                  preferencesStore.setPnlDisplayMode(
+                    e.currentTarget.value as 'currency' | 'r_multiple' | 'stealth_mask'
+                  )
+                }
+                onChange={(e) =>
+                  preferencesStore.setPnlDisplayMode(
+                    e.currentTarget.value as 'currency' | 'r_multiple' | 'stealth_mask'
+                  )
+                }
+              >
+                <option value="currency">💵 Currency Mode (Raw Dollars: +$14.20 / -$28.86)</option>
+                <option value="r_multiple">📐 Normalized R-Multiple (+1.42 R / -0.61 R)</option>
+                <option value="stealth_mask">🕶️ Stealth Mode (Masked: ***.**)</option>
+              </select>
+              <span class="form-help-text">
+                Suppresses acute threat response and loss aversion (λ ≈ 2.25) during active sessions.
+              </span>
+            </div>
+
+            <div class="modal-section-divider" />
+
             {/* 1-Click Order Execution Setting */}
             <div class="form-group">
               <div class="control-label-row">

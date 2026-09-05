@@ -1053,12 +1053,22 @@ export const PositionRow: Component<Props> = (props) => {
                   'text-neutral': pos().profit === 0,
                 }}
               >
-                {pos().profit > 0
+                {preferencesStore.pnlDisplayMode() === 'stealth_mask'
+                  ? '***.**'
+                  : preferencesStore.pnlDisplayMode() === 'r_multiple'
+                  ? pos().r_multiple !== null
+                    ? `${(pos().r_multiple || 0) > 0 ? '+' : ''}${pos().r_multiple} R`
+                    : pos().profit > 0
+                    ? `+${formatCurrency(pos().profit)}`
+                    : formatCurrency(pos().profit)
+                  : pos().profit > 0
                   ? `+${formatCurrency(pos().profit)}`
                   : formatCurrency(pos().profit)}
               </span>
               <span class="pos-pips-sub tabular-num">
-                ({pos().pnl_pips > 0 ? `+${pos().pnl_pips}` : pos().pnl_pips} {stepRule().unitLabel})
+                {preferencesStore.pnlDisplayMode() === 'stealth_mask'
+                  ? '(*** p)'
+                  : `(${pos().pnl_pips > 0 ? `+${pos().pnl_pips}` : pos().pnl_pips} ${stepRule().unitLabel})`}
               </span>
             </div>
           </td>

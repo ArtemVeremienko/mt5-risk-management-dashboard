@@ -115,7 +115,20 @@ export const OrderManagementPanel: Component = () => {
                 'text-neutral': totalPnl() === 0,
               }}
             >
-              Floating P&L: {totalPnl() > 0 ? `+$${totalPnl().toFixed(2)}` : `$${totalPnl().toFixed(2)}`}
+              Floating P&L:{' '}
+              {preferencesStore.pnlDisplayMode() === 'stealth_mask'
+                ? '***.**'
+                : preferencesStore.pnlDisplayMode() === 'r_multiple'
+                ? (() => {
+                    const wc = preferencesStore.workingCapital();
+                    const pct = preferencesStore.customRiskPct();
+                    const oneR = wc * (pct / 100);
+                    const rVal = oneR > 0 ? totalPnl() / oneR : 0;
+                    return `${rVal > 0 ? '+' : ''}${rVal.toFixed(2)} R`;
+                  })()
+                : totalPnl() > 0
+                ? `+$${totalPnl().toFixed(2)}`
+                : `$${totalPnl().toFixed(2)}`}
             </span>
           </div>
 

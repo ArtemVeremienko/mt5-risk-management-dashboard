@@ -103,3 +103,26 @@
   --sys-motion-quick: var(--ref-duration-quick) var(--ref-ease-standard);
   --sys-motion-normal: var(--ref-duration-normal) var(--ref-ease-standard);
 }
+
+/* ----------------------------------------------------------------------------
+ * Universal Color Vision Deficiency (CVD) Colorway Overlay (Cyan / Amber)
+ * Standardizes protan/deuteran-safe chromatic semiotics per docs/01 §6.
+ * ---------------------------------------------------------------------------- */
+:root[data-colorway="cvd"],
+body[data-colorway="cvd"] {
+  /* Long / BUY Actions & Floating Profit (#00B4D8 Electric Cyan) */
+  --sys-color-buy: var(--ref-color-cyan-400);
+  --sys-color-buy-hover: var(--ref-color-cyan-500);
+  --sys-color-profit: var(--ref-color-cyan-400);
+  --sys-color-success: var(--ref-color-cyan-400);
+
+  /* Short / SELL Actions & Floating Loss (#FF8C00 Warm Amber) */
+  --sys-color-sell: #ff8c00;
+  --sys-color-sell-hover: #e07a00;
+  --sys-color-loss: #ff8c00;
+  --sys-color-error: #ff8c00;
+
+  /* Alert / Warning remains warm gold */
+  --sys-color-warning: #ffd166;
+}
+

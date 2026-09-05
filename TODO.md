@@ -89,18 +89,18 @@
 > 📚 **Reference Standards**: See [`docs/01_institutional_terminal_design.md`](./docs/01_institutional_terminal_design.md) & [`docs/02_trading_psychology_and_ergonomics.md`](./docs/02_trading_psychology_and_ergonomics.md)
 
 ### 5. 👁️ Emotional De-Biasing & Stealth PnL Mode
-- [ ] **Stealth PnL & Normalized $R$-Multiple HUD**:
+- [x] **Stealth PnL & Normalized $R$-Multiple HUD**:
   - Saturated flashing raw dollar drawdowns trigger sympathetic nervous system (SNS) hyper-arousal and loss aversion ($\lambda \approx 2.25$).
   - Add a Stealth PnL toggle button (`👁️` / `🕶️`) in the header metrics bar and global hotkey (`H`).
   - Modes: **Standard Currency** (`-$28.86`), **Normalized R** (`-0.61 R`), and **Stealth Mask** (`***`).
   - Persist stealth preference in `localStorage`.
-- [ ] **Tick Flash-Decay Micro-Animations**:
-  - Replace static DOM price replacements with 350ms GPU-accelerated tick flash-decay animations (`.price-flash-up`, `.price-flash-down`) utilizing composited layers (`opacity`, `transform`) without layout thrashing.
-- [ ] **Universal CVD Cyan/Amber Colorway**:
+- [x] **Tick Flash-Decay Micro-Animations**:
+  - Replace static DOM price replacements with 350ms GPU-accelerated tick flash-decay animations (`.price-flash-up`, `.price-flash-down`) utilizing composited layers (`opacity`, `transform`) without layout thrashing per `docs/01 §5.3`.
+- [x] **Universal CVD Cyan/Amber Colorway**:
   - Add Color Vision Deficiency (CVD) toggle in Settings:
     - **Standard**: Pine Emerald (`#089981` / `#34D399`) & Crimson Coral (`#F23645` / `#F87171`).
-    - **Institutional CVD**: Electric Cyan (`#00B4D8`) & Warm Amber (`#FF8C00`).
-  - Update all semantic CSS variables (`--trade-buy`, `--trade-sell`, `--text-profit`, `--text-loss`).
+    - **Institutional CVD**: Electric Cyan (`#00F2FE` / `#00B4D8`) & Warm Amber (`#FF8C00`).
+  - Update all semantic CSS variables (`--sys-color-buy`, `--sys-color-sell`, `--sys-color-profit`, `--sys-color-loss`).
 - [ ] **Input Floating-Point Precision & Form a11y Cleanup**:
   - Enforce strict `.toFixed(1)` step precision across SL/TP calculation models to eliminate IEEE 754 floating-point leaks in the accessibility tree (e.g. `12.300000190734863` $\to$ `12.3`).
   - Assign semantic `id` and `name` attributes to all form controls to eliminate Chromium accessibility warnings.

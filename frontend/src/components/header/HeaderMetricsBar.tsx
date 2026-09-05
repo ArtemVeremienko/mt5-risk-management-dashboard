@@ -50,6 +50,36 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
     });
   });
 
+  // Global Hotkey 'H' for Stealth PnL Mode (suppressed inside editable fields)
+  createEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'h' || e.key === 'H') {
+        const activeEl = document.activeElement;
+        const isEditable =
+          activeEl &&
+          (activeEl.tagName === 'INPUT' ||
+            activeEl.tagName === 'TEXTAREA' ||
+            activeEl.tagName === 'SELECT' ||
+            (activeEl as HTMLElement).isContentEditable);
+        if (!isEditable) {
+          e.preventDefault();
+          const nextMode = preferencesStore.cyclePnlDisplayMode();
+          toastStore.addToast(
+            'PnL Display Mode',
+            nextMode === 'currency'
+              ? '💵 Currency Mode ($)'
+              : nextMode === 'r_multiple'
+              ? '📐 Normalized R-Multiple Mode (R)'
+              : '🕶️ Stealth Mode (Masked)',
+            'info'
+          );
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    onCleanup(() => window.removeEventListener('keydown', handleKeyDown));
+  });
+
   const handleTurboToggle = () => {
     const isTurbo = preferencesStore.toggleTurboMode();
     wsService.sendRateUpdate(isTurbo ? 500 : 2000);
@@ -59,6 +89,49 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
       'success'
     );
   };
+
+  const handleStealthToggle = () => {
+    const nextMode = preferencesStore.cyclePnlDisplayMode();
+    toastStore.addToast(
+      'PnL Display Mode',
+      nextMode === 'currency'
+        ? '💵 Currency Mode ($)'
+        : nextMode === 'r_multiple'
+        ? '📐 Normalized R-Multiple Mode (R)'
+        : '🕶️ Stealth Mode (Masked)',
+      'info'
+    );
+  };
+
+  // 1R cash reference = Working Capital * (customRiskPct / 100)
+  const oneRCash = createMemo(() => {
+    const wc = preferencesStore.workingCapital();
+    const pct = preferencesStore.customRiskPct();
+    return wc * (pct / 100);
+  });
+
+  const formattedHeaderPnl = createMemo(() => {
+    const mode = preferencesStore.pnlDisplayMode();
+    const pnl = floatingProfit();
+    if (mode === 'stealth_mask') return '***.**';
+    if (mode === 'r_multiple') {
+      const rVal = oneRCash() > 0 ? pnl / oneRCash() : 0;
+      return `${rVal > 0 ? '+' : ''}${rVal.toFixed(2)} R`;
+    }
+    return pnl > 0 ? `+${formatCurrency(pnl)}` : pnl < 0 ? formatCurrency(pnl) : '$0.00';
+  });
+
+  const formattedHeaderEquity = createMemo(() => {
+    const mode = preferencesStore.pnlDisplayMode();
+    const eq = account().equity || 0.0;
+    if (mode === 'stealth_mask') return '***.**';
+    if (mode === 'r_multiple') {
+      const pnl = floatingProfit();
+      const rVal = oneRCash() > 0 ? pnl / oneRCash() : 0;
+      return `${rVal > 0 ? '+' : ''}${rVal.toFixed(2)} R`;
+    }
+    return formatCurrency(eq);
+  });
 
   // Structured Risk summary tags
   const riskModelTag = createMemo(() => {
@@ -192,17 +265,13 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
                   'text-neutral': floatingProfit() === 0,
                 }}
               >
-                {floatingProfit() > 0
-                  ? `+${formatCurrency(floatingProfit())}`
-                  : floatingProfit() < 0
-                  ? formatCurrency(floatingProfit())
-                  : '$0.00'}
+                {formattedHeaderPnl()}
               </span>
             </div>
 
             <div class="metric-mini-group" title="Net Real-Time Equity">
               <span class="metric-mini-label">EQ</span>
-              <span class="metric-mini-val font-mono">{formatCurrency(account().equity || 0.0)}</span>
+              <span class="metric-mini-val font-mono">{formattedHeaderEquity()}</span>
             </div>
           </div>
         </div>
@@ -430,6 +499,28 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
 
       {/* Right Zone: Compact Toggles & Pulsing Connection Indicator */}
       <div class="header-right-zone">
+        <button
+          class="btn-toggle-compact"
+          classList={{ active: preferencesStore.pnlDisplayMode() !== 'currency' }}
+          onClick={handleStealthToggle}
+          title={`PnL Display Mode: ${
+            preferencesStore.pnlDisplayMode() === 'currency'
+              ? 'Currency ($) · Press H to cycle'
+              : preferencesStore.pnlDisplayMode() === 'r_multiple'
+              ? 'Normalized R-Multiple · Press H to cycle'
+              : 'Stealth Mask (***) · Press H to cycle'
+          }`}
+        >
+          <span class="toggle-indicator"></span>
+          <span class="toggle-text">
+            {preferencesStore.pnlDisplayMode() === 'currency'
+              ? '👁️ $'
+              : preferencesStore.pnlDisplayMode() === 'r_multiple'
+              ? '🕶️ R'
+              : '🔒 ***'}
+          </span>
+        </button>
+
         <button
           class="btn-toggle-compact"
           classList={{ active: preferencesStore.turboMode() }}

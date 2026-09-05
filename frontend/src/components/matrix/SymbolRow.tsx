@@ -102,6 +102,26 @@ export const SymbolRow: Component<Props> = (props) => {
   let armedTimer: any = null;
   let flashTimer: any = null;
 
+  // GPU Tick Flash-Decay Micro-Animation Engine (docs/01 §5.3)
+  const [tickDirection, setTickDirection] = createSignal<'up' | 'down' | null>(null);
+  let prevBid: number | null = null;
+  let tickFlashTimer: any = null;
+
+  createEffect(() => {
+    const d = item();
+    if (!d) return;
+    const curBid = d.spec.bid;
+    if (prevBid !== null && curBid !== prevBid) {
+      const dir = curBid > prevBid ? 'up' : 'down';
+      setTickDirection(dir);
+      if (tickFlashTimer) clearTimeout(tickFlashTimer);
+      tickFlashTimer = setTimeout(() => {
+        setTickDirection(null);
+      }, 350);
+    }
+    prevBid = curBid;
+  });
+
   const disarm = () => {
     if (armedTimer) clearTimeout(armedTimer);
     setArmedAction(null);
@@ -135,6 +155,7 @@ export const SymbolRow: Component<Props> = (props) => {
   onCleanup(() => {
     if (armedTimer) clearTimeout(armedTimer);
     if (flashTimer) clearTimeout(flashTimer);
+    if (tickFlashTimer) clearTimeout(tickFlashTimer);
   });
 
   const handleExecute = async (e: MouseEvent, action: 'BUY' | 'SELL') => {
@@ -238,7 +259,15 @@ export const SymbolRow: Component<Props> = (props) => {
           <td class="text-right">
             <div class="price-stacked">
               <div class="price-bid-row">
-                <span class="price-bid tabular-num">{data().spec.bid_display}</span>
+                <span
+                  class="price-bid tabular-num"
+                  classList={{
+                    'tick-flash-up': tickDirection() === 'up',
+                    'tick-flash-down': tickDirection() === 'down',
+                  }}
+                >
+                  {data().spec.bid_display}
+                </span>
                 <span
                   class="spread-pill-mini"
                   classList={{
