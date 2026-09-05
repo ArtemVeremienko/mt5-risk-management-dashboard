@@ -127,6 +127,7 @@ class MockDataProvider(IMarketDataProvider, IExecutionProvider):
         self._custom_trades: Optional[List[float]] = None
         self._cached_trades: List[float] = generate_mock_trades_pnl()
         self._positions: Dict[int, Position] = {}
+        self._pending_orders: Dict[int, Dict[str, Any]] = {}
         self._next_ticket = 100001
 
     @property
@@ -192,7 +193,20 @@ class MockDataProvider(IMarketDataProvider, IExecutionProvider):
         for raw in MOCK_SYMBOLS_SPECS:
             pip_val = (raw["trade_tick_value"] / raw["trade_tick_size"]) * raw["pip_size"]
             spread = round((raw["ask"] - raw["bid"]) / raw["pip_size"], 1)
-            step_rule = self._compute_step_rule(raw["digits"], raw["point"], raw["pip_size"], raw["category"])
+            adr = raw["adr_14_pips"]
+            today_range = round(adr * 0.45, 1)
+            adr_used_pct = round((today_range / adr) * 100.0, 1) if adr > 0 else 0.0
+            adr_left_pips = max(0.0, round(adr - today_range, 1))
+            room_up_pips = round(adr_left_pips * 0.6, 1)
+            room_down_pips = round(adr_left_pips * 0.4, 1)
+
+            step_rule = self._compute_step_rule(
+                digits=raw["digits"],
+                point=raw["point"],
+                pip_size=raw["pip_size"],
+                category=raw["category"]
+            )
+
             spec = SymbolSpec(
                 symbol=raw["symbol"],
                 category=raw["category"],
@@ -209,6 +223,7 @@ class MockDataProvider(IMarketDataProvider, IExecutionProvider):
                 volume_step=raw["volume_step"],
                 pip_value_per_lot=round(pip_val, 3),
                 spread_pips=spread,
+                median_spread_pips=spread,
                 adr_14_pips=raw["adr_14_pips"],
                 atr_14_pips=raw["atr_14_pips"],
                 currency_base="USD" if len(raw["symbol"]) > 6 else raw["symbol"][:3],
@@ -219,7 +234,12 @@ class MockDataProvider(IMarketDataProvider, IExecutionProvider):
                 spread_display=f"{spread:.1f}",
                 adr_display=f"{raw['adr_14_pips']:.1f}",
                 atr_display=f"{raw['atr_14_pips']:.1f}",
-                step_rule=step_rule
+                step_rule=step_rule,
+                today_range_pips=today_range,
+                adr_used_pct=adr_used_pct,
+                adr_left_pips=adr_left_pips,
+                room_up_pips=room_up_pips,
+                room_down_pips=room_down_pips
             )
             specs.append(spec)
         return specs
@@ -427,5 +447,18 @@ class MockDataProvider(IMarketDataProvider, IExecutionProvider):
                 closed += 1
         return {"success": True, "closed_count": closed}
 
+    def cancel_order(self, ticket: int) -> Dict[str, Any]:
+        if ticket in self._pending_orders:
+            order = self._pending_orders.pop(ticket)
+            return {"success": True, "ticket": ticket, "message": f"Pending order #{ticket} cancelled"}
+        return {"success": False, "error": f"Pending order #{ticket} not found"}
+
+    def cancel_all_orders(self) -> List[Dict[str, Any]]:
+        results = []
+        for ticket in list(self._pending_orders.keys()):
+            results.append(self.cancel_order(ticket))
+        return results
+
     def shutdown(self) -> None:
         self._positions.clear()
+        self._pending_orders.clear()

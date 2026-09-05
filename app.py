@@ -29,6 +29,7 @@ from application.execution_service import (
     PositionCloseRequest,
     PositionModifyRequest,
 )
+from application.liquidation_service import LiquidationService, FlattenSummary
 from presentation.routers import (
     account_router,
     symbols_router,
@@ -57,6 +58,7 @@ async def lifespan(app: FastAPI):
     broadcaster = getattr(app.state, "broadcast_hub", None) or manager
     market_service = getattr(app.state, "market_service", None) or MarketService(provider)
     execution_service = getattr(app.state, "execution_service", None) or ExecutionService(provider, broadcaster, market_service)
+    liquidation_service = getattr(app.state, "liquidation_service", None) or LiquidationService(provider, broadcaster, market_service)
 
     # Attach to app.state for FastAPI Depends() injection
     app.state.settings = settings
@@ -65,6 +67,7 @@ async def lifespan(app: FastAPI):
     app.state.broadcast_hub = broadcaster
     app.state.market_service = market_service
     app.state.execution_service = execution_service
+    app.state.liquidation_service = liquidation_service
 
     # 1. Proactive background volatility cache worker (refreshes 14D ADR/ATR every 15 minutes)
     async def volatility_cache_task():
@@ -118,6 +121,7 @@ async def lifespan(app: FastAPI):
 def create_app(
     market_service: Optional[MarketService] = None,
     execution_service: Optional[ExecutionService] = None,
+    liquidation_service: Optional[LiquidationService] = None,
     market_provider: Optional[Any] = None,
     execution_provider: Optional[Any] = None,
     broadcast_hub: Optional[BroadcastHub] = None,
@@ -135,6 +139,7 @@ def create_app(
     broadcaster = broadcast_hub or manager
     m_service = market_service or MarketService(prov)
     e_service = execution_service or ExecutionService(prov, broadcaster, m_service)
+    l_service = liquidation_service or LiquidationService(prov, broadcaster, m_service)
 
     # Attach to application.state for FastAPI Depends()
     application.state.settings = app_settings
@@ -143,6 +148,7 @@ def create_app(
     application.state.broadcast_hub = broadcaster
     application.state.market_service = m_service
     application.state.execution_service = e_service
+    application.state.liquidation_service = l_service
 
     # Register presentation routers
     application.include_router(account_router)

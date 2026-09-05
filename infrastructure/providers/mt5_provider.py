@@ -56,6 +56,7 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
         self._initial_risk_cache: Dict[int, Dict[str, Any]] = {}
         self._cached_trades: List[float] = []
         self._cached_trade_records: Optional[List[TradeRecord]] = None
+        self._spread_history: Dict[str, List[float]] = {}
 
         if not mock_mode:
             self._init_mt5()
@@ -121,40 +122,42 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
         if not self.is_live:
             return self._mock_provider.get_account_summary()
 
-        with self._mt5_lock:
-            try:
-                mt5_lib = self._get_mt5()
-                acc = mt5_lib.account_info() if mt5_lib else None
-                if acc is not None:
-                    margin_mode_raw = getattr(acc, "margin_mode", 2)
-                    account_type = "Netting" if margin_mode_raw in (0, 1) else "Hedge"
-                    trade_mode_raw = getattr(acc, "trade_mode", 0)
-                    if trade_mode_raw == 2:
-                        trade_mode = "Real"
-                    elif trade_mode_raw == 1:
-                        trade_mode = "Contest"
-                    else:
-                        trade_mode = "Demo"
+        return self._ipc_worker.call(self._get_account_summary_sync)
 
-                    return AccountState(
-                        balance=float(acc.balance),
-                        equity=float(acc.equity),
-                        margin=float(acc.margin),
-                        free_margin=float(acc.margin_free),
-                        margin_level=float(acc.margin_level) if acc.margin_level else 0.0,
-                        leverage=float(acc.leverage) if acc.leverage > 0 else 300.0,
-                        profit=float(acc.profit) if hasattr(acc, "profit") else 0.0,
-                        currency=acc.currency or "USD",
-                        server=acc.server or "MT5-Live",
-                        name=acc.name or "Trader",
-                        login=int(acc.login),
-                        account_type=account_type,
-                        is_live=True,
-                        trade_mode=trade_mode,
-                        is_real=(trade_mode_raw == 2)
-                    )
-            except Exception as e:
-                logger.error(f"Error reading live account info: {e}")
+    def _get_account_summary_sync(self) -> AccountState:
+        try:
+            mt5_lib = self._get_mt5()
+            acc = mt5_lib.account_info() if mt5_lib else None
+            if acc is not None:
+                margin_mode_raw = getattr(acc, "margin_mode", 2)
+                account_type = "Netting" if margin_mode_raw in (0, 1) else "Hedge"
+                trade_mode_raw = getattr(acc, "trade_mode", 0)
+                if trade_mode_raw == 2:
+                    trade_mode = "Real"
+                elif trade_mode_raw == 1:
+                    trade_mode = "Contest"
+                else:
+                    trade_mode = "Demo"
+
+                return AccountState(
+                    balance=float(acc.balance),
+                    equity=float(acc.equity),
+                    margin=float(acc.margin),
+                    free_margin=float(acc.margin_free),
+                    margin_level=float(acc.margin_level) if acc.margin_level else 0.0,
+                    leverage=float(acc.leverage) if acc.leverage > 0 else 300.0,
+                    profit=float(acc.profit) if hasattr(acc, "profit") else 0.0,
+                    currency=acc.currency or "USD",
+                    server=acc.server or "MT5-Live",
+                    name=acc.name or "Trader",
+                    login=int(acc.login),
+                    account_type=account_type,
+                    is_live=True,
+                    trade_mode=trade_mode,
+                    is_real=(trade_mode_raw == 2)
+                )
+        except Exception as e:
+            logger.error(f"Error reading live account info: {e}")
 
         return self._mock_provider.get_account_summary()
 
@@ -222,42 +225,60 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
         if cached and (now - cached.get("timestamp", 0)) < self.VOLATILITY_TTL_SECONDS:
             return cached["adr_14_pips"], cached["atr_14_pips"], pip_size
 
+        return self._ipc_worker.call(self._calculate_adr_and_atr_sync, symbol, point, digits, period, pip_size, now)
+
+    def _calculate_adr_and_atr_sync(
+        self,
+        symbol: str,
+        point: float,
+        digits: int,
+        period: int,
+        pip_size: float,
+        now: float
+    ) -> Tuple[float, float, float]:
         mt5_lib = self._get_mt5()
         if self.is_live and mt5_lib is not None:
-            with self._mt5_lock:
-                try:
-                    rates = mt5_lib.copy_rates_from_pos(symbol, mt5_lib.TIMEFRAME_D1, 1, period)
-                    if rates is not None and len(rates) >= 3:
-                        highs = rates['high']
-                        lows = rates['low']
-                        closes = rates['close']
+            try:
+                rates = mt5_lib.copy_rates_from_pos(symbol, mt5_lib.TIMEFRAME_D1, 1, period)
+                if rates is not None and len(rates) >= 3:
+                    highs = rates['high']
+                    lows = rates['low']
+                    closes = rates['close']
 
-                        daily_ranges = (highs - lows) / pip_size
-                        adr = float(np.mean(daily_ranges))
+                    daily_ranges = (highs - lows) / pip_size
+                    adr = float(np.mean(daily_ranges))
 
-                        tr_list = []
-                        for i in range(len(rates)):
-                            h = highs[i]
-                            l = lows[i]
-                            hl = h - l
-                            if i == 0:
-                                tr = hl
-                            else:
-                                prev_c = closes[i - 1]
-                                tr = max(hl, abs(h - prev_c), abs(l - prev_c))
-                            tr_list.append(tr / pip_size)
+                    tr_list = []
+                    for i in range(len(rates)):
+                        h = highs[i]
+                        l = lows[i]
+                        hl = h - l
+                        if i == 0:
+                            tr = hl
+                        else:
+                            prev_c = closes[i - 1]
+                            tr = max(hl, abs(h - prev_c), abs(l - prev_c))
+                        tr_list.append(tr / pip_size)
 
-                        atr = float(np.mean(tr_list))
-                        adr_val = round(adr, 1)
-                        atr_val = round(atr, 1)
-                        self._volatility_cache[symbol] = {
-                            "adr_14_pips": adr_val,
-                            "atr_14_pips": atr_val,
-                            "timestamp": now
-                        }
-                        return adr_val, atr_val, pip_size
-                except Exception as e:
-                    logger.debug(f"Error calculating ADR/ATR for {symbol}: {e}")
+                    atr = float(np.mean(tr_list))
+                    adr_val = round(adr, 1)
+                    atr_val = round(atr, 1)
+
+                    # Also query today's D1 bar (index 0) to cache session extremes
+                    today_rates = mt5_lib.copy_rates_from_pos(symbol, mt5_lib.TIMEFRAME_D1, 0, 1)
+                    today_high = float(today_rates[0]['high']) if today_rates is not None and len(today_rates) > 0 else 0.0
+                    today_low = float(today_rates[0]['low']) if today_rates is not None and len(today_rates) > 0 else 0.0
+
+                    self._volatility_cache[symbol] = {
+                        "adr_14_pips": adr_val,
+                        "atr_14_pips": atr_val,
+                        "today_high": today_high,
+                        "today_low": today_low,
+                        "timestamp": now
+                    }
+                    return adr_val, atr_val, pip_size
+            except Exception as e:
+                logger.debug(f"Error calculating ADR/ATR for {symbol}: {e}")
 
         # Fallback to mock / default
         default_adr = 60.0
@@ -271,6 +292,8 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
         self._volatility_cache[symbol] = {
             "adr_14_pips": default_adr,
             "atr_14_pips": default_atr,
+            "today_high": 0.0,
+            "today_low": 0.0,
             "timestamp": now
         }
         return default_adr, default_atr, pip_size
@@ -284,8 +307,17 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
                 self._volatility_cache[sym] = {
                     "adr_14_pips": item["adr_14_pips"],
                     "atr_14_pips": item["atr_14_pips"],
+                    "today_high": 0.0,
+                    "today_low": 0.0,
                     "timestamp": now
                 }
+            return
+
+        self._ipc_worker.call(self._refresh_volatility_cache_sync, symbols, force, now)
+
+    def _refresh_volatility_cache_sync(self, symbols: Optional[List[str]], force: bool, now: float) -> None:
+        mt5_lib = self._get_mt5()
+        if not mt5_lib:
             return
 
         syms_to_check = symbols or self._cached_symbol_names
@@ -294,134 +326,167 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
             if not force and cached and (now - cached.get("timestamp", 0) < self.VOLATILITY_TTL_SECONDS):
                 continue
 
-            with self._mt5_lock:
-                info = mt5_lib.symbol_info(sym)
-                if info is None:
-                    continue
-                point = info.point
-                digits = info.digits
+            info = mt5_lib.symbol_info(sym)
+            if info is None:
+                continue
+            point = info.point
+            digits = info.digits
 
-            self._calculate_adr_and_atr(sym, point, digits)
+            self._calculate_adr_and_atr_sync(sym, point, digits, 14, point * (10.0 if digits in (3, 5) else 1.0), now)
 
     def get_symbol_specs(self, symbol: str) -> Optional[SymbolSpec]:
         if not self.is_live:
             return self._mock_provider.get_symbol_specs(symbol)
 
-        with self._mt5_lock:
-            try:
-                mt5_lib = self._get_mt5()
-                if not mt5_lib:
-                    return None
-                tick = mt5_lib.symbol_info_tick(symbol)
-                base_spec = self._specs_cache.get(symbol)
+        return self._ipc_worker.call(self._get_symbol_specs_sync, symbol)
 
-                if base_spec is None:
-                    info = mt5_lib.symbol_info(symbol)
-                    if info is not None:
-                        digits = info.digits
-                        point = info.point
-                        pip_multiplier = 10.0 if digits in (3, 5) else 1.0
-                        pip_size = point * pip_multiplier if point > 0 else 0.0001
-                        category = self._determine_category(info.name, getattr(info, "path", ""))
-                        acc = mt5_lib.account_info() if self.is_live else None
-                        lev = float(acc.leverage) if (acc and acc.leverage > 0) else 2000.0
-                        raw_m = None
-                        try:
-                            init_price = float(tick.ask) if tick and tick.ask else 1.0
-                            raw_m = mt5_lib.order_calc_margin(mt5_lib.ORDER_TYPE_BUY, symbol, 1.0, init_price)
-                        except Exception:
-                            init_price = 1.0
-
-                        m_specs = resolve_margin_specs(
-                            symbol=info.name,
-                            category=category,
-                            contract_size=float(info.trade_contract_size) if info.trade_contract_size > 0 else 100000.0,
-                            ask=init_price,
-                            acc_leverage=lev,
-                            raw_order_margin=raw_m
-                        )
-                        c_base = info.currency_base or (symbol[:3] if len(symbol) == 6 else "USD")
-                        c_profit = info.currency_profit or (symbol[3:6] if len(symbol) == 6 else "USD")
-                        c_margin = info.currency_margin or c_base
-
-                        base_spec = {
-                            "symbol": info.name,
-                            "category": category,
-                            "digits": digits,
-                            "point": point,
-                            "pip_size": pip_size,
-                            "trade_contract_size": float(info.trade_contract_size) if info.trade_contract_size > 0 else 100000.0,
-                            "trade_tick_value": float(info.trade_tick_value) if info.trade_tick_value > 0 else 1.0,
-                            "trade_tick_size": float(info.trade_tick_size) if info.trade_tick_size > 0 else 0.00001,
-                            "trade_stops_level": info.trade_stops_level,
-                            "volume_min": float(info.volume_min) if info.volume_min > 0 else 0.01,
-                            "volume_max": float(info.volume_max) if info.volume_max > 0 else 100.0,
-                            "volume_step": float(info.volume_step) if info.volume_step > 0 else 0.01,
-                            "currency_base": c_base,
-                            "currency_profit": c_profit,
-                            "currency_margin": c_margin,
-                            "margin_per_lot": m_specs.margin_per_lot,
-                            "margin_rate": m_specs.margin_rate
-                        }
-                        self._specs_cache[symbol] = base_spec
-
-                if base_spec is None:
-                    return None
-
-                bid = float(tick.bid) if tick else 1.0
-                ask = float(tick.ask) if tick else 1.0
-                digits = base_spec["digits"]
-                pip_size = base_spec["pip_size"]
-                spread = round((ask - bid) / pip_size, 1) if pip_size > 0 else 0.0
-
-                pip_val = (base_spec["trade_tick_value"] / base_spec["trade_tick_size"]) * pip_size if base_spec["trade_tick_size"] > 0 else 1.0
-
-                vol = self._volatility_cache.get(symbol)
-                adr = vol.get("adr_14_pips", 60.0) if vol else 60.0
-                atr = vol.get("atr_14_pips", 65.0) if vol else 65.0
-
-                step_rule = self.compute_step_rule(
-                    symbol=symbol,
-                    category=base_spec["category"],
-                    digits=digits,
-                    point=base_spec["point"],
-                    pip_size=pip_size,
-                    stops_level=base_spec.get("trade_stops_level", 0)
-                )
-
-                return SymbolSpec(
-                    symbol=symbol,
-                    category=base_spec["category"],
-                    bid=bid,
-                    ask=ask,
-                    digits=digits,
-                    point=base_spec["point"],
-                    pip_size=pip_size,
-                    trade_contract_size=base_spec["trade_contract_size"],
-                    trade_tick_value=base_spec["trade_tick_value"],
-                    trade_tick_size=base_spec["trade_tick_size"],
-                    volume_min=base_spec["volume_min"],
-                    volume_max=base_spec["volume_max"],
-                    volume_step=base_spec["volume_step"],
-                    pip_value_per_lot=round(pip_val, 3),
-                    spread_pips=spread,
-                    adr_14_pips=adr,
-                    atr_14_pips=atr,
-                    currency_base=base_spec.get("currency_base", "USD"),
-                    currency_profit=base_spec.get("currency_profit", "USD"),
-                    currency_margin=base_spec.get("currency_margin", "USD"),
-                    bid_display=f"{bid:.{digits}f}",
-                    ask_display=f"{ask:.{digits}f}",
-                    spread_display=f"{spread:.1f}",
-                    adr_display=f"{adr:.1f}",
-                    atr_display=f"{atr:.1f}",
-                    step_rule=step_rule,
-                    margin_per_lot=base_spec.get("margin_per_lot"),
-                    margin_rate=base_spec.get("margin_rate")
-                )
-            except Exception as e:
-                logger.error(f"Error reading symbol specs for {symbol}: {e}")
+    def _get_symbol_specs_sync(self, symbol: str) -> Optional[SymbolSpec]:
+        try:
+            mt5_lib = self._get_mt5()
+            if not mt5_lib:
                 return None
+            tick = mt5_lib.symbol_info_tick(symbol)
+            base_spec = self._specs_cache.get(symbol)
+
+            if base_spec is None:
+                info = mt5_lib.symbol_info(symbol)
+                if info is not None:
+                    digits = info.digits
+                    point = info.point
+                    pip_multiplier = 10.0 if digits in (3, 5) else 1.0
+                    pip_size = point * pip_multiplier if point > 0 else 0.0001
+                    category = self._determine_category(info.name, getattr(info, "path", ""))
+                    acc = mt5_lib.account_info() if self.is_live else None
+                    lev = float(acc.leverage) if (acc and acc.leverage > 0) else 2000.0
+                    raw_m = None
+                    try:
+                        init_price = float(tick.ask) if tick and tick.ask else 1.0
+                        raw_m = mt5_lib.order_calc_margin(mt5_lib.ORDER_TYPE_BUY, symbol, 1.0, init_price)
+                    except Exception:
+                        init_price = 1.0
+
+                    m_specs = resolve_margin_specs(
+                        symbol=info.name,
+                        category=category,
+                        contract_size=float(info.trade_contract_size) if info.trade_contract_size > 0 else 100000.0,
+                        ask=init_price,
+                        acc_leverage=lev,
+                        raw_order_margin=raw_m
+                    )
+                    c_base = info.currency_base or (symbol[:3] if len(symbol) == 6 else "USD")
+                    c_profit = info.currency_profit or (symbol[3:6] if len(symbol) == 6 else "USD")
+                    c_margin = info.currency_margin or c_base
+
+                    base_spec = {
+                        "symbol": info.name,
+                        "category": category,
+                        "digits": digits,
+                        "point": point,
+                        "pip_size": pip_size,
+                        "trade_contract_size": float(info.trade_contract_size) if info.trade_contract_size > 0 else 100000.0,
+                        "trade_tick_value": float(info.trade_tick_value) if info.trade_tick_value > 0 else 1.0,
+                        "trade_tick_size": float(info.trade_tick_size) if info.trade_tick_size > 0 else 0.00001,
+                        "trade_stops_level": info.trade_stops_level,
+                        "volume_min": float(info.volume_min) if info.volume_min > 0 else 0.01,
+                        "volume_max": float(info.volume_max) if info.volume_max > 0 else 100.0,
+                        "volume_step": float(info.volume_step) if info.volume_step > 0 else 0.01,
+                        "currency_base": c_base,
+                        "currency_profit": c_profit,
+                        "currency_margin": c_margin,
+                        "margin_per_lot": m_specs.margin_per_lot,
+                        "margin_rate": m_specs.margin_rate
+                    }
+                    self._specs_cache[symbol] = base_spec
+
+            if base_spec is None:
+                return None
+
+            bid = float(tick.bid) if tick else 1.0
+            ask = float(tick.ask) if tick else 1.0
+            digits = base_spec["digits"]
+            pip_size = base_spec["pip_size"]
+            spread = round((ask - bid) / pip_size, 1) if pip_size > 0 else 0.0
+
+            pip_val = (base_spec["trade_tick_value"] / base_spec["trade_tick_size"]) * pip_size if base_spec["trade_tick_size"] > 0 else 1.0
+
+            vol = self._volatility_cache.get(symbol)
+            adr = vol.get("adr_14_pips", 60.0) if vol else 60.0
+            atr = vol.get("atr_14_pips", 65.0) if vol else 65.0
+
+            # Compute session ADR exhaustion & directional limits
+            today_high = vol.get("today_high", 0.0) if vol else 0.0
+            today_low = vol.get("today_low", 0.0) if vol else 0.0
+            if tick:
+                if today_high == 0.0 or tick.ask > today_high:
+                    today_high = tick.ask
+                if today_low == 0.0 or tick.bid < today_low:
+                    today_low = tick.bid
+
+            today_range_pips = round((today_high - today_low) / pip_size, 1) if (today_high > today_low and pip_size > 0) else round(adr * 0.45, 1)
+            adr_used_pct = min(200.0, round((today_range_pips / adr) * 100.0, 1)) if adr > 0 else 0.0
+            adr_left_pips = max(0.0, round(adr - today_range_pips, 1))
+
+            curr_price = (ask + bid) / 2.0
+            room_up_pips = max(0.0, round(((today_low + (adr * pip_size)) - curr_price) / pip_size, 1)) if (today_low > 0 and pip_size > 0) else round(adr_left_pips * 0.5, 1)
+            room_down_pips = max(0.0, round((curr_price - (today_high - (adr * pip_size))) / pip_size, 1)) if (today_high > 0 and pip_size > 0) else round(adr_left_pips * 0.5, 1)
+
+            step_rule = self.compute_step_rule(
+                symbol=symbol,
+                category=base_spec["category"],
+                digits=digits,
+                point=base_spec["point"],
+                pip_size=pip_size,
+                stops_level=base_spec.get("trade_stops_level", 0)
+            )
+
+            # Track rolling spread buffer (up to 30 observations) for median calculation
+            if symbol not in self._spread_history:
+                self._spread_history[symbol] = []
+            if spread > 0:
+                self._spread_history[symbol].append(spread)
+                if len(self._spread_history[symbol]) > 30:
+                    self._spread_history[symbol].pop(0)
+            median_spread = float(np.median(self._spread_history[symbol])) if self._spread_history[symbol] else spread
+
+            return SymbolSpec(
+                symbol=symbol,
+                category=base_spec["category"],
+                bid=bid,
+                ask=ask,
+                digits=digits,
+                point=base_spec["point"],
+                pip_size=pip_size,
+                trade_contract_size=base_spec["trade_contract_size"],
+                trade_tick_value=base_spec["trade_tick_value"],
+                trade_tick_size=base_spec["trade_tick_size"],
+                volume_min=base_spec["volume_min"],
+                volume_max=base_spec["volume_max"],
+                volume_step=base_spec["volume_step"],
+                pip_value_per_lot=round(pip_val, 3),
+                spread_pips=spread,
+                median_spread_pips=round(median_spread, 1),
+                adr_14_pips=adr,
+                atr_14_pips=atr,
+                currency_base=base_spec.get("currency_base", "USD"),
+                currency_profit=base_spec.get("currency_profit", "USD"),
+                currency_margin=base_spec.get("currency_margin", "USD"),
+                bid_display=f"{bid:.{digits}f}",
+                ask_display=f"{ask:.{digits}f}",
+                spread_display=f"{spread:.1f}",
+                adr_display=f"{adr:.1f}",
+                atr_display=f"{atr:.1f}",
+                step_rule=step_rule,
+                margin_per_lot=base_spec.get("margin_per_lot"),
+                margin_rate=base_spec.get("margin_rate"),
+                today_range_pips=today_range_pips,
+                adr_used_pct=adr_used_pct,
+                adr_left_pips=adr_left_pips,
+                room_up_pips=room_up_pips,
+                room_down_pips=room_down_pips
+            )
+        except Exception as e:
+            logger.error(f"Error reading symbol specs for {symbol}: {e}")
+            return None
 
     def get_market_symbols(self) -> List[SymbolSpec]:
         if not self.is_live:
@@ -429,15 +494,7 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
 
         now = time.time()
         if not self._cached_symbol_names or (now - self._last_symbol_sync_time > self.MARKET_WATCH_TTL_SECONDS):
-            with self._mt5_lock:
-                try:
-                    mt5_lib = self._get_mt5()
-                    symbols = mt5_lib.symbols_get() if mt5_lib else None
-                    if symbols:
-                        self._cached_symbol_names = [s.name for s in symbols if s.select]
-                        self._last_symbol_sync_time = now
-                except Exception as e:
-                    logger.error(f"Error fetching symbols: {e}")
+            self._ipc_worker.call(self._sync_market_watch_symbols, now)
 
         results: List[SymbolSpec] = []
         for sym in self._cached_symbol_names:
@@ -446,33 +503,46 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
                 results.append(spec)
         return results
 
+    def _sync_market_watch_symbols(self, now: float) -> None:
+        try:
+            mt5_lib = self._get_mt5()
+            symbols = mt5_lib.symbols_get() if mt5_lib else None
+            if symbols:
+                self._cached_symbol_names = [s.name for s in symbols if s.select]
+                self._last_symbol_sync_time = now
+        except Exception as e:
+            logger.error(f"Error fetching symbols: {e}")
+
     def calculate_margin(self, symbol: str, lots: float, price: float, leverage: Optional[float] = None) -> Optional[float]:
         """Calculates exact broker margin scaled by volume and leverage."""
         if self.is_live:
-            with self._mt5_lock:
-                try:
-                    mt5_lib = self._get_mt5()
-                    acc = mt5_lib.account_info() if mt5_lib else None
-                    acc_leverage = float(acc.leverage) if (acc and acc.leverage > 0) else 2000.0
-                    spec = self.get_symbol_specs(symbol)
-                    mpl = spec.margin_per_lot if spec else None
-                    ref_p = spec.ask if spec else price
-                    cat = spec.category if spec else ""
-                    cs = spec.trade_contract_size if spec else 100000.0
-                    return calculate_broker_margin(
-                        symbol=symbol,
-                        lots=lots,
-                        price=price,
-                        acc_leverage=acc_leverage,
-                        user_leverage=leverage,
-                        margin_per_lot=mpl,
-                        ref_price=ref_p,
-                        category=cat,
-                        contract_size=cs
-                    )
-                except Exception as e:
-                    logger.debug(f"calculate_margin error for {symbol}: {e}")
+            return self._ipc_worker.call(self._calculate_margin_sync, symbol, lots, price, leverage)
         return None
+
+    def _calculate_margin_sync(self, symbol: str, lots: float, price: float, leverage: Optional[float]) -> Optional[float]:
+        try:
+            mt5_lib = self._get_mt5()
+            acc = mt5_lib.account_info() if mt5_lib else None
+            acc_leverage = float(acc.leverage) if (acc and acc.leverage > 0) else 2000.0
+            spec = self.get_symbol_specs(symbol)
+            mpl = spec.margin_per_lot if spec else None
+            ref_p = spec.ask if spec else price
+            cat = spec.category if spec else ""
+            cs = spec.trade_contract_size if spec else 100000.0
+            return calculate_broker_margin(
+                symbol=symbol,
+                lots=lots,
+                price=price,
+                acc_leverage=acc_leverage,
+                user_leverage=leverage,
+                margin_per_lot=mpl,
+                ref_price=ref_p,
+                category=cat,
+                contract_size=cs
+            )
+        except Exception as e:
+            logger.debug(f"calculate_margin error for {symbol}: {e}")
+            return None
 
     def fetch_closed_deals_history(
         self,
@@ -484,62 +554,70 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
         if not self.is_live or mt5_lib is None:
             return self._mock_provider.fetch_closed_deals_history(days)
 
-        with self._mt5_lock:
-            try:
-                now = datetime.now(timezone.utc) + timedelta(days=1)
-                if days is not None:
-                    from_dt = now - timedelta(days=days)
-                else:
-                    from_dt = datetime(1970, 1, 1, tzinfo=timezone.utc)
+        return self._ipc_worker.call(self._fetch_closed_deals_history_sync, days, symbol, magic)
 
-                deals = mt5_lib.history_deals_get(from_dt, now)
-                if deals is not None and len(deals) > 0:
-                    positions_map: Dict[int, Dict[str, Any]] = {}
-                    for d in deals:
-                        if getattr(d, 'type', 0) == 2:
-                            continue
-                        if symbol and getattr(d, 'symbol', '').upper() != symbol.upper():
-                            continue
-                        if magic is not None and getattr(d, 'magic', None) != magic:
-                            continue
+    def _fetch_closed_deals_history_sync(
+        self,
+        days: Optional[int],
+        symbol: Optional[str],
+        magic: Optional[int]
+    ) -> List[float]:
+        mt5_lib = self._get_mt5()
+        try:
+            now = datetime.now(timezone.utc) + timedelta(days=1)
+            if days is not None:
+                from_dt = now - timedelta(days=days)
+            else:
+                from_dt = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
-                        pos_id = int(getattr(d, 'position_id', 0) or getattr(d, 'ticket', 0))
-                        if pos_id not in positions_map:
-                            positions_map[pos_id] = {
-                                "position_id": pos_id,
-                                "symbol": getattr(d, 'symbol', ''),
-                                "net_pnl": 0.0,
-                                "is_closed": False,
-                                "time": getattr(d, 'time', 0)
-                            }
+            deals = mt5_lib.history_deals_get(from_dt, now)
+            if deals is not None and len(deals) > 0:
+                positions_map: Dict[int, Dict[str, Any]] = {}
+                for d in deals:
+                    if getattr(d, 'type', 0) == 2:
+                        continue
+                    if symbol and getattr(d, 'symbol', '').upper() != symbol.upper():
+                        continue
+                    if magic is not None and getattr(d, 'magic', None) != magic:
+                        continue
 
-                        net_deal = float(getattr(d, 'profit', 0.0)) + float(getattr(d, 'swap', 0.0)) + float(getattr(d, 'commission', 0.0)) + float(getattr(d, 'fee', 0.0))
-                        positions_map[pos_id]["net_pnl"] += net_deal
-                        positions_map[pos_id]["time"] = max(positions_map[pos_id]["time"], getattr(d, 'time', 0))
+                    pos_id = int(getattr(d, 'position_id', 0) or getattr(d, 'ticket', 0))
+                    if pos_id not in positions_map:
+                        positions_map[pos_id] = {
+                            "position_id": pos_id,
+                            "symbol": getattr(d, 'symbol', ''),
+                            "net_pnl": 0.0,
+                            "is_closed": False,
+                            "time": getattr(d, 'time', 0)
+                        }
 
-                        if getattr(d, 'entry', 0) in (1, 2, 3) or (getattr(d, 'type', 0) in (0, 1) and getattr(d, 'profit', 0.0) != 0):
-                            positions_map[pos_id]["is_closed"] = True
+                    net_deal = float(getattr(d, 'profit', 0.0)) + float(getattr(d, 'swap', 0.0)) + float(getattr(d, 'commission', 0.0)) + float(getattr(d, 'fee', 0.0))
+                    positions_map[pos_id]["net_pnl"] += net_deal
+                    positions_map[pos_id]["time"] = max(positions_map[pos_id]["time"], getattr(d, 'time', 0))
 
-                    closed_positions = [
-                        pos for pos in positions_map.values() if pos["is_closed"]
-                    ]
-                    closed_positions.sort(key=lambda x: x["time"])
-                    pnl_list = [round(pos["net_pnl"], 2) for pos in closed_positions]
+                    if getattr(d, 'entry', 0) in (1, 2, 3) or (getattr(d, 'type', 0) in (0, 1) and getattr(d, 'profit', 0.0) != 0):
+                        positions_map[pos_id]["is_closed"] = True
 
-                    if pnl_list:
-                        self._cached_trades = pnl_list
-                        trade_records = []
-                        for pos in closed_positions:
-                            trade_records.append(TradeRecord(
-                                position_id=pos["position_id"],
-                                symbol=pos["symbol"] or "UNKNOWN",
-                                pnl=pos["net_pnl"],
-                                close_time=pos["time"]
-                            ))
-                        self._cached_trade_records = trade_records
-                        return pnl_list
-            except Exception as e:
-                logger.error(f"Error fetching closed deals: {e}")
+                closed_positions = [
+                    pos for pos in positions_map.values() if pos["is_closed"]
+                ]
+                closed_positions.sort(key=lambda x: x["time"])
+                pnl_list = [round(pos["net_pnl"], 2) for pos in closed_positions]
+
+                if pnl_list:
+                    self._cached_trades = pnl_list
+                    trade_records = []
+                    for pos in closed_positions:
+                        trade_records.append(TradeRecord(
+                            position_id=pos["position_id"],
+                            symbol=pos["symbol"] or "UNKNOWN",
+                            pnl=pos["net_pnl"],
+                            close_time=pos["time"]
+                        ))
+                    self._cached_trade_records = trade_records
+                    return pnl_list
+        except Exception as e:
+            logger.error(f"Error fetching closed deals: {e}")
 
         if not self._cached_trades:
             self._cached_trades = generate_mock_trades_pnl(count=185, win_rate=0.56, payoff_ratio=1.45)
@@ -571,103 +649,106 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
         if not self.is_live or mt5_lib is None:
             return self._mock_provider.get_open_positions()
 
-        with self._mt5_lock:
-            try:
-                positions = mt5_lib.positions_get()
-                if positions is None:
-                    return []
+        return self._ipc_worker.call(self._get_open_positions_sync)
 
-                current_tickets = set()
-                res: List[Position] = []
-
-                for p in positions:
-                    ticket = int(p.ticket)
-                    current_tickets.add(ticket)
-                    pos_type_str = "BUY" if p.type == mt5_lib.ORDER_TYPE_BUY else "SELL"
-                    digits = 5
-                    pip_size = 0.0001
-                    info = mt5_lib.symbol_info(p.symbol)
-                    if info:
-                        digits = info.digits
-                        point = info.point
-                        pip_mult = 10.0 if digits in (3, 5) else 1.0
-                        pip_size = point * pip_mult if point > 0 else 0.0001
-
-                    is_buy = (pos_type_str == "BUY")
-                    pnl_pips = (p.price_current - p.price_open) / pip_size if is_buy else (p.price_open - p.price_current) / pip_size
-
-                    is_sl_in_profit = False
-                    sl_pips_profit = 0.0
-                    if p.sl and p.sl > 0:
-                        sl_diff = (p.sl - p.price_open) if is_buy else (p.price_open - p.sl)
-                        sl_pips_profit = sl_diff / pip_size
-                        if sl_pips_profit >= 0:
-                            is_sl_in_profit = True
-
-                    initial_sl = 0.0
-                    initial_risk_pips = 0.0
-                    if ticket in self._initial_risk_cache:
-                        initial_sl = float(self._initial_risk_cache[ticket].get("initial_sl", 0.0))
-                        initial_risk_pips = float(self._initial_risk_cache[ticket].get("initial_risk_pips", 0.0))
-                        if initial_risk_pips == 0.0 and initial_sl > 0:
-                            initial_risk_pips = abs(p.price_open - initial_sl) / pip_size
-                    elif p.sl and p.sl > 0:
-                        initial_sl = p.sl
-                        initial_risk_pips = abs(p.price_open - p.sl) / pip_size
-                        self._initial_risk_cache[ticket] = {
-                            "initial_sl": initial_sl,
-                            "initial_risk_pips": initial_risk_pips
-                        }
-
-                    r_multiple = round(pnl_pips / initial_risk_pips, 2) if initial_risk_pips > 0 else None
-                    locked_r = round(sl_pips_profit / initial_risk_pips, 2) if (is_sl_in_profit and initial_risk_pips > 0) else 0.0
-
-                    category = self._determine_category(p.symbol, getattr(info, "path", ""))
-                    point = getattr(info, "point", 0.00001 if digits == 5 else 0.001)
-                    stops_level = getattr(info, "trade_stops_level", 0)
-
-                    step_rule = self.compute_step_rule(
-                        symbol=p.symbol,
-                        category=category,
-                        digits=digits,
-                        point=point,
-                        pip_size=pip_size,
-                        stops_level=stops_level
-                    )
-
-                    res.append(Position(
-                        ticket=ticket,
-                        symbol=p.symbol,
-                        type=pos_type_str,
-                        volume=float(p.volume),
-                        price_open=round(float(p.price_open), digits),
-                        price_current=round(float(p.price_current), digits),
-                        sl=round(float(p.sl), digits) if getattr(p, "sl", None) else 0.0,
-                        tp=round(float(p.tp), digits) if getattr(p, "tp", None) else 0.0,
-                        initial_sl=round(float(initial_sl), digits) if initial_sl > 0 else 0.0,
-                        is_sl_in_profit=is_sl_in_profit,
-                        locked_r=locked_r,
-                        profit=round(float(getattr(p, "profit", 0.0)), 2),
-                        swap=round(float(getattr(p, "swap", 0.0)), 2),
-                        pnl_pips=round(float(pnl_pips), 1),
-                        r_multiple=r_multiple,
-                        comment=getattr(p, "comment", "") or "",
-                        magic=int(getattr(p, "magic", 0)),
-                        time=int(getattr(p, "time", 0)),
-                        digits=digits,
-                        pip_size=pip_size,
-                        step_rule=step_rule
-                    ))
-
-                # Cleanup closed positions
-                stale_tickets = [t for t in self._initial_risk_cache if t not in current_tickets]
-                for t in stale_tickets:
-                    del self._initial_risk_cache[t]
-
-                return res
-            except Exception as e:
-                logger.error(f"Error in get_open_positions: {e}")
+    def _get_open_positions_sync(self) -> List[Position]:
+        mt5_lib = self._get_mt5()
+        try:
+            positions = mt5_lib.positions_get()
+            if positions is None:
                 return []
+
+            current_tickets = set()
+            res: List[Position] = []
+
+            for p in positions:
+                ticket = int(p.ticket)
+                current_tickets.add(ticket)
+                pos_type_str = "BUY" if p.type == mt5_lib.ORDER_TYPE_BUY else "SELL"
+                digits = 5
+                pip_size = 0.0001
+                info = mt5_lib.symbol_info(p.symbol)
+                if info:
+                    digits = info.digits
+                    point = info.point
+                    pip_mult = 10.0 if digits in (3, 5) else 1.0
+                    pip_size = point * pip_mult if point > 0 else 0.0001
+
+                is_buy = (pos_type_str == "BUY")
+                pnl_pips = (p.price_current - p.price_open) / pip_size if is_buy else (p.price_open - p.price_current) / pip_size
+
+                is_sl_in_profit = False
+                sl_pips_profit = 0.0
+                if p.sl and p.sl > 0:
+                    sl_diff = (p.sl - p.price_open) if is_buy else (p.price_open - p.sl)
+                    sl_pips_profit = sl_diff / pip_size
+                    if sl_pips_profit >= 0:
+                        is_sl_in_profit = True
+
+                initial_sl = 0.0
+                initial_risk_pips = 0.0
+                if ticket in self._initial_risk_cache:
+                    initial_sl = float(self._initial_risk_cache[ticket].get("initial_sl", 0.0))
+                    initial_risk_pips = float(self._initial_risk_cache[ticket].get("initial_risk_pips", 0.0))
+                    if initial_risk_pips == 0.0 and initial_sl > 0:
+                        initial_risk_pips = abs(p.price_open - initial_sl) / pip_size
+                elif p.sl and p.sl > 0:
+                    initial_sl = p.sl
+                    initial_risk_pips = abs(p.price_open - p.sl) / pip_size
+                    self._initial_risk_cache[ticket] = {
+                        "initial_sl": initial_sl,
+                        "initial_risk_pips": initial_risk_pips
+                    }
+
+                r_multiple = round(pnl_pips / initial_risk_pips, 2) if initial_risk_pips > 0 else None
+                locked_r = round(sl_pips_profit / initial_risk_pips, 2) if (is_sl_in_profit and initial_risk_pips > 0) else 0.0
+
+                category = self._determine_category(p.symbol, getattr(info, "path", ""))
+                point = getattr(info, "point", 0.00001 if digits == 5 else 0.001)
+                stops_level = getattr(info, "trade_stops_level", 0)
+
+                step_rule = self.compute_step_rule(
+                    symbol=p.symbol,
+                    category=category,
+                    digits=digits,
+                    point=point,
+                    pip_size=pip_size,
+                    stops_level=stops_level
+                )
+
+                res.append(Position(
+                    ticket=ticket,
+                    symbol=p.symbol,
+                    type=pos_type_str,
+                    volume=float(p.volume),
+                    price_open=round(float(p.price_open), digits),
+                    price_current=round(float(p.price_current), digits),
+                    sl=round(float(p.sl), digits) if getattr(p, "sl", None) else 0.0,
+                    tp=round(float(p.tp), digits) if getattr(p, "tp", None) else 0.0,
+                    initial_sl=round(float(initial_sl), digits) if initial_sl > 0 else 0.0,
+                    is_sl_in_profit=is_sl_in_profit,
+                    locked_r=locked_r,
+                    profit=round(float(getattr(p, "profit", 0.0)), 2),
+                    swap=round(float(getattr(p, "swap", 0.0)), 2),
+                    pnl_pips=round(float(pnl_pips), 1),
+                    r_multiple=r_multiple,
+                    comment=getattr(p, "comment", "") or "",
+                    magic=int(getattr(p, "magic", 0)),
+                    time=int(getattr(p, "time", 0)),
+                    digits=digits,
+                    pip_size=pip_size,
+                    step_rule=step_rule
+                ))
+
+            # Cleanup closed positions
+            stale_tickets = [t for t in self._initial_risk_cache if t not in current_tickets]
+            for t in stale_tickets:
+                del self._initial_risk_cache[t]
+
+            return res
+        except Exception as e:
+            logger.error(f"Error in get_open_positions: {e}")
+            return []
 
     # --- IExecutionProvider Methods ---
 
@@ -688,79 +769,98 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
         if not self.is_live or mt5_lib is None:
             return self._mock_provider.send_market_order(symbol, action_upper, volume, sl_pips, rr_ratio, comment)
 
-        with self._mt5_lock:
-            try:
-                tick = mt5_lib.symbol_info_tick(symbol)
-                info = mt5_lib.symbol_info(symbol)
-                if not tick or not info:
-                    return {"success": False, "error": f"Unable to get market quote for {symbol}"}
+        return self._ipc_worker.call(
+            self._send_market_order_sync,
+            symbol,
+            action_upper,
+            volume,
+            sl_pips,
+            rr_ratio,
+            comment
+        )
 
-                is_buy = action_upper == "BUY"
-                order_type = mt5_lib.ORDER_TYPE_BUY if is_buy else mt5_lib.ORDER_TYPE_SELL
-                price = float(tick.ask) if is_buy else float(tick.bid)
+    def _send_market_order_sync(
+        self,
+        symbol: str,
+        action_upper: str,
+        volume: float,
+        sl_pips: float,
+        rr_ratio: float,
+        comment: str
+    ) -> Dict[str, Any]:
+        mt5_lib = self._get_mt5()
+        try:
+            tick = mt5_lib.symbol_info_tick(symbol)
+            info = mt5_lib.symbol_info(symbol)
+            if not tick or not info:
+                return {"success": False, "error": f"Unable to get market quote for {symbol}"}
 
-                digits = info.digits
-                point = info.point
-                pip_mult = 10.0 if digits in (3, 5) else 1.0
-                pip_size = point * pip_mult if point > 0 else 0.0001
+            is_buy = action_upper == "BUY"
+            order_type = mt5_lib.ORDER_TYPE_BUY if is_buy else mt5_lib.ORDER_TYPE_SELL
+            price = float(tick.ask) if is_buy else float(tick.bid)
 
-                if is_buy:
-                    sl_price = round(price - (sl_pips * pip_size), digits)
-                    tp_price = round(price + (sl_pips * rr_ratio * pip_size), digits) if rr_ratio > 0 else 0.0
-                else:
-                    sl_price = round(price + (sl_pips * pip_size), digits)
-                    tp_price = round(price - (sl_pips * rr_ratio * pip_size), digits) if rr_ratio > 0 else 0.0
+            digits = info.digits
+            point = info.point
+            pip_mult = 10.0 if digits in (3, 5) else 1.0
+            pip_size = point * pip_mult if point > 0 else 0.0001
 
-                req = {
-                    "action": mt5_lib.TRADE_ACTION_DEAL,
-                    "symbol": symbol,
-                    "volume": float(volume),
-                    "type": order_type,
-                    "price": price,
+            if is_buy:
+                sl_price = round(price - (sl_pips * pip_size), digits)
+                tp_price = round(price + (sl_pips * rr_ratio * pip_size), digits) if rr_ratio > 0 else 0.0
+            else:
+                sl_price = round(price + (sl_pips * pip_size), digits)
+                tp_price = round(price - (sl_pips * rr_ratio * pip_size), digits) if rr_ratio > 0 else 0.0
+
+            req = {
+                "action": mt5_lib.TRADE_ACTION_DEAL,
+                "symbol": symbol,
+                "volume": float(volume),
+                "type": order_type,
+                "price": price,
+                "sl": sl_price,
+                "tp": tp_price,
+                "deviation": 20,
+                "magic": 123456,
+                "comment": comment,
+                "type_time": mt5_lib.ORDER_TIME_GTC,
+                "type_filling": mt5_lib.ORDER_FILLING_IOC,
+            }
+
+            result = mt5_lib.order_send(req)
+            if result is None:
+                err = mt5_lib.last_error()
+                return {"success": False, "error": f"order_send failed with code {err}"}
+
+            if result.retcode != mt5_lib.TRADE_RETCODE_DONE:
+                # Retry with RETURN filling mode if IOC rejected
+                if result.retcode in (mt5_lib.TRADE_RETCODE_INVALID_FILL, mt5_lib.TRADE_RETCODE_REJECT):
+                    req["type_filling"] = mt5_lib.ORDER_FILLING_RETURN
+                    result = mt5_lib.order_send(req)
+
+            if result and result.retcode == mt5_lib.TRADE_RETCODE_DONE:
+                ticket = int(result.order)
+                self._initial_risk_cache[ticket] = {
+                    "initial_sl": sl_price,
+                    "initial_risk_pips": sl_pips
+                }
+                return {
+                    "success": True,
+                    "ticket": ticket,
+                    "action": action_upper,
+                    "retcode": result.retcode,
+                    "price": result.price,
+                    "volume": result.volume,
                     "sl": sl_price,
                     "tp": tp_price,
-                    "deviation": 20,
-                    "magic": 123456,
-                    "comment": comment,
-                    "type_time": mt5_lib.ORDER_TIME_GTC,
-                    "type_filling": mt5_lib.ORDER_FILLING_IOC,
+                    "message": "Order executed successfully"
                 }
-
-                result = mt5_lib.order_send(req)
-                if result is None:
-                    err = mt5_lib.last_error()
-                    return {"success": False, "error": f"order_send failed with code {err}"}
-
-                if result.retcode != mt5_lib.TRADE_RETCODE_DONE:
-                    # Retry with RETURN filling mode if IOC rejected
-                    if result.retcode in (mt5_lib.TRADE_RETCODE_INVALID_FILL, mt5_lib.TRADE_RETCODE_REJECT):
-                        req["type_filling"] = mt5_lib.ORDER_FILLING_RETURN
-                        result = mt5_lib.order_send(req)
-
-                if result and result.retcode == mt5_lib.TRADE_RETCODE_DONE:
-                    ticket = int(result.order)
-                    self._initial_risk_cache[ticket] = {
-                        "initial_sl": sl_price,
-                        "initial_risk_pips": sl_pips
-                    }
-                    return {
-                        "success": True,
-                        "ticket": ticket,
-                        "action": action_upper,
-                        "retcode": result.retcode,
-                        "price": result.price,
-                        "volume": result.volume,
-                        "sl": sl_price,
-                        "tp": tp_price,
-                        "message": "Order executed successfully"
-                    }
-                else:
-                    ret_code = result.retcode if result else "Unknown"
-                    ret_comment = result.comment if result else ""
-                    return {"success": False, "retcode": ret_code, "error": f"Execution error: {ret_comment} ({ret_code})"}
-            except Exception as e:
-                logger.error(f"send_market_order error: {e}")
-                return {"success": False, "error": str(e)}
+            else:
+                ret_code = result.retcode if result else "Unknown"
+                ret_comment = result.comment if result else ""
+                return {"success": False, "retcode": ret_code, "error": f"Execution error: {ret_comment} ({ret_code})"}
+        except Exception as e:
+            logger.error(f"send_market_order error: {e}")
+            return {"success": False, "error": str(e)}
 
     def modify_position_sltp(
         self,
@@ -772,38 +872,46 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
         if not self.is_live or mt5_lib is None:
             return self._mock_provider.modify_position_sltp(ticket, sl, tp)
 
-        with self._mt5_lock:
-            try:
-                positions = mt5_lib.positions_get(ticket=ticket)
-                if not positions:
-                    return {"success": False, "error": f"Position #{ticket} not found"}
+        return self._ipc_worker.call(self._modify_position_sltp_sync, ticket, sl, tp)
 
-                pos = positions[0]
-                symbol = pos.symbol
-                info = mt5_lib.symbol_info(symbol)
-                digits = info.digits if info else 5
+    def _modify_position_sltp_sync(
+        self,
+        ticket: int,
+        sl: Optional[float],
+        tp: Optional[float]
+    ) -> Dict[str, Any]:
+        mt5_lib = self._get_mt5()
+        try:
+            positions = mt5_lib.positions_get(ticket=ticket)
+            if not positions:
+                return {"success": False, "error": f"Position #{ticket} not found"}
 
-                new_sl = round(float(sl), digits) if (sl is not None and sl > 0) else float(pos.sl)
-                new_tp = round(float(tp), digits) if (tp is not None and tp > 0) else float(pos.tp)
+            pos = positions[0]
+            symbol = pos.symbol
+            info = mt5_lib.symbol_info(symbol)
+            digits = info.digits if info else 5
 
-                req = {
-                    "action": mt5_lib.TRADE_ACTION_SLTP,
-                    "position": ticket,
-                    "symbol": symbol,
-                    "sl": new_sl,
-                    "tp": new_tp
-                }
+            new_sl = round(float(sl), digits) if (sl is not None and sl > 0) else float(pos.sl)
+            new_tp = round(float(tp), digits) if (tp is not None and tp > 0) else float(pos.tp)
 
-                result = mt5_lib.order_send(req)
-                if result and result.retcode == mt5_lib.TRADE_RETCODE_DONE:
-                    return {"success": True, "ticket": ticket, "sl": new_sl, "tp": new_tp}
-                else:
-                    code = result.retcode if result else mt5_lib.last_error()
-                    comm = result.comment if result else "Order modify failed"
-                    return {"success": False, "error": f"{comm} (retcode: {code})"}
-            except Exception as e:
-                logger.error(f"modify_position_sltp error: {e}")
-                return {"success": False, "error": str(e)}
+            req = {
+                "action": mt5_lib.TRADE_ACTION_SLTP,
+                "position": ticket,
+                "symbol": symbol,
+                "sl": new_sl,
+                "tp": new_tp
+            }
+
+            result = mt5_lib.order_send(req)
+            if result and result.retcode == mt5_lib.TRADE_RETCODE_DONE:
+                return {"success": True, "ticket": ticket, "sl": new_sl, "tp": new_tp}
+            else:
+                code = result.retcode if result else mt5_lib.last_error()
+                comm = result.comment if result else "Order modify failed"
+                return {"success": False, "error": f"{comm} (retcode: {code})"}
+        except Exception as e:
+            logger.error(f"modify_position_sltp error: {e}")
+            return {"success": False, "error": str(e)}
 
     def close_position(
         self,
@@ -814,62 +922,69 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
         if not self.is_live or mt5_lib is None:
             return self._mock_provider.close_position(ticket, volume)
 
-        with self._mt5_lock:
-            try:
-                positions = mt5_lib.positions_get(ticket=ticket)
-                if not positions:
-                    return {"success": False, "error": f"Position #{ticket} not found"}
+        return self._ipc_worker.call(self._close_position_sync, ticket, volume)
 
-                pos = positions[0]
-                symbol = pos.symbol
-                pos_vol = float(pos.volume)
-                close_vol = min(float(volume), pos_vol) if volume is not None and volume > 0 else pos_vol
+    def _close_position_sync(
+        self,
+        ticket: int,
+        volume: Optional[float]
+    ) -> Dict[str, Any]:
+        mt5_lib = self._get_mt5()
+        try:
+            positions = mt5_lib.positions_get(ticket=ticket)
+            if not positions:
+                return {"success": False, "error": f"Position #{ticket} not found"}
 
-                tick = mt5_lib.symbol_info_tick(symbol)
-                if not tick:
-                    return {"success": False, "error": f"No tick price for {symbol}"}
+            pos = positions[0]
+            symbol = pos.symbol
+            pos_vol = float(pos.volume)
+            close_vol = min(float(volume), pos_vol) if volume is not None and volume > 0 else pos_vol
 
-                is_buy = (pos.type == mt5_lib.ORDER_TYPE_BUY)
-                opp_type = mt5_lib.ORDER_TYPE_SELL if is_buy else mt5_lib.ORDER_TYPE_BUY
-                price = float(tick.bid) if is_buy else float(tick.ask)
+            tick = mt5_lib.symbol_info_tick(symbol)
+            if not tick:
+                return {"success": False, "error": f"No tick price for {symbol}"}
 
-                req = {
-                    "action": mt5_lib.TRADE_ACTION_DEAL,
-                    "position": ticket,
-                    "symbol": symbol,
-                    "volume": close_vol,
-                    "type": opp_type,
-                    "price": price,
-                    "deviation": 20,
-                    "magic": 123456,
-                    "comment": "Close Position",
-                    "type_time": mt5_lib.ORDER_TIME_GTC,
-                    "type_filling": mt5_lib.ORDER_FILLING_IOC
+            is_buy = (pos.type == mt5_lib.ORDER_TYPE_BUY)
+            opp_type = mt5_lib.ORDER_TYPE_SELL if is_buy else mt5_lib.ORDER_TYPE_BUY
+            price = float(tick.bid) if is_buy else float(tick.ask)
+
+            req = {
+                "action": mt5_lib.TRADE_ACTION_DEAL,
+                "position": ticket,
+                "symbol": symbol,
+                "volume": close_vol,
+                "type": opp_type,
+                "price": price,
+                "deviation": 20,
+                "magic": 123456,
+                "comment": "Close Position",
+                "type_time": mt5_lib.ORDER_TIME_GTC,
+                "type_filling": mt5_lib.ORDER_FILLING_IOC
+            }
+
+            result = mt5_lib.order_send(req)
+            if result and result.retcode != mt5_lib.TRADE_RETCODE_DONE:
+                if result.retcode in (mt5_lib.TRADE_RETCODE_INVALID_FILL, mt5_lib.TRADE_RETCODE_REJECT):
+                    req["type_filling"] = mt5_lib.ORDER_FILLING_RETURN
+                    result = mt5_lib.order_send(req)
+
+            if result and result.retcode == mt5_lib.TRADE_RETCODE_DONE:
+                if ticket in self._initial_risk_cache and close_vol >= pos_vol:
+                    del self._initial_risk_cache[ticket]
+                return {
+                    "success": True,
+                    "ticket": ticket,
+                    "closed_volume": close_vol,
+                    "remaining_volume": max(0.0, round(pos_vol - close_vol, 2)),
+                    "price": getattr(result, "price", price)
                 }
-
-                result = mt5_lib.order_send(req)
-                if result and result.retcode != mt5_lib.TRADE_RETCODE_DONE:
-                    if result.retcode in (mt5_lib.TRADE_RETCODE_INVALID_FILL, mt5_lib.TRADE_RETCODE_REJECT):
-                        req["type_filling"] = mt5_lib.ORDER_FILLING_RETURN
-                        result = mt5_lib.order_send(req)
-
-                if result and result.retcode == mt5_lib.TRADE_RETCODE_DONE:
-                    if ticket in self._initial_risk_cache and close_vol >= pos_vol:
-                        del self._initial_risk_cache[ticket]
-                    return {
-                        "success": True,
-                        "ticket": ticket,
-                        "closed_volume": close_vol,
-                        "remaining_volume": max(0.0, round(pos_vol - close_vol, 2)),
-                        "price": getattr(result, "price", price)
-                    }
-                else:
-                    code = result.retcode if result else mt5_lib.last_error()
-                    comm = result.comment if result else "Close order rejected"
-                    return {"success": False, "error": f"{comm} (retcode: {code})"}
-            except Exception as e:
-                logger.error(f"close_position error: {e}")
-                return {"success": False, "error": str(e)}
+            else:
+                code = result.retcode if result else mt5_lib.last_error()
+                comm = result.comment if result else "Close order rejected"
+                return {"success": False, "error": f"{comm} (retcode: {code})"}
+        except Exception as e:
+            logger.error(f"close_position error: {e}")
+            return {"success": False, "error": str(e)}
 
     def close_all_positions(self) -> List[Dict[str, Any]]:
         positions = self.get_open_positions()
@@ -892,92 +1007,95 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
         if not self.is_live or mt5_lib is None:
             return {"success": False, "message": "MT5 not connected"}
 
-        with self._mt5_lock:
+        return self._ipc_worker.call(self._calculate_universal_be_price_sync, ticket)
+
+    def _calculate_universal_be_price_sync(self, ticket: int) -> Dict[str, Any]:
+        mt5_lib = self._get_mt5()
+        try:
+            positions = mt5_lib.positions_get(ticket=ticket)
+            if not positions or len(positions) == 0:
+                return {"success": False, "message": f"Position #{ticket} not found"}
+
+            pos = positions[0]
+            symbol = pos.symbol
+            info = mt5_lib.symbol_info(symbol)
+            tick = mt5_lib.symbol_info_tick(symbol)
+            if not info or not tick:
+                return {"success": False, "message": f"Could not retrieve spec for {symbol}"}
+
+            digits = info.digits
+            point = info.point if info.point > 0 else 0.00001
+            tick_size = info.trade_tick_size if info.trade_tick_size > 0 else point
+            tick_val = info.trade_tick_value if info.trade_tick_value > 0 else 1.0
+            pip_multiplier = 10.0 if digits in (3, 5) else 1.0
+            pip_size = point * pip_multiplier
+
+            vol = float(pos.volume)
+            point_val_for_pos = (tick_val / tick_size) * vol if (tick_size > 0 and vol > 0) else 10.0
+
+            # 1. Commission Calculation
+            commission_total = 0.0
+            fee_total = 0.0
             try:
-                positions = mt5_lib.positions_get(ticket=ticket)
-                if not positions or len(positions) == 0:
-                    return {"success": False, "message": f"Position #{ticket} not found"}
+                deals = mt5_lib.history_deals_get(position=ticket)
+                if deals and len(deals) > 0:
+                    for d in deals:
+                        if getattr(d, 'entry', 0) in (0, 1):
+                            commission_total += abs(float(getattr(d, 'commission', 0.0)))
+                            fee_total += abs(float(getattr(d, 'fee', 0.0)))
+                    if len(deals) == 1:
+                        commission_total = commission_total * 2.0
+            except Exception as c_err:
+                logger.debug(f"Could not query deals for #{ticket}: {c_err}")
 
-                pos = positions[0]
-                symbol = pos.symbol
-                info = mt5_lib.symbol_info(symbol)
-                tick = mt5_lib.symbol_info_tick(symbol)
-                if not info or not tick:
-                    return {"success": False, "message": f"Could not retrieve spec for {symbol}"}
+            # 2. Swap in account currency
+            swap_cost = abs(float(pos.swap)) if pos.swap < 0 else 0.0
 
-                digits = info.digits
-                point = info.point if info.point > 0 else 0.00001
-                tick_size = info.trade_tick_size if info.trade_tick_size > 0 else point
-                tick_val = info.trade_tick_value if info.trade_tick_value > 0 else 1.0
-                pip_multiplier = 10.0 if digits in (3, 5) else 1.0
-                pip_size = point * pip_multiplier
+            # 3. Live Spread Cost
+            spread_points = (tick.ask - tick.bid) if (tick.ask and tick.bid) else (info.spread * point)
+            spread_dollars = (spread_points / tick_size) * tick_val * vol if tick_size > 0 else (5.0 * vol)
 
-                vol = float(pos.volume)
-                point_val_for_pos = (tick_val / tick_size) * vol if (tick_size > 0 and vol > 0) else 10.0
+            # 4. Nominal Safety Pad ($0.50 - $1.00 or 0.5 pip equivalent)
+            pip_val_for_pos = (pip_size / tick_size) * tick_val * vol if tick_size > 0 else (10.0 * vol)
+            safety_pad_dollars = max(1.0, 0.5 * pip_val_for_pos)
 
-                # 1. Commission Calculation
-                commission_total = 0.0
-                fee_total = 0.0
-                try:
-                    deals = mt5_lib.history_deals_get(position=ticket)
-                    if deals and len(deals) > 0:
-                        for d in deals:
-                            if getattr(d, 'entry', 0) in (0, 1):
-                                commission_total += abs(float(getattr(d, 'commission', 0.0)))
-                                fee_total += abs(float(getattr(d, 'fee', 0.0)))
-                        if len(deals) == 1:
-                            commission_total = commission_total * 2.0
-                except Exception as c_err:
-                    logger.debug(f"Could not query deals for #{ticket}: {c_err}")
+            # Total Cost to Absorb
+            total_cost_dollars = commission_total + fee_total + swap_cost + spread_dollars + safety_pad_dollars
 
-                # 2. Swap in account currency
-                swap_cost = abs(float(pos.swap)) if pos.swap < 0 else 0.0
+            # Exact Price Offset Required
+            price_offset = total_cost_dollars / point_val_for_pos if point_val_for_pos > 0 else (spread_points + 0.5 * pip_size)
 
-                # 3. Live Spread Cost
-                spread_points = (tick.ask - tick.bid) if (tick.ask and tick.bid) else (info.spread * point)
-                spread_dollars = (spread_points / tick_size) * tick_val * vol if tick_size > 0 else (5.0 * vol)
+            # Calculate Target BE Price
+            is_buy = (pos.type == mt5_lib.ORDER_TYPE_BUY)
+            if is_buy:
+                target_be = float(pos.price_open) + price_offset
+                curr_price = float(tick.bid)
+                is_profitable = (curr_price > target_be + (info.trade_stops_level * point))
+            else:
+                target_be = float(pos.price_open) - price_offset
+                curr_price = float(tick.ask)
+                is_profitable = (curr_price < target_be - (info.trade_stops_level * point))
 
-                # 4. Nominal Safety Pad ($0.50 - $1.00 or 0.5 pip equivalent)
-                pip_val_for_pos = (pip_size / tick_size) * tick_val * vol if tick_size > 0 else (10.0 * vol)
-                safety_pad_dollars = max(1.0, 0.5 * pip_val_for_pos)
+            rounded_be = round(target_be, digits)
 
-                # Total Cost to Absorb
-                total_cost_dollars = commission_total + fee_total + swap_cost + spread_dollars + safety_pad_dollars
-
-                # Exact Price Offset Required
-                price_offset = total_cost_dollars / point_val_for_pos if point_val_for_pos > 0 else (spread_points + 0.5 * pip_size)
-
-                # Calculate Target BE Price
-                is_buy = (pos.type == mt5_lib.ORDER_TYPE_BUY)
-                if is_buy:
-                    target_be = float(pos.price_open) + price_offset
-                    curr_price = float(tick.bid)
-                    is_profitable = (curr_price > target_be + (info.trade_stops_level * point))
-                else:
-                    target_be = float(pos.price_open) - price_offset
-                    curr_price = float(tick.ask)
-                    is_profitable = (curr_price < target_be - (info.trade_stops_level * point))
-
-                rounded_be = round(target_be, digits)
-
-                return {
-                    "success": True,
-                    "ticket": ticket,
-                    "symbol": symbol,
-                    "type": "BUY" if is_buy else "SELL",
-                    "price_open": float(pos.price_open),
-                    "current_price": curr_price,
-                    "target_be_price": rounded_be,
-                    "is_profitable": is_profitable,
-                    "commission_cost": round(commission_total + fee_total, 2),
-                    "swap_cost": round(swap_cost, 2),
-                    "spread_dollars": round(spread_dollars, 2),
-                    "total_cost_absorbed": round(total_cost_dollars, 2),
-                    "stops_level": info.trade_stops_level
-                }
-            except Exception as e:
-                logger.error(f"Error calculating universal BE price for #{ticket}: {e}")
-                return {"success": False, "message": str(e)}
+            return {
+                "success": True,
+                "ticket": ticket,
+                "symbol": symbol,
+                "type": "BUY" if is_buy else "SELL",
+                "price_open": float(pos.price_open),
+                "current_price": curr_price,
+                "target_be_price": rounded_be,
+                "is_profitable": is_profitable,
+                "commission_cost": round(commission_total + fee_total, 2),
+                "swap_cost": round(swap_cost, 2),
+                "spread_dollars": round(spread_dollars, 2),
+                "total_cost_absorbed": round(total_cost_dollars, 2),
+                "stops_level": info.trade_stops_level
+            }
+        except Exception as e:
+            logger.error(f"Error calculating universal BE price for #{ticket}: {e}")
+            return {"success": False, "message": str(e)}
 
     def break_even_all_positions(self) -> Dict[str, Any]:
         """
@@ -1131,3 +1249,65 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
             "total_positions": len(positions),
             "results": results
         }
+
+    def cancel_order(self, ticket: int) -> Dict[str, Any]:
+        """Cancels an active pending order via TRADE_ACTION_REMOVE."""
+        mt5_lib = self._get_mt5()
+        if not self.is_live or mt5_lib is None:
+            return self._mock_provider.cancel_order(ticket)
+
+        return self._ipc_worker.call(self._cancel_order_sync, ticket)
+
+    def _cancel_order_sync(self, ticket: int) -> Dict[str, Any]:
+        mt5_lib = self._get_mt5()
+        if mt5_lib is None:
+            return {"success": False, "error": "MT5 not available"}
+
+        orders = mt5_lib.orders_get(ticket=ticket)
+        if not orders:
+            return {"success": False, "error": f"Pending order #{ticket} not found"}
+
+        req = {
+            "action": mt5_lib.TRADE_ACTION_REMOVE,
+            "order": ticket
+        }
+        result = mt5_lib.order_send(req)
+        if result and result.retcode == mt5_lib.TRADE_RETCODE_DONE:
+            return {"success": True, "ticket": ticket, "message": f"Order #{ticket} cancelled"}
+        else:
+            code = result.retcode if result else mt5_lib.last_error()
+            comm = result.comment if result else "Order cancellation failed"
+            return {"success": False, "error": f"{comm} (retcode: {code})"}
+
+    def cancel_all_orders(self) -> List[Dict[str, Any]]:
+        """Cancels all active pending orders in MT5."""
+        mt5_lib = self._get_mt5()
+        if not self.is_live or mt5_lib is None:
+            return self._mock_provider.cancel_all_orders()
+
+        return self._ipc_worker.call(self._cancel_all_orders_sync)
+
+    def _cancel_all_orders_sync(self) -> List[Dict[str, Any]]:
+        mt5_lib = self._get_mt5()
+        if mt5_lib is None:
+            return []
+
+        orders = mt5_lib.orders_get()
+        if not orders:
+            return []
+
+        results = []
+        for o in orders:
+            ticket = int(o.ticket)
+            req = {
+                "action": mt5_lib.TRADE_ACTION_REMOVE,
+                "order": ticket
+            }
+            result = mt5_lib.order_send(req)
+            if result and result.retcode == mt5_lib.TRADE_RETCODE_DONE:
+                results.append({"success": True, "ticket": ticket, "symbol": getattr(o, "symbol", "")})
+            else:
+                code = result.retcode if result else mt5_lib.last_error()
+                comm = result.comment if result else "Cancel failed"
+                results.append({"success": False, "ticket": ticket, "error": f"{comm} (retcode: {code})"})
+        return results

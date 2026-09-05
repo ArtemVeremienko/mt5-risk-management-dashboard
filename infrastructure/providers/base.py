@@ -127,6 +127,16 @@ class IExecutionProvider(ABC):
         ...
 
     @abstractmethod
+    def cancel_order(self, ticket: int) -> Dict[str, Any]:
+        """Cancels an active pending order (Limit / Stop)."""
+        ...
+
+    @abstractmethod
+    def cancel_all_orders(self) -> List[Dict[str, Any]]:
+        """Cancels all active pending orders."""
+        ...
+
+    @abstractmethod
     def shutdown(self) -> None:
         """Releases resources, threads, and connections."""
         ...

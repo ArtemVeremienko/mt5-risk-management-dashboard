@@ -104,3 +104,12 @@ def test_api_order_and_positions_flow(client):
     close_all_res = client.post("/api/position/close-all")
     assert close_all_res.status_code == 200
     assert close_all_res.json()["count"] >= 1
+
+    # 6. Cancel pending order and Smart Flatten
+    flatten_res = client.post("/api/position/flatten-all")
+    assert flatten_res.status_code == 200
+    assert flatten_res.json()["success"] is True
+
+    cancel_all_res = client.post("/api/order/cancel-all")
+    assert cancel_all_res.status_code == 200
+    assert cancel_all_res.json()["success"] is True

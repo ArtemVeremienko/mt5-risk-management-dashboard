@@ -315,14 +315,14 @@ Phase 3: Provider Abstraction & FastAPI Dependency Injection [COMPLETED]
    ├── [x] 3.2 Refactor feed.py into MT5NativeProvider and MockDataProvider
    └── [x] 3.3 Split app.py into modular routers with FastAPI Depends() injection
 
-Phase 4: Implementation of TODO.md Features & Institutional Hardening
-   ├── 4.1 Pin MT5 IPC to Dedicated Worker Thread (P0 Concurrency Defect)
+Phase 4: Implementation of TODO.md Features & Institutional Hardening [COMPLETED]
+   ├── [x] 4.1 Pin MT5 IPC to Dedicated Worker Thread (P0 Concurrency Defect)
    │     Route all MT5 C-extension operations through MT5IPCWorker.call() rather than random threads
-   ├── 4.2 Smart Flatten ($0 Delta) Engine & LiquidationService (P1 Liquidation Gap)
+   ├── [x] 4.2 Smart Flatten ($0 Delta) Engine & LiquidationService (P1 Liquidation Gap)
    │     Add cancel_all_orders() to IExecutionProvider, cancel active pending orders prior to position liquidation
-   ├── 4.3 Pre-Trade Risk Gatekeeper & Idempotency Pipeline (P2 OMS Gate)
+   ├── [x] 4.3 Pre-Trade Risk Gatekeeper & Idempotency Pipeline (P2 OMS Gate)
    │     Spread blowout guard (>2.5x median), pre-flight margin utilization check, and order debouncing
-   └── 4.4 Session ADR Exhaustion Telemetry in 500ms broadcast stream (P3 HUD Telemetry)
+   └── [x] 4.4 Session ADR Exhaustion Telemetry in 500ms broadcast stream (P3 HUD Telemetry)
          Intraday D1 extremes, adr_used_pct, room_up_pips, room_down_pips in 500ms broadcast stream
 
 Phase 5: Native MQL5 TCP Socket Push Bridge (STREAMING_PLAN.md)

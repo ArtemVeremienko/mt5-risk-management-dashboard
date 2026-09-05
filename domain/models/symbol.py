@@ -43,6 +43,7 @@ class SymbolSpec(DomainModel):
     volume_step: float = 0.01
     pip_value_per_lot: float = 10.0
     spread_pips: float = 2.0
+    median_spread_pips: Optional[float] = None
     adr_14_pips: float = 60.0
     atr_14_pips: float = 65.0
     currency_base: Optional[str] = "USD"
@@ -56,3 +57,9 @@ class SymbolSpec(DomainModel):
     step_rule: Optional[StepRule] = None
     margin_per_lot: Optional[float] = None
     margin_rate: Optional[float] = None
+    # Session ADR Exhaustion & Directional Telemetry
+    today_range_pips: Optional[float] = None
+    adr_used_pct: Optional[float] = None
+    adr_left_pips: Optional[float] = None
+    room_up_pips: Optional[float] = None
+    room_down_pips: Optional[float] = None

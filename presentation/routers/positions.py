@@ -11,7 +11,8 @@ from application.execution_service import (
     PositionCloseRequest,
     PositionModifyRequest,
 )
-from presentation.dependencies import get_market_service, get_execution_service
+from application.liquidation_service import LiquidationService
+from presentation.dependencies import get_market_service, get_execution_service, get_liquidation_service
 
 router = APIRouter(tags=["Positions"])
 
@@ -48,8 +49,19 @@ async def modify_position(
 async def close_all_positions(
     execution_service: ExecutionService = Depends(get_execution_service)
 ) -> Dict[str, Any]:
-    """Closes all open positions in MT5."""
+    """Closes all open positions in MT5 without cancelling pending orders."""
     return await execution_service.close_all_positions()
+
+
+@router.post("/api/position/flatten-all")
+async def flatten_all(
+    liquidation_service: LiquidationService = Depends(get_liquidation_service)
+) -> Dict[str, Any]:
+    """
+    Institutional Smart Flatten ($0 Delta) Engine:
+    Cancels 100% of pending orders, then liquidates 100% of open market positions.
+    """
+    return await liquidation_service.flatten_all()
 
 
 @router.post("/api/position/break-even-all")
