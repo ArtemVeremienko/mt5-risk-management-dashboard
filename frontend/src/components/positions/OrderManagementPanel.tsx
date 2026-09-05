@@ -119,13 +119,7 @@ export const OrderManagementPanel: Component = () => {
               {preferencesStore.pnlDisplayMode() === 'stealth_mask'
                 ? '***.**'
                 : preferencesStore.pnlDisplayMode() === 'r_multiple'
-                ? (() => {
-                    const wc = preferencesStore.workingCapital();
-                    const pct = preferencesStore.customRiskPct();
-                    const oneR = wc * (pct / 100);
-                    const rVal = oneR > 0 ? totalPnl() / oneR : 0;
-                    return `${rVal > 0 ? '+' : ''}${rVal.toFixed(2)} R`;
-                  })()
+                ? `${positionsStore.totalFloatingR() > 0 ? '+' : ''}${positionsStore.totalFloatingR().toFixed(2)} R`
                 : totalPnl() > 0
                 ? `+$${totalPnl().toFixed(2)}`
                 : `$${totalPnl().toFixed(2)}`}
@@ -144,13 +138,7 @@ export const OrderManagementPanel: Component = () => {
               {preferencesStore.pnlDisplayMode() === 'stealth_mask'
                 ? `***.** (${positionsStore.portfolioHeat().heatPct.toFixed(1)}%)`
                 : preferencesStore.pnlDisplayMode() === 'r_multiple'
-                ? (() => {
-                    const wc = preferencesStore.workingCapital();
-                    const pct = preferencesStore.customRiskPct();
-                    const oneR = wc * (pct / 100);
-                    const rHeat = oneR > 0 ? positionsStore.portfolioHeat().totalHeatAmount / oneR : 0;
-                    return `${rHeat.toFixed(2)} R (${positionsStore.portfolioHeat().heatPct.toFixed(1)}%)`;
-                  })()
+                ? `${positionsStore.portfolioHeatR().toFixed(2)} R (${positionsStore.portfolioHeat().heatPct.toFixed(1)}%)`
                 : `$${positionsStore.portfolioHeat().totalHeatAmount.toFixed(2)} (${positionsStore.portfolioHeat().heatPct.toFixed(1)}%)`}
               <Show when={positionsStore.portfolioHeat().unprotectedCount > 0}>
                 <span class="heat-unprotected-tag">⚠️ {positionsStore.portfolioHeat().unprotectedCount} Unshielded</span>

@@ -103,19 +103,13 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
     );
   };
 
-  // 1R cash reference = Working Capital * (customRiskPct / 100)
-  const oneRCash = createMemo(() => {
-    const wc = preferencesStore.workingCapital();
-    const pct = preferencesStore.customRiskPct();
-    return wc * (pct / 100);
-  });
-
   const formattedHeaderPnl = createMemo(() => {
     const mode = preferencesStore.pnlDisplayMode();
     const pnl = floatingProfit();
     if (mode === 'stealth_mask') return '***.**';
     if (mode === 'r_multiple') {
-      const rVal = oneRCash() > 0 ? pnl / oneRCash() : 0;
+      const oneR = positionsStore.oneRCash();
+      const rVal = oneR > 0 ? pnl / oneR : 0;
       return `${rVal > 0 ? '+' : ''}${rVal.toFixed(2)} R`;
     }
     return pnl > 0 ? `+${formatCurrency(pnl)}` : pnl < 0 ? formatCurrency(pnl) : '$0.00';
@@ -292,13 +286,7 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
                   preferencesStore.pnlDisplayMode() === 'stealth_mask'
                     ? `Portfolio Heat: ***.** (${positionsStore.portfolioHeat().heatPct.toFixed(1)}% of WC) · ${positionsStore.portfolioHeat().unprotectedCount > 0 ? `⚠️ ${positionsStore.portfolioHeat().unprotectedCount} trade(s) have NO Stop Loss!` : 'All positions shielded.'} · Click to manage in Blotter`
                     : preferencesStore.pnlDisplayMode() === 'r_multiple'
-                    ? (() => {
-                        const wc = preferencesStore.workingCapital();
-                        const pct = preferencesStore.customRiskPct();
-                        const oneR = wc * (pct / 100);
-                        const rHeat = oneR > 0 ? positionsStore.portfolioHeat().totalHeatAmount / oneR : 0;
-                        return `Portfolio Heat: ${rHeat.toFixed(2)} R (${positionsStore.portfolioHeat().heatPct.toFixed(1)}% of WC) · ${positionsStore.portfolioHeat().unprotectedCount > 0 ? `⚠️ ${positionsStore.portfolioHeat().unprotectedCount} trade(s) have NO Stop Loss!` : 'All positions shielded.'} · Click to manage in Blotter`;
-                      })()
+                    ? `Portfolio Heat: ${positionsStore.portfolioHeatR().toFixed(2)} R (${positionsStore.portfolioHeat().heatPct.toFixed(1)}% of WC) · ${positionsStore.portfolioHeat().unprotectedCount > 0 ? `⚠️ ${positionsStore.portfolioHeat().unprotectedCount} trade(s) have NO Stop Loss!` : 'All positions shielded.'} · Click to manage in Blotter`
                     : `Portfolio Heat: $${positionsStore.portfolioHeat().totalHeatAmount.toFixed(2)} (${positionsStore.portfolioHeat().heatPct.toFixed(1)}% of WC) · ${positionsStore.portfolioHeat().unprotectedCount > 0 ? `⚠️ ${positionsStore.portfolioHeat().unprotectedCount} trade(s) have NO Stop Loss!` : 'All positions shielded.'} · Click to manage in Blotter`
                 }
               >
@@ -689,13 +677,7 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
                     {preferencesStore.pnlDisplayMode() === 'stealth_mask'
                       ? `***.** (${positionsStore.portfolioHeat().heatPct.toFixed(1)}%)`
                       : preferencesStore.pnlDisplayMode() === 'r_multiple'
-                      ? (() => {
-                          const wc = preferencesStore.workingCapital();
-                          const pct = preferencesStore.customRiskPct();
-                          const oneR = wc * (pct / 100);
-                          const rHeat = oneR > 0 ? positionsStore.portfolioHeat().totalHeatAmount / oneR : 0;
-                          return `${rHeat.toFixed(2)} R (${positionsStore.portfolioHeat().heatPct.toFixed(1)}%)`;
-                        })()
+                      ? `${positionsStore.portfolioHeatR().toFixed(2)} R (${positionsStore.portfolioHeat().heatPct.toFixed(1)}%)`
                       : `${formatCurrency(positionsStore.portfolioHeat().totalHeatAmount)} (${positionsStore.portfolioHeat().heatPct.toFixed(1)}%)`}
                   </span>
                 </div>

@@ -1,6 +1,6 @@
 import { createSignal, createRoot, createMemo } from 'solid-js';
 import { OpenPosition } from '../types';
-import { calculatePortfolioHeat, calculateNetCurrencyExposure } from '../utils/portfolioAnalytics';
+import { calculatePortfolioHeat, calculateNetCurrencyExposure, normalizeCashToR } from '../utils/portfolioAnalytics';
 import { marketStore } from './marketStore';
 import { preferencesStore } from './preferencesStore';
 
@@ -38,6 +38,30 @@ function createPositionsStore() {
     );
   });
 
+  const oneRCash = createMemo(() => {
+    const wc = preferencesStore.workingCapital();
+    const pct = preferencesStore.customRiskPct();
+    const safeWc = wc > 0 ? wc : 100.0;
+    const safePct = pct > 0 ? pct : 1.0;
+    return safeWc * (safePct / 100.0);
+  });
+
+  const totalFloatingR = createMemo(() => {
+    return normalizeCashToR(
+      totalFloatingProfit(),
+      preferencesStore.workingCapital(),
+      preferencesStore.customRiskPct()
+    );
+  });
+
+  const portfolioHeatR = createMemo(() => {
+    return normalizeCashToR(
+      portfolioHeat().totalHeatAmount,
+      preferencesStore.workingCapital(),
+      preferencesStore.customRiskPct()
+    );
+  });
+
   const netCurrencyExposure = createMemo(() => {
     return calculateNetCurrencyExposure(positions());
   });
@@ -51,6 +75,9 @@ function createPositionsStore() {
     totalFloatingProfit,
     totalPositionsCount,
     portfolioHeat,
+    oneRCash,
+    totalFloatingR,
+    portfolioHeatR,
     netCurrencyExposure,
     isActionInProgress,
     setIsActionInProgress,
@@ -58,4 +85,5 @@ function createPositionsStore() {
 }
 
 export const positionsStore = createRoot(createPositionsStore);
+
 

@@ -1,5 +1,24 @@
 import { SymbolSpec, CalculatedSymbolResult, TradeStats, ModelComparison, LotCalculation } from '../types';
 
+/**
+ * Resolves the baseline Stop Loss in points/pips from 14-day ADR / ATR presets.
+ */
+export function computeDefaultSlPips(
+  spec?: Partial<SymbolSpec> | null,
+  slMode: string = '1/2 ADR'
+): number {
+  if (!spec) return 20.0;
+  const adr14 = spec.adr_14_pips || 65.0;
+  const atr14 = spec.atr_14_pips || adr14 * 1.05;
+
+  if (slMode === '1/4 ADR') return Math.max(1.0, Math.round(adr14 * 0.25 * 10) / 10);
+  if (slMode === '1/3 ADR') return Math.max(1.0, Math.round(adr14 * (1.0 / 3.0) * 10) / 10);
+  if (slMode === '1/2 ADR') return Math.max(1.0, Math.round(adr14 * 0.5 * 10) / 10);
+  if (slMode === '1 ADR') return Math.max(1.0, Math.round(adr14 * 10) / 10);
+  if (slMode === '1 ATR') return Math.max(1.0, Math.round(atr14 * 10) / 10);
+  return 20.0;
+}
+
 export function computeLocalRiskForResult(
   spec: SymbolSpec,
   workingCapital: number,
@@ -28,18 +47,8 @@ export function computeLocalRiskForResult(
   let slPips: number;
   if (symbolSlOverrides && symbolSlOverrides[symbol] !== undefined && !isNaN(Number(symbolSlOverrides[symbol]))) {
     slPips = Math.max(1.0, Number(symbolSlOverrides[symbol]));
-  } else if (slMode === '1/4 ADR') {
-    slPips = Math.max(1.0, Math.round(adr14 * 0.25 * 10) / 10);
-  } else if (slMode === '1/3 ADR') {
-    slPips = Math.max(1.0, Math.round(adr14 * (1.0 / 3.0) * 10) / 10);
-  } else if (slMode === '1/2 ADR') {
-    slPips = Math.max(1.0, Math.round(adr14 * 0.5 * 10) / 10);
-  } else if (slMode === '1 ADR') {
-    slPips = Math.max(1.0, Math.round(adr14 * 10) / 10);
-  } else if (slMode === '1 ATR') {
-    slPips = Math.max(1.0, Math.round(atr14 * 10) / 10);
   } else {
-    slPips = 20.0;
+    slPips = computeDefaultSlPips(spec, slMode);
   }
 
   // 2. Target Risk %

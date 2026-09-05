@@ -16,6 +16,26 @@ export interface CurrencyExposureItem {
 const MAJOR_CURRENCIES = ['USD', 'EUR', 'GBP', 'JPY', 'AUD', 'CAD', 'CHF', 'NZD'];
 
 /**
+ * Normalizes a cash amount (e.g. Floating PnL or Portfolio Heat) into an R-Multiple
+ * based on Working Capital and target Risk Percentage.
+ * 1R = workingCapital * (customRiskPct / 100)
+ */
+export function normalizeCashToR(cashAmount: number, workingCapital: number, riskPct: number): number {
+  const safeWc = workingCapital > 0 ? workingCapital : 100.0;
+  const safePct = riskPct > 0 ? riskPct : 1.0;
+  const oneR = safeWc * (safePct / 100.0);
+  return oneR > 0 ? cashAmount / oneR : 0.0;
+}
+
+/**
+ * Formats an R-Multiple value into standard institutional notation (e.g. "+1.25 R" or "-0.50 R").
+ */
+export function formatRMultiple(rVal: number, showSign: boolean = true): string {
+  const prefix = showSign && rVal > 0 ? '+' : '';
+  return `${prefix}${rVal.toFixed(2)} R`;
+}
+
+/**
  * Computes aggregate open Stop-Loss risk across all positions.
  * Formula: Heat = sum( |OpenPrice - SL| / PipSize * PipValuePerLot * Volume )
  */

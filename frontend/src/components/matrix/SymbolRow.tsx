@@ -3,6 +3,7 @@ import { CalculatedSymbolResult } from '../../types';
 import { marketStore } from '../../stores/marketStore';
 import { preferencesStore } from '../../stores/preferencesStore';
 import { accountStore } from '../../stores/accountStore';
+import { computeDefaultSlPips } from '../../utils/lotCalculator';
 import { MicroSparkline } from './MicroSparkline';
 
 interface Props {
@@ -25,16 +26,7 @@ export const SymbolRow: Component<Props> = (props) => {
 
   const defaultSL = createMemo<number>(() => {
     const d = item();
-    if (!d) return 20.0;
-    const adr14 = d.spec.adr_14_pips || 65.0;
-    const atr14 = d.spec.atr_14_pips || adr14 * 1.05;
-    const slMode = preferencesStore.slMode();
-    if (slMode === '1/4 ADR') return Math.max(1.0, Math.round(adr14 * 0.25 * 10) / 10);
-    if (slMode === '1/3 ADR') return Math.max(1.0, Math.round(adr14 * (1.0 / 3.0) * 10) / 10);
-    if (slMode === '1/2 ADR') return Math.max(1.0, Math.round(adr14 * 0.5 * 10) / 10);
-    if (slMode === '1 ADR') return Math.max(1.0, Math.round(adr14 * 10) / 10);
-    if (slMode === '1 ATR') return Math.max(1.0, Math.round(atr14 * 10) / 10);
-    return 20.0;
+    return computeDefaultSlPips(d?.spec, preferencesStore.slMode());
   });
 
   const activeSL = createMemo<number>(() => {
