@@ -63,15 +63,7 @@ export const RiskControlsBar: Component = () => {
             <span>WORKING CAPITAL ($)</span>
             <Show when={preferencesStore.isWorkingCapitalCustom()}>
               <span
-                class="control-value-tag font-mono"
-                style={{
-                  'font-size': '10px',
-                  'background': 'rgba(245, 158, 11, 0.15)',
-                  'color': '#fbbf24',
-                  'border': '1px solid rgba(245, 158, 11, 0.3)',
-                  'padding': '1px 5px',
-                  'border-radius': '4px',
-                }}
+                class="control-value-tag tag-warning font-mono"
                 title={`Delta (Δ): ${preferencesStore.reserveDelta()! >= 0 ? '+' : ''}$${preferencesStore.reserveDelta()?.toFixed(2)} relative to MT5 balance`}
               >
                 Δ: {preferencesStore.reserveDelta()! >= 0 ? '+' : '-'}${Math.abs(preferencesStore.reserveDelta() || 0).toFixed(0)}

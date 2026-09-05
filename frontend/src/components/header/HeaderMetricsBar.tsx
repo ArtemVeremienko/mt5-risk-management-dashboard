@@ -6,6 +6,7 @@ import { marketStore } from '../../stores/marketStore';
 import { toastStore } from '../../stores/toastStore';
 import { wsService } from '../../services/websocket';
 import { formatCurrency, formatRrRatio } from '../../utils/formatters';
+import { RISK_CONSTANTS } from '../../config/constants';
 
 interface Props {
   onOpenRiskModal: () => void;
@@ -379,45 +380,23 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
                 </div>
 
                 {/* Monthly Target Goal Card */}
-                <div
-                  style={{
-                    background: 'rgba(15, 23, 42, 0.75)',
-                    border: '1px solid rgba(51, 65, 85, 0.7)',
-                    'border-radius': '6px',
-                    padding: '8px 12px',
-                    'margin-bottom': '12px',
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      'justify-content': 'space-between',
-                      'align-items': 'center',
-                      'font-size': '11px',
-                      'margin-bottom': '4px',
-                    }}
-                  >
-                    <span style={{ color: '#94a3b8', 'font-weight': '600' }}>
+                <div class="monthly-goal-card">
+                  <div class="monthly-goal-header">
+                    <span class="monthly-goal-title">
                       MONTHLY INCOME GOAL
                     </span>
                     <span
                       class="font-mono font-bold"
-                      style={{
-                        color: monthlyProgressPct() >= 100 ? '#10b981' : monthlyProgressPct() > 0 ? '#f59e0b' : '#ef4444',
+                      classList={{
+                        'text-profit': monthlyProgressPct() >= 100,
+                        'text-warning': monthlyProgressPct() > 0 && monthlyProgressPct() < 100,
+                        'text-loss': monthlyProgressPct() <= 0,
                       }}
                     >
                       {monthlyProgressPct().toFixed(0)}% Achieved
                     </span>
                   </div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      'justify-content': 'space-between',
-                      'align-items': 'center',
-                      'font-size': '12px',
-                      'margin-bottom': '6px',
-                    }}
-                  >
+                  <div class="monthly-goal-sub">
                     <span
                       class="font-mono"
                       classList={{
@@ -431,21 +410,14 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
                       Target: {formatCurrency(preferencesStore.monthlyIncomeTarget())}
                     </span>
                   </div>
-                  <div
-                    style={{
-                      width: '100%',
-                      height: '4px',
-                      background: 'rgba(255, 255, 255, 0.1)',
-                      'border-radius': '2px',
-                      overflow: 'hidden',
-                    }}
-                  >
+                  <div class="monthly-progress-track">
                     <div
+                      class="monthly-progress-fill"
+                      classList={{
+                        'progress-complete': monthlyProgressPct() >= 100,
+                      }}
                       style={{
                         width: `${Math.min(100, Math.max(0, monthlyProgressPct()))}%`,
-                        height: '100%',
-                        background: monthlyProgressPct() >= 100 ? '#10b981' : '#3b82f6',
-                        transition: 'width 0.3s ease',
                       }}
                     />
                   </div>
@@ -657,7 +629,7 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
                 </div>
                 <div class="acc-popover-item">
                   <span class="acc-popover-label">Leverage</span>
-                  <span class="acc-popover-val font-mono text-accent">1:{account().leverage || 2000}</span>
+                  <span class="acc-popover-val font-mono text-accent">1:{account().leverage || RISK_CONSTANTS.DEFAULT_ACCOUNT_LEVERAGE}</span>
                 </div>
                 <div class="acc-popover-item">
                   <span class="acc-popover-label">Base Currency</span>

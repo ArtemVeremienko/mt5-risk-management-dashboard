@@ -470,6 +470,55 @@ body {
   flex-shrink: 0;
 }
 
+.monthly-goal-card {
+  padding: 8px 10px;
+  background: var(--sys-color-surface-container-low);
+  border-radius: var(--sys-radius-sm);
+  border: 1px solid var(--sys-color-outline-variant);
+  margin-bottom: 6px;
+}
+
+.monthly-goal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+.monthly-goal-title {
+  color: var(--sys-color-on-surface-variant);
+  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.monthly-goal-sub {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.monthly-progress-track {
+  width: 100%;
+  height: 4px;
+  background: var(--sys-color-surface-container-highest);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.monthly-progress-fill {
+  height: 100%;
+  background: var(--sys-color-primary);
+  transition: width 0.3s ease;
+}
+
+.monthly-progress-fill.progress-complete {
+  background: var(--sys-color-profit);
+}
+
 .stats-popover-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -869,6 +918,15 @@ body {
   opacity: 0.85;
 }
 
+.control-value-tag.tag-warning {
+  background: var(--sys-color-warning-container);
+  color: var(--sys-color-warning);
+  border: 1px solid var(--sys-color-warning-outline);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 10px;
+}
+
 /* Quick-Preset Snap Chips (cTrader / Institutional Pattern) */
 .preset-chips-row {
   display: flex;
@@ -1116,6 +1174,20 @@ body {
   gap: 16px;
   max-height: 75vh;
   overflow-y: auto;
+}
+
+.modal-delta-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  background: var(--sys-color-warning-container);
+  border: 1px solid var(--sys-color-warning-outline);
+  border-radius: var(--sys-radius-sm);
+  padding: 6px 10px;
+  margin-top: 8px;
+  color: var(--sys-color-warning);
+  font-family: var(--sys-font-mono);
 }
 
 .modal-footer {

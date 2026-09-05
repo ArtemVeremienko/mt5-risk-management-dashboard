@@ -78,6 +78,8 @@
 
   /* Pre-Trade Warnings & Alerts (#ff9800 Amber) */
   --sys-color-warning: var(--ref-color-amber-500);
+  --sys-color-warning-container: rgba(255, 152, 0, 0.15);
+  --sys-color-warning-outline: rgba(255, 152, 0, 0.3);
 
   /* --------------------------------------------------------------------------
    * 6. Structural Shapes & Elevation Roles

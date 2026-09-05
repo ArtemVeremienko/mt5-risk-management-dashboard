@@ -85,15 +85,7 @@ export const RiskConfigModal: Component<Props> = (props) => {
                   </label>
                   <Show when={preferencesStore.isWorkingCapitalCustom()}>
                     <span
-                      class="control-value-tag font-mono"
-                      style={{
-                        'font-size': '11px',
-                        'background': 'rgba(245, 158, 11, 0.15)',
-                        'color': '#fbbf24',
-                        'border': '1px solid rgba(245, 158, 11, 0.3)',
-                        'padding': '1px 6px',
-                        'border-radius': '4px',
-                      }}
+                      class="control-value-tag tag-warning font-mono"
                     >
                       Delta: {preferencesStore.reserveDelta()! >= 0 ? '+' : '-'}${Math.abs(preferencesStore.reserveDelta() || 0).toFixed(2)}
                     </span>
@@ -134,21 +126,7 @@ export const RiskConfigModal: Component<Props> = (props) => {
               </div>
 
               <Show when={preferencesStore.isWorkingCapitalCustom()}>
-                <div
-                  style={{
-                    display: 'flex',
-                    'align-items': 'center',
-                    'justify-content': 'space-between',
-                    'font-size': '11px',
-                    'background': 'rgba(245, 158, 11, 0.08)',
-                    'border': '1px solid rgba(245, 158, 11, 0.25)',
-                    'border-radius': '6px',
-                    'padding': '6px 10px',
-                    'margin-top': '8px',
-                    'color': '#fbbf24',
-                    'font-family': 'monospace',
-                  }}
-                >
+                <div class="modal-delta-banner font-mono">
                   <span>MT5: ${accountStore.account().balance?.toFixed(2) || '0.00'}</span>
                   <span>{preferencesStore.reserveDelta()! >= 0 ? '+' : '-'}</span>
                   <span>Delta (Δ): ${Math.abs(preferencesStore.reserveDelta() || 0).toFixed(2)}</span>

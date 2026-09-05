@@ -4,6 +4,7 @@ import { marketStore } from '../../stores/marketStore';
 import { preferencesStore } from '../../stores/preferencesStore';
 import { accountStore } from '../../stores/accountStore';
 import { computeDefaultSlPips } from '../../utils/lotCalculator';
+import { RISK_CONSTANTS } from '../../config/constants';
 import { MicroSparkline } from './MicroSparkline';
 
 interface Props {
@@ -79,7 +80,7 @@ export const SymbolRow: Component<Props> = (props) => {
     if (!d) return false;
     const target = d.calc.target_risk_pct || 1.0;
     const effective = d.calc.effective_risk_pct || 1.0;
-    return Math.abs(effective - target) / target > 0.10;
+    return Math.abs(effective - target) / target > RISK_CONSTANTS.RISK_ALERT_TOLERANCE;
   });
 
   // Max Risk Per Trade Safety Ceiling Guard
@@ -96,7 +97,7 @@ export const SymbolRow: Component<Props> = (props) => {
     const d = item();
     if (!d) return false;
     const med = d.spec.median_spread_pips;
-    return med !== undefined && med !== null && med > 0 && d.spec.spread_pips > med * 2.0;
+    return med !== undefined && med !== null && med > 0 && d.spec.spread_pips > med * RISK_CONSTANTS.SPREAD_SURGE_THRESHOLD;
   });
 
   // Pre-Flight Margin Check: required margin <= 95% of available free margin
@@ -106,19 +107,19 @@ export const SymbolRow: Component<Props> = (props) => {
     const free = accountStore.account().free_margin;
     if (free === undefined || free === null || free <= 0) return false;
     const req = d.calc.required_margin || 0;
-    return req > free * 0.95;
+    return req > free * RISK_CONSTANTS.MAX_MARGIN_UTILIZATION;
   });
 
   // 5-State Execution Button Engine & Dual-Arm Safety State Machine
   const [armedAction, setArmedAction] = createSignal<'BUY' | 'SELL' | null>(null);
   const [buttonState, setButtonState] = createSignal<'resting' | 'armed' | 'inflight' | 'flash_success' | 'flash_error'>('resting');
-  let armedTimer: any = null;
-  let flashTimer: any = null;
+  let armedTimer: ReturnType<typeof setTimeout> | undefined;
+  let flashTimer: ReturnType<typeof setTimeout> | undefined;
 
   // GPU Tick Flash-Decay Micro-Animation Engine (docs/01 §5.3)
   const [tickDirection, setTickDirection] = createSignal<'up' | 'down' | null>(null);
   let prevBid: number | null = null;
-  let tickFlashTimer: any = null;
+  let tickFlashTimer: ReturnType<typeof setTimeout> | undefined;
 
   createEffect(() => {
     const d = item();
@@ -184,7 +185,7 @@ export const SymbolRow: Component<Props> = (props) => {
       setButtonState('armed');
       armedTimer = setTimeout(() => {
         disarm();
-      }, 5000);
+      }, RISK_CONSTANTS.ARMED_DWELL_TIMEOUT_MS);
       return;
     }
 

@@ -52,12 +52,16 @@ export const MicroSparkline: Component<Props> = (props) => {
     const isUp = metrics.last > metrics.first;
     const isDown = metrics.last < metrics.first;
     
-    // Read computed styling tokens if possible, fallback to institutional palette
+    // Read computed styling tokens from root, enabling CVD colorway reactivity
+    const rootStyle = typeof window !== 'undefined' ? getComputedStyle(document.documentElement) : null;
+    const profitToken = rootStyle?.getPropertyValue('--sys-color-profit').trim() || '#089981';
+    const lossToken = rootStyle?.getPropertyValue('--sys-color-loss').trim() || '#f23645';
+
     const strokeColor = isUp
-      ? '#089981' // Profit / Buy Pine Emerald
+      ? profitToken
       : isDown
-      ? '#f23645' // Loss / Sell Crimson Coral
-      : 'rgba(255, 255, 255, 0.35)'; // Flat Neutral
+      ? lossToken
+      : 'rgba(255, 255, 255, 0.35)';
 
     // Draw sparkline path
     ctx.beginPath();

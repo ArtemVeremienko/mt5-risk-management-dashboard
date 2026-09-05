@@ -1,21 +1,22 @@
 import { createSignal, createMemo, createRoot } from 'solid-js';
 import { accountStore } from './accountStore';
+import { STORAGE_KEYS } from '../config/constants';
 
 function createPreferences() {
-  const savedDeltaStr = localStorage.getItem('mt5_risk_reserve_delta');
+  const savedDeltaStr = localStorage.getItem(STORAGE_KEYS.RESERVE_DELTA);
   let initialDelta: number | null = null;
 
   if (savedDeltaStr !== null && !isNaN(parseFloat(savedDeltaStr))) {
     initialDelta = parseFloat(savedDeltaStr);
   } else {
     // Migration: Check legacy custom working capital
-    const legacyWcStr = localStorage.getItem('mt5_risk_working_capital');
+    const legacyWcStr = localStorage.getItem(STORAGE_KEYS.LEGACY_WORKING_CAPITAL);
     if (legacyWcStr !== null && !isNaN(parseFloat(legacyWcStr))) {
       const legacyTarget = parseFloat(legacyWcStr);
       const curBal = accountStore.account().balance ?? 0;
       initialDelta = Math.max(0, legacyTarget - curBal);
-      localStorage.setItem('mt5_risk_reserve_delta', initialDelta.toString());
-      localStorage.removeItem('mt5_risk_working_capital');
+      localStorage.setItem(STORAGE_KEYS.RESERVE_DELTA, initialDelta.toString());
+      localStorage.removeItem(STORAGE_KEYS.LEGACY_WORKING_CAPITAL);
     }
   }
 
@@ -44,84 +45,84 @@ function createPreferences() {
       const curBal = accountStore.account().balance ?? 0;
       const delta = targetVal - curBal;
       setReserveDelta(delta);
-      localStorage.setItem('mt5_risk_reserve_delta', delta.toString());
-      localStorage.removeItem('mt5_risk_working_capital');
+      localStorage.setItem(STORAGE_KEYS.RESERVE_DELTA, delta.toString());
+      localStorage.removeItem(STORAGE_KEYS.LEGACY_WORKING_CAPITAL);
     }
   };
 
   const resetWorkingCapital = () => {
-    localStorage.removeItem('mt5_risk_reserve_delta');
-    localStorage.removeItem('mt5_risk_working_capital');
+    localStorage.removeItem(STORAGE_KEYS.RESERVE_DELTA);
+    localStorage.removeItem(STORAGE_KEYS.LEGACY_WORKING_CAPITAL);
     setReserveDelta(null);
   };
 
-  const rawRiskMethod = localStorage.getItem('mt5_risk_method') || 'fractional';
+  const rawRiskMethod = localStorage.getItem(STORAGE_KEYS.RISK_METHOD) || 'fractional';
   const initialRiskMethod = rawRiskMethod === 'kelly_half' ? 'kelly_half' : 'fractional';
   const [riskMethod, setRiskMethodSignal] = createSignal<string>(initialRiskMethod);
 
   const [customRiskPct, setCustomRiskPctSignal] = createSignal<number>(
-    parseFloat(localStorage.getItem('mt5_risk_custom_pct') || '1.0') || 1.0
+    parseFloat(localStorage.getItem(STORAGE_KEYS.CUSTOM_RISK_PCT) || '1.0') || 1.0
   );
   const [minRiskFloorPct, setMinRiskFloorPctSignal] = createSignal<number>(
-    parseFloat(localStorage.getItem('mt5_min_risk_floor') || '0.25') || 0.25
+    parseFloat(localStorage.getItem(STORAGE_KEYS.MIN_RISK_FLOOR) || '0.25') || 0.25
   );
   const [maxRiskCeilingPct, setMaxRiskCeilingPctSignal] = createSignal<number>(
-    parseFloat(localStorage.getItem('mt5_max_risk_ceiling') || '2.50') || 2.50
+    parseFloat(localStorage.getItem(STORAGE_KEYS.MAX_RISK_CEILING) || '2.50') || 2.50
   );
 
-  const storedTarget = localStorage.getItem('mt5_monthly_income_target');
+  const storedTarget = localStorage.getItem(STORAGE_KEYS.MONTHLY_INCOME_TARGET);
   let initialTarget = 1000;
   if (storedTarget && storedTarget !== '5000') {
     initialTarget = parseFloat(storedTarget) || 1000;
   } else {
-    localStorage.setItem('mt5_monthly_income_target', '1000');
+    localStorage.setItem(STORAGE_KEYS.MONTHLY_INCOME_TARGET, '1000');
   }
   const [monthlyIncomeTarget, setMonthlyIncomeTargetSignal] = createSignal<number>(initialTarget);
 
   const setMonthlyIncomeTarget = (val: number) => {
     if (!isNaN(val) && val > 0) {
       setMonthlyIncomeTargetSignal(val);
-      localStorage.setItem('mt5_monthly_income_target', val.toString());
+      localStorage.setItem(STORAGE_KEYS.MONTHLY_INCOME_TARGET, val.toString());
     }
   };
 
   const setMinRiskFloorPct = (val: number) => {
     if (!isNaN(val) && val > 0) {
       setMinRiskFloorPctSignal(val);
-      localStorage.setItem('mt5_min_risk_floor', val.toString());
+      localStorage.setItem(STORAGE_KEYS.MIN_RISK_FLOOR, val.toString());
     }
   };
 
   const setMaxRiskCeilingPct = (val: number) => {
     if (!isNaN(val) && val > 0) {
       setMaxRiskCeilingPctSignal(val);
-      localStorage.setItem('mt5_max_risk_ceiling', val.toString());
+      localStorage.setItem(STORAGE_KEYS.MAX_RISK_CEILING, val.toString());
     }
   };
 
   const [slMode, setSlModeSignal] = createSignal<string>(
-    localStorage.getItem('mt5_risk_sl_mode') || '1/4 ADR'
+    localStorage.getItem(STORAGE_KEYS.SL_MODE) || '1/4 ADR'
   );
   const [rrRatio, setRrRatioSignal] = createSignal<number>(
-    parseFloat(localStorage.getItem('mt5_risk_rr_ratio') || '1.5') || 1.5
+    parseFloat(localStorage.getItem(STORAGE_KEYS.RR_RATIO) || '1.5') || 1.5
   );
   const [turboMode, setTurboModeSignal] = createSignal<boolean>(
-    localStorage.getItem('mt5_turbo_mode') === 'true'
+    localStorage.getItem(STORAGE_KEYS.TURBO_MODE) === 'true'
   );
   const [oneClickEnabled, setOneClickEnabledSignal] = createSignal<boolean>(
-    localStorage.getItem('mt5_risk_one_click') === 'true'
+    localStorage.getItem(STORAGE_KEYS.ONE_CLICK) === 'true'
   );
   const [activeView, setActiveViewSignal] = createSignal<'matrix' | 'positions'>(
-    (localStorage.getItem('mt5_active_view') as 'matrix' | 'positions') || 'matrix'
+    (localStorage.getItem(STORAGE_KEYS.ACTIVE_VIEW) as 'matrix' | 'positions') || 'matrix'
   );
 
   const setActiveView = (view: 'matrix' | 'positions') => {
     setActiveViewSignal(view);
-    localStorage.setItem('mt5_active_view', view);
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_VIEW, view);
   };
 
   const initialPnlMode =
-    (localStorage.getItem('mt5_pnl_display_mode') as 'currency' | 'r_multiple' | 'stealth_mask') || 'currency';
+    (localStorage.getItem(STORAGE_KEYS.PNL_DISPLAY_MODE) as 'currency' | 'r_multiple' | 'stealth_mask') || 'currency';
   const [pnlDisplayMode, setPnlDisplayModeSignal] = createSignal<'currency' | 'r_multiple' | 'stealth_mask'>(initialPnlMode);
 
   const cyclePnlDisplayMode = () => {
@@ -132,16 +133,16 @@ function createPreferences() {
     else next = 'currency';
 
     setPnlDisplayModeSignal(next);
-    localStorage.setItem('mt5_pnl_display_mode', next);
+    localStorage.setItem(STORAGE_KEYS.PNL_DISPLAY_MODE, next);
     return next;
   };
 
   const setPnlDisplayMode = (mode: 'currency' | 'r_multiple' | 'stealth_mask') => {
     setPnlDisplayModeSignal(mode);
-    localStorage.setItem('mt5_pnl_display_mode', mode);
+    localStorage.setItem(STORAGE_KEYS.PNL_DISPLAY_MODE, mode);
   };
 
-  const initialColorway = (localStorage.getItem('mt5_colorway') as 'standard' | 'cvd') || 'standard';
+  const initialColorway = (localStorage.getItem(STORAGE_KEYS.COLORWAY) as 'standard' | 'cvd') || 'standard';
   const [colorway, setColorwaySignal] = createSignal<'standard' | 'cvd'>(initialColorway);
 
   // Initialize data-colorway attribute on html root
@@ -151,7 +152,7 @@ function createPreferences() {
 
   const setColorway = (val: 'standard' | 'cvd') => {
     setColorwaySignal(val);
-    localStorage.setItem('mt5_colorway', val);
+    localStorage.setItem(STORAGE_KEYS.COLORWAY, val);
     if (typeof document !== 'undefined') {
       document.documentElement.setAttribute('data-colorway', val);
     }
@@ -164,73 +165,73 @@ function createPreferences() {
   };
 
   const [showStatsBanner, setShowStatsBannerSignal] = createSignal<boolean>(
-    localStorage.getItem('mt5_show_stats_banner') === 'true'
+    localStorage.getItem(STORAGE_KEYS.SHOW_STATS_BANNER) === 'true'
   );
   const [pinnedSymbols, setPinnedSymbolsSignal] = createSignal<string[]>(
-    JSON.parse(localStorage.getItem('mt5_pinned_symbols') || '[]')
+    JSON.parse(localStorage.getItem(STORAGE_KEYS.PINNED_SYMBOLS) || '[]')
   );
   const [customOrder, setCustomOrderSignal] = createSignal<string[]>(
-    JSON.parse(localStorage.getItem('mt5_custom_symbol_order') || '[]')
+    JSON.parse(localStorage.getItem(STORAGE_KEYS.CUSTOM_SYMBOL_ORDER) || '[]')
   );
   const storedSlOverrides = (() => {
     try {
-      return JSON.parse(localStorage.getItem('mt5_sl_overrides') || '{}');
+      return JSON.parse(localStorage.getItem(STORAGE_KEYS.SL_OVERRIDES) || '{}');
     } catch {
       return {};
     }
   })();
   const [slOverrides, setSlOverridesSignal] = createSignal<Record<string, number>>(storedSlOverrides);
   const [defaultSltpFocusField, setDefaultSltpFocusFieldSignal] = createSignal<'price' | 'pips' | 'cash'>(
-    (localStorage.getItem('mt5_sltp_default_focus') as 'price' | 'pips' | 'cash') || 'price'
+    (localStorage.getItem(STORAGE_KEYS.SLTP_DEFAULT_FOCUS) as 'price' | 'pips' | 'cash') || 'price'
   );
 
   const setDefaultSltpFocusField = (val: 'price' | 'pips' | 'cash') => {
     setDefaultSltpFocusFieldSignal(val);
-    localStorage.setItem('mt5_sltp_default_focus', val);
+    localStorage.setItem(STORAGE_KEYS.SLTP_DEFAULT_FOCUS, val);
   };
 
   const setRiskMethod = (val: string) => {
     setRiskMethodSignal(val);
-    localStorage.setItem('mt5_risk_method', val);
+    localStorage.setItem(STORAGE_KEYS.RISK_METHOD, val);
   };
 
   const setCustomRiskPct = (val: number) => {
     setCustomRiskPctSignal(val);
-    localStorage.setItem('mt5_risk_custom_pct', val.toString());
+    localStorage.setItem(STORAGE_KEYS.CUSTOM_RISK_PCT, val.toString());
   };
 
   const setSlMode = (val: string) => {
     setSlModeSignal(val);
-    localStorage.setItem('mt5_risk_sl_mode', val);
+    localStorage.setItem(STORAGE_KEYS.SL_MODE, val);
   };
 
   const setRrRatio = (val: number) => {
     setRrRatioSignal(val);
-    localStorage.setItem('mt5_risk_rr_ratio', val.toString());
+    localStorage.setItem(STORAGE_KEYS.RR_RATIO, val.toString());
   };
 
   const toggleTurboMode = () => {
     const next = !turboMode();
     setTurboModeSignal(next);
-    localStorage.setItem('mt5_turbo_mode', next ? 'true' : 'false');
+    localStorage.setItem(STORAGE_KEYS.TURBO_MODE, next ? 'true' : 'false');
     return next;
   };
 
   const toggleOneClick = () => {
     const next = !oneClickEnabled();
     setOneClickEnabledSignal(next);
-    localStorage.setItem('mt5_risk_one_click', next ? 'true' : 'false');
+    localStorage.setItem(STORAGE_KEYS.ONE_CLICK, next ? 'true' : 'false');
   };
 
   const setOneClickEnabled = (val: boolean) => {
     setOneClickEnabledSignal(val);
-    localStorage.setItem('mt5_risk_one_click', val ? 'true' : 'false');
+    localStorage.setItem(STORAGE_KEYS.ONE_CLICK, val ? 'true' : 'false');
   };
 
   const toggleStatsBanner = () => {
     const next = !showStatsBanner();
     setShowStatsBannerSignal(next);
-    localStorage.setItem('mt5_show_stats_banner', next ? 'true' : 'false');
+    localStorage.setItem(STORAGE_KEYS.SHOW_STATS_BANNER, next ? 'true' : 'false');
   };
 
   const togglePin = (symbol: string) => {
@@ -242,27 +243,27 @@ function createPreferences() {
       updated = [...current, symbol];
     }
     setPinnedSymbolsSignal(updated);
-    localStorage.setItem('mt5_pinned_symbols', JSON.stringify(updated));
+    localStorage.setItem(STORAGE_KEYS.PINNED_SYMBOLS, JSON.stringify(updated));
   };
 
   const isPinned = (symbol: string) => pinnedSymbols().includes(symbol);
 
   const setCustomOrder = (order: string[]) => {
     setCustomOrderSignal(order);
-    localStorage.setItem('mt5_custom_symbol_order', JSON.stringify(order));
+    localStorage.setItem(STORAGE_KEYS.CUSTOM_SYMBOL_ORDER, JSON.stringify(order));
   };
 
   const resetCustomOrder = () => {
     setCustomOrderSignal([]);
     setPinnedSymbolsSignal([]);
-    localStorage.removeItem('mt5_custom_symbol_order');
-    localStorage.removeItem('mt5_pinned_symbols');
+    localStorage.removeItem(STORAGE_KEYS.CUSTOM_SYMBOL_ORDER);
+    localStorage.removeItem(STORAGE_KEYS.PINNED_SYMBOLS);
   };
 
   const setSymbolSL = (symbol: string, pips: number) => {
     setSlOverridesSignal((prev) => {
       const next = { ...prev, [symbol]: pips };
-      localStorage.setItem('mt5_sl_overrides', JSON.stringify(next));
+      localStorage.setItem(STORAGE_KEYS.SL_OVERRIDES, JSON.stringify(next));
       return next;
     });
   };
@@ -271,7 +272,7 @@ function createPreferences() {
     setSlOverridesSignal((prev) => {
       const next = { ...prev };
       delete next[symbol];
-      localStorage.setItem('mt5_sl_overrides', JSON.stringify(next));
+      localStorage.setItem(STORAGE_KEYS.SL_OVERRIDES, JSON.stringify(next));
       return next;
     });
   };
