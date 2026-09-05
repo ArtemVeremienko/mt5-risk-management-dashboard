@@ -98,3 +98,49 @@
   * `symbol.select`: True if the symbol is in the terminal's internal subscription cache (e.g. opened in background charts or previously added; 48 symbols).
   * `symbol.visible`: True **only** if the symbol is actively shown in the user's Market Watch window (`25 / 2105` symbols).
 * **Remedy**: In `_sync_market_watch_symbols()`, filter strictly by `getattr(s, "visible", False)` to keep the screener synchronized with the trader's actual active Market Watch.
+
+---
+
+## 🎯 7. Dual-Arm Execution, Invariant Hitbox Ergonomics & Smart Liquidation
+
+### System & Architectural Insights
+* **Fitts's Law & Hitbox Invariance in High-Density Financial Matrices**:
+  * **Observation**: When implementing the 5-state execution engine, initial prototypes expanded the button width (e.g. from `58px` at rest to `102px` when armed with label `CONFIRM SELL`).
+  * **Impact**: In a flex table cell, this dynamically pushed the neighboring button (`BUY`), shifting the operator's physical click target under their mouse while they were preparing to confirm. It also triggered table column resizing and cell-wide visual jitter.
+  * **Architectural Rule**: Execution controls in high-frequency trading matrices must have **strictly invariant geometry** (`width: 64px; min-width: 64px; max-width: 64px; height: 30px`) inside a fixed-width container (`136px`). State transitions (Resting $\to$ Armed $\to$ In-Flight $\to$ Fill) must be communicated solely through border glows, a 2px hairline dwell countdown bar along the bottom edge, and centered glyphs (`✓`/`✕`), never by altering element dimensions or expanding label strings.
+* **Documentation-Codebase Synchronization Drift**:
+  * **Observation**: Roadmap documents (`TODO.md`, `BACKEND_REFACTORING_PLAN.md`) lagged behind the codebase: Phase 4 backend features (`LiquidationService`, `PreTradeGatekeeper`, Session ADR streaming) had already been implemented and unit-tested in earlier sessions, but remained marked unchecked (`[ ]`).
+  * **Architectural Rule**: Always perform an AST or codebase symbol scan (`grep_search`) before beginning tasks described as "pending" in roadmaps. Never assume roadmap markdown checkboxes reflect code reality.
+
+### Gotchas, Traps & Framework Quirks
+* **The "Dimmed Opposing Button Lockout" Trap**:
+  * **Gotcha**: When `BUY` was armed, setting `pointer-events: none` on the un-armed `SELL` button trapped the operator if market momentum abruptly reversed. The trader had to either wait 5.0 seconds for the timer to expire or reach for the `Escape` key.
+  * **Remedy**: Keep the opposing button interactive (`pointer-events: auto`) while dimming it (`opacity: 0.35; filter: grayscale(0.4)`). Implement an **Instant Pivot** in the click handler: clicking the opposing button immediately disarms the first direction and arms the second in a single gesture.
+* **Pytest Collection Order & Fixture Interference**:
+  * **Gotcha**: Running `pytest tests test_risk_calculator.py` inverted collection order compared to standard `pytest test_risk_calculator.py tests`. When `tests/unit` ran first, certain FastAPI `TestClient` lifespans initialized background thread pools that could collide with singleton references if executors were improperly shared.
+  * **Remedy**: Standardize test invocation strictly on the root `pyproject.toml` configuration (`uv run pytest`) rather than passing arbitrary command-line path permutations that shuffle collection order.
+
+### Domain & API Nuances
+* **Cognitive Asymmetry: Fill (400ms) vs. Rejection Dwell Time**:
+  * **Nuance**: When an order fills (`✓`), the outcome is expected and confirmation should return to resting quickly (**400ms**) to keep the terminal responsive. Conversely, an order rejection (`✕`) is an unexpected operational anomaly (e.g. spread blowout, volume step misalignment, margin breach). Because an involuntary eye blink lasts 100–400ms, a 400ms rejection flash can be completely missed, leaving the operator confused as to whether the order was routed.
+  * **Design Principle**: Rejection feedback requires longer visual dwell time (or an accompanying tactile shake / persistent toast) than success confirmation to ensure human cognitive acknowledgment.
+* **Two-Phase Smart Flatten ($0.00 Net Delta) vs. Position Liquidation**:
+  * **Nuance**: Standard MT5 `positions_get()` only returns open market deals. If an operator has active pending orders (`orders_get`: Buy Stops, Sell Limits, Trailing entries), a standard "Close All" leaves those orders live in the order book. Subsequent market movements can trigger fills, re-exposing the account.
+  * **Rule**: Institutional flattening must execute a two-phase atomic sequence: **Phase 1** cancel 100% of pending orders (`TRADE_ACTION_REMOVE`), **Phase 2** liquidate 100% of open positions (`TRADE_ACTION_DEAL`).
+
+### Negative Knowledge (What NOT to Do)
+1. **DO NOT dynamically expand execution button widths on state transitions in data grids**:
+   - *Why*: Resizing buttons violates Fitts's Law, moves the hitbox under the operator's cursor, and causes layout thrashing across the table row.
+2. **DO NOT lock out or disable the opposing direction button during an armed countdown**:
+   - *Why*: Disabling the opposing button locks the trader out of rapidly pivoting direction when market conditions change.
+3. **DO NOT equate closing market positions with achieving $0.00 net delta**:
+   - *Why*: Leaving pending orders in the book risks latent execution post-liquidation. Always purge pending orders first.
+
+### Reusable Conventions & Rules
+1. **Strict Invariant Hitbox Rule**:
+   - All trade execution triggers in tabular views must declare identical fixed `width`, `min-width`, and `max-width` (e.g. `64px`), and flex button groups must have a locked total width (e.g. `136px`). State changes must be conveyed purely via color, border, hairline progress indicators, and glyphs.
+2. **Instant Pivot Execution Contract**:
+   - In any multi-action dual-arm safety system, the un-armed opposing action must remain clickable to allow instant 1-click direction flipping.
+3. **Two-Phase Liquidation Sequence**:
+   - Emergency account liquidation routines must always execute: `cancel_all_orders()` $\to$ `close_all_positions()`.
+
