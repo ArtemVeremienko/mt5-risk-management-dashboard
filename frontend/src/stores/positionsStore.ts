@@ -1,5 +1,8 @@
 import { createSignal, createRoot, createMemo } from 'solid-js';
 import { OpenPosition } from '../types';
+import { calculatePortfolioHeat, calculateNetCurrencyExposure } from '../utils/portfolioAnalytics';
+import { marketStore } from './marketStore';
+import { preferencesStore } from './preferencesStore';
 
 function createPositionsStore() {
   const [positions, setPositions] = createSignal<OpenPosition[]>([]);
@@ -27,6 +30,18 @@ function createPositionsStore() {
 
   const totalPositionsCount = createMemo(() => positions().length);
 
+  const portfolioHeat = createMemo(() => {
+    return calculatePortfolioHeat(
+      positions(),
+      (sym) => marketStore.getCalculatedResult(sym),
+      preferencesStore.workingCapital()
+    );
+  });
+
+  const netCurrencyExposure = createMemo(() => {
+    return calculateNetCurrencyExposure(positions());
+  });
+
   return {
     positions,
     setPositions,
@@ -35,9 +50,12 @@ function createPositionsStore() {
     getPosition,
     totalFloatingProfit,
     totalPositionsCount,
+    portfolioHeat,
+    netCurrencyExposure,
     isActionInProgress,
     setIsActionInProgress,
   };
 }
 
 export const positionsStore = createRoot(createPositionsStore);
+

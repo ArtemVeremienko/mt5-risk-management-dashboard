@@ -130,6 +130,51 @@ export const OrderManagementPanel: Component = () => {
                 ? `+$${totalPnl().toFixed(2)}`
                 : `$${totalPnl().toFixed(2)}`}
             </span>
+
+            <span
+              class="bulk-heat-badge tabular-num"
+              classList={{
+                'heat-danger': positionsStore.portfolioHeat().heatPct >= 5.0 || positionsStore.portfolioHeat().unprotectedCount > 0,
+                'heat-warning': positionsStore.portfolioHeat().heatPct >= 2.5 && positionsStore.portfolioHeat().heatPct < 5.0,
+                'heat-normal': positionsStore.portfolioHeat().heatPct < 2.5,
+              }}
+              title={`Total Open Risk: $${positionsStore.portfolioHeat().totalHeatAmount.toFixed(2)} (${positionsStore.portfolioHeat().heatPct.toFixed(2)}% of WC). ${positionsStore.portfolioHeat().unprotectedCount > 0 ? `⚠️ ${positionsStore.portfolioHeat().unprotectedCount} trade(s) have NO Stop Loss!` : 'All positions protected.'}`}
+            >
+              🔥 Heat:{' '}
+              {preferencesStore.pnlDisplayMode() === 'stealth_mask'
+                ? `***.** (${positionsStore.portfolioHeat().heatPct.toFixed(1)}%)`
+                : preferencesStore.pnlDisplayMode() === 'r_multiple'
+                ? (() => {
+                    const wc = preferencesStore.workingCapital();
+                    const pct = preferencesStore.customRiskPct();
+                    const oneR = wc * (pct / 100);
+                    const rHeat = oneR > 0 ? positionsStore.portfolioHeat().totalHeatAmount / oneR : 0;
+                    return `${rHeat.toFixed(2)} R (${positionsStore.portfolioHeat().heatPct.toFixed(1)}%)`;
+                  })()
+                : `$${positionsStore.portfolioHeat().totalHeatAmount.toFixed(2)} (${positionsStore.portfolioHeat().heatPct.toFixed(1)}%)`}
+              <Show when={positionsStore.portfolioHeat().unprotectedCount > 0}>
+                <span class="heat-unprotected-tag">⚠️ {positionsStore.portfolioHeat().unprotectedCount} Unshielded</span>
+              </Show>
+            </span>
+
+            <Show when={positionsStore.netCurrencyExposure().length > 0}>
+              <div class="bulk-currency-exposure" title="Net Currency Exposure across open positions">
+                <For each={positionsStore.netCurrencyExposure().slice(0, 4)}>
+                  {(item) => (
+                    <span
+                      class="currency-exposure-chip"
+                      classList={{
+                        'exposure-long': item.direction === 'LONG',
+                        'exposure-short': item.direction === 'SHORT',
+                      }}
+                      title={`${item.currency} net exposure: ${item.direction} ${item.netLots.toFixed(2)} lots`}
+                    >
+                      {item.direction === 'LONG' ? '+' : '-'}{item.netLots.toFixed(2)} {item.currency}
+                    </span>
+                  )}
+                </For>
+              </div>
+            </Show>
           </div>
 
           <div class="bulk-toolbar-actions">

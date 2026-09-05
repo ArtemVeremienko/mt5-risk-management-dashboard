@@ -1485,3 +1485,39 @@ body {
   background: rgba(0, 242, 254, 0.22);
   box-shadow: 0 0 12px rgba(0, 242, 254, 0.3);
 }
+
+/* Header Telemetry Micro-Pills */
+.header-portfolio-heat {
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.header-portfolio-heat:hover {
+  opacity: 0.85;
+}
+
+.heat-unprotected-icon {
+  font-size: 10px;
+  margin-left: 2px;
+}
+
+/* ==========================================================================
+   RESPONSIVE HEADER MEDIA QUERIES (<=1100px and <=1024px)
+   ========================================================================== */
+@media (max-width: 1100px) {
+  .stats-pill-wrapper {
+    display: none;
+  }
+  .header-pills-row {
+    gap: 4px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .header-free-margin {
+    display: none;
+  }
+  .account-inline-metrics {
+    gap: 6px;
+  }
+}

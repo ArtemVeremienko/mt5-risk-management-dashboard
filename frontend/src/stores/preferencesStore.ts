@@ -172,10 +172,17 @@ function createPreferences() {
   const [customOrder, setCustomOrderSignal] = createSignal<string[]>(
     JSON.parse(localStorage.getItem('mt5_custom_symbol_order') || '[]')
   );
+  const storedSlOverrides = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('mt5_sl_overrides') || '{}');
+    } catch {
+      return {};
+    }
+  })();
+  const [slOverrides, setSlOverridesSignal] = createSignal<Record<string, number>>(storedSlOverrides);
   const [defaultSltpFocusField, setDefaultSltpFocusFieldSignal] = createSignal<'price' | 'pips' | 'cash'>(
     (localStorage.getItem('mt5_sltp_default_focus') as 'price' | 'pips' | 'cash') || 'price'
   );
-  const [slOverrides, setSlOverridesSignal] = createSignal<Record<string, number>>({});
 
   const setDefaultSltpFocusField = (val: 'price' | 'pips' | 'cash') => {
     setDefaultSltpFocusFieldSignal(val);
@@ -253,13 +260,18 @@ function createPreferences() {
   };
 
   const setSymbolSL = (symbol: string, pips: number) => {
-    setSlOverridesSignal((prev) => ({ ...prev, [symbol]: pips }));
+    setSlOverridesSignal((prev) => {
+      const next = { ...prev, [symbol]: pips };
+      localStorage.setItem('mt5_sl_overrides', JSON.stringify(next));
+      return next;
+    });
   };
 
   const resetSymbolSL = (symbol: string) => {
     setSlOverridesSignal((prev) => {
       const next = { ...prev };
       delete next[symbol];
+      localStorage.setItem('mt5_sl_overrides', JSON.stringify(next));
       return next;
     });
   };

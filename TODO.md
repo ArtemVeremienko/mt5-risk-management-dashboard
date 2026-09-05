@@ -101,7 +101,7 @@
     - **Standard**: Pine Emerald (`#089981` / `#34D399`) & Crimson Coral (`#F23645` / `#F87171`).
     - **Institutional CVD**: Electric Cyan (`#00F2FE` / `#00B4D8`) & Warm Amber (`#FF8C00`).
   - Update all semantic CSS variables (`--sys-color-buy`, `--sys-color-sell`, `--sys-color-profit`, `--sys-color-loss`).
-- [ ] **Input Floating-Point Precision & Form a11y Cleanup**:
+- [x] **Input Floating-Point Precision & Form a11y Cleanup**:
   - Enforce strict `.toFixed(1)` step precision across SL/TP calculation models to eliminate IEEE 754 floating-point leaks in the accessibility tree (e.g. `12.300000190734863` $\to$ `12.3`).
   - Assign semantic `id` and `name` attributes to all form controls to eliminate Chromium accessibility warnings.
 
@@ -117,8 +117,9 @@
 - [x] **Margin Health Pre-Flight Check**:
   - Verify that `Required Margin <= Account Free Margin * 0.95` before allowing execution.
   - Visually disable execution buttons with an explanatory tooltip if margin is insufficient.
-- [ ] **Max Risk Per Trade Safety Ceiling (Optional Setting)**:
-  - Configurable hard ceiling in Settings (e.g. max 2.0% risk) preventing oversized manual orders.
+- [x] **Max Risk Per Trade Safety Ceiling (Optional Setting)**:
+  - Configurable hard ceiling in Settings (`mt5_max_risk_ceiling`, default 2.50%) preventing oversized manual orders.
+  - Visual alerts (`🛑 Risk Ceiling Exceeded`) on symbol rows when broker limits cause oversized allocation.
 
 ### 7. 🚨 Smart Flatten vs. Close All (Configurable Liquidation Engine)
 - [x] **Smart Flatten Mode**:
@@ -132,23 +133,25 @@
 ## 🌐 Phase 5: Portfolio Telemetry, Volatility & Layout Polish (P2 Priority)
 
 ### 8. 📊 Real-Time Portfolio Heat & Exposure Telemetry
-- [ ] **Total Portfolio Heat Gauge**:
+- [x] **Total Portfolio Heat Gauge**:
   - Real-time sum of total open stop-loss risk in currency and account equity percentage:
     $$\text{Portfolio Heat} = \sum_{k} |\text{OpenPrice}_k - \text{SL}_k| \times \text{Volume}_k \times \text{PipValue}_k$$
-- [ ] **Net Currency Exposure Breakdown**:
-  - Computes net long/short dollar exposure aggregated across base currencies (USD, EUR, GBP, JPY, AUD, CAD, CHF, NZD).
-- [ ] **Account HUD Telemetry Expansion**:
-  - Display Free Margin, Margin Level %, and session Daily Loss Limit progress bar in the top HUD.
-- [ ] **Responsive Header Layout (Media Queries)**:
-  - Add responsive rules for `<=1100px` and `<=1024px` viewports to collapse the strategy telemetry pill into an icon badge, preventing right-hand controls (`500ms`, `Settings`, `MT5 DEMO`) from being pushed off-screen.
+  - Prominent telemetry badge in Header Metrics Bar and Positions Blotter with unshielded trade warnings (`⚠️ N Unshielded`).
+- [x] **Net Currency Exposure Breakdown**:
+  - Computes net long/short dollar exposure aggregated across base/quote currencies (USD, EUR, GBP, JPY, AUD, CAD, CHF, NZD).
+  - Compact vector chips in the positions bulk toolbar (`+1.00 EUR`, `-0.30 USD`).
+- [x] **Account HUD Telemetry Expansion**:
+  - Display Free Margin, Margin Level %, and Portfolio Heat in the top HUD and Account Telemetry Popover.
+- [x] **Responsive Header Layout (Media Queries)**:
+  - Responsive rules for `<=1100px` and `<=1024px` viewports to collapse the strategy telemetry pill and secondary tags, preventing right-hand controls (`500ms`, `Settings`, `MT5 DEMO`) from being pushed off-screen.
 
 ### 9. 🎨 Volatility & Interaction Micro-Polish
-- [ ] **Quick-Preset SL Hover Bar (cTrader Pattern)**:
-  - On hovering a symbol's SL box, display micro-chips (`[¼ ADR]`, `[½ ADR]`, `[1 ADR]`, `[1 ATR]`) for instant 1-click preset overrides without manual typing.
-- [ ] **Sub-Minute Micro-Tick Sparkline Ribbon (Matrix Column 2 Integration)**:
+- [x] **Quick-Preset SL Hover Bar (cTrader Pattern)**:
+  - On hovering a symbol's SL box, display micro-chips (`[¼]`, `[⅓]`, `[½]`, `[1D]`, `[ATR]`) for instant 1-click preset overrides without manual typing.
+- [x] **Sub-Minute Micro-Tick Sparkline Ribbon (Matrix Column 2 Integration)**:
   - Embed an ultra-compact 60-second / 100-tick canvas sparkline ribbon within the Market Price & Spread cell.
-  - Renders live tick trajectory, micro-momentum slope, and a pulsing live edge tick dot without increasing row height (fixed 34–36px) or triggering layout thrashing.
-  - Gives the operator instant visual velocity feedback (breakout speed vs. stalled consolidation) right at the point of execution.
+  - Zero-GC `Float32Array` circular ring buffer rendering live price trajectory, micro-momentum slope, and pulsing edge dot.
+  - Selective rendering budget strictly active for Pinned and Hovered symbols (zero idle CPU/GPU waste).
 - [x] **Session ADR Exhaustion & Volatility Micro-Gauge (Matrix Column 3 Upgrade)**:
   - **Quantitative Engine (`MT5NativeProvider` & `MockDataProvider`)**:
     - Query today's D1 bar (`mt5.copy_rates_from_pos(sym, TIMEFRAME_D1, 0, 1)`) to obtain real-time session extremes: $\text{Range}_{\text{today}} = \text{High}_{\text{today}} - \text{Low}_{\text{today}}$.

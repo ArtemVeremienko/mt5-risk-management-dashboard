@@ -273,6 +273,51 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
               <span class="metric-mini-label">EQ</span>
               <span class="metric-mini-val font-mono">{formattedHeaderEquity()}</span>
             </div>
+
+            <Show when={account().free_margin !== undefined && account().free_margin !== null}>
+              <div
+                class="metric-mini-group header-free-margin"
+                title={`Account Free Margin: ${formatCurrency(account().free_margin || 0.0)} · Margin Level: ${(account().margin_level || 0.0).toFixed(0)}%`}
+              >
+                <span class="metric-mini-label">FREE</span>
+                <span class="metric-mini-val font-mono">{formatCurrency(account().free_margin || 0.0)}</span>
+              </div>
+            </Show>
+
+            <Show when={posCount() > 0}>
+              <div
+                class="metric-mini-group clickable header-portfolio-heat"
+                onClick={() => preferencesStore.setActiveView('positions')}
+                title={
+                  preferencesStore.pnlDisplayMode() === 'stealth_mask'
+                    ? `Portfolio Heat: ***.** (${positionsStore.portfolioHeat().heatPct.toFixed(1)}% of WC) · ${positionsStore.portfolioHeat().unprotectedCount > 0 ? `⚠️ ${positionsStore.portfolioHeat().unprotectedCount} trade(s) have NO Stop Loss!` : 'All positions shielded.'} · Click to manage in Blotter`
+                    : preferencesStore.pnlDisplayMode() === 'r_multiple'
+                    ? (() => {
+                        const wc = preferencesStore.workingCapital();
+                        const pct = preferencesStore.customRiskPct();
+                        const oneR = wc * (pct / 100);
+                        const rHeat = oneR > 0 ? positionsStore.portfolioHeat().totalHeatAmount / oneR : 0;
+                        return `Portfolio Heat: ${rHeat.toFixed(2)} R (${positionsStore.portfolioHeat().heatPct.toFixed(1)}% of WC) · ${positionsStore.portfolioHeat().unprotectedCount > 0 ? `⚠️ ${positionsStore.portfolioHeat().unprotectedCount} trade(s) have NO Stop Loss!` : 'All positions shielded.'} · Click to manage in Blotter`;
+                      })()
+                    : `Portfolio Heat: $${positionsStore.portfolioHeat().totalHeatAmount.toFixed(2)} (${positionsStore.portfolioHeat().heatPct.toFixed(1)}% of WC) · ${positionsStore.portfolioHeat().unprotectedCount > 0 ? `⚠️ ${positionsStore.portfolioHeat().unprotectedCount} trade(s) have NO Stop Loss!` : 'All positions shielded.'} · Click to manage in Blotter`
+                }
+              >
+                <span class="metric-mini-label">HEAT</span>
+                <span
+                  class="metric-mini-val font-mono"
+                  classList={{
+                    'text-loss': positionsStore.portfolioHeat().heatPct >= 5.0 || positionsStore.portfolioHeat().unprotectedCount > 0,
+                    'text-warning': positionsStore.portfolioHeat().heatPct >= 2.5 && positionsStore.portfolioHeat().heatPct < 5.0,
+                    'text-neutral': positionsStore.portfolioHeat().heatPct < 2.5,
+                  }}
+                >
+                  {positionsStore.portfolioHeat().heatPct.toFixed(1)}%
+                  <Show when={positionsStore.portfolioHeat().unprotectedCount > 0}>
+                    <span class="heat-unprotected-icon">⚠️</span>
+                  </Show>
+                </span>
+              </div>
+            </Show>
           </div>
         </div>
 
@@ -629,6 +674,30 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
                 <div class="acc-popover-item">
                   <span class="acc-popover-label">Base Currency</span>
                   <span class="acc-popover-val font-mono">{account().currency || 'USD'}</span>
+                </div>
+                <div class="acc-popover-item">
+                  <span class="acc-popover-label">Free Margin</span>
+                  <span class="acc-popover-val font-mono">{formatCurrency(account().free_margin || 0.0)}</span>
+                </div>
+                <div class="acc-popover-item">
+                  <span class="acc-popover-label">Margin Level</span>
+                  <span class="acc-popover-val font-mono text-profit">{(account().margin_level || 0.0).toFixed(0)}%</span>
+                </div>
+                <div class="acc-popover-item">
+                  <span class="acc-popover-label">Portfolio Heat</span>
+                  <span class="acc-popover-val font-mono">
+                    {preferencesStore.pnlDisplayMode() === 'stealth_mask'
+                      ? `***.** (${positionsStore.portfolioHeat().heatPct.toFixed(1)}%)`
+                      : preferencesStore.pnlDisplayMode() === 'r_multiple'
+                      ? (() => {
+                          const wc = preferencesStore.workingCapital();
+                          const pct = preferencesStore.customRiskPct();
+                          const oneR = wc * (pct / 100);
+                          const rHeat = oneR > 0 ? positionsStore.portfolioHeat().totalHeatAmount / oneR : 0;
+                          return `${rHeat.toFixed(2)} R (${positionsStore.portfolioHeat().heatPct.toFixed(1)}%)`;
+                        })()
+                      : `${formatCurrency(positionsStore.portfolioHeat().totalHeatAmount)} (${positionsStore.portfolioHeat().heatPct.toFixed(1)}%)`}
+                  </span>
                 </div>
                 <div class="acc-popover-item">
                   <span class="acc-popover-label">Feed Status</span>

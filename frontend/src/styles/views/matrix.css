@@ -415,6 +415,26 @@ tr.drag-over {
   letter-spacing: 0.3px;
 }
 
+/* Price Cell with Micro-Sparkline Ribbon */
+.price-cell-with-sparkline {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.micro-sparkline-container {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: crosshair;
+}
+
+.micro-sparkline-canvas {
+  display: block;
+}
+
 /* Stacked Market Price & Spread */
 .price-stacked {
   display: flex;
@@ -563,6 +583,13 @@ tr.drag-over {
 /* ==========================================================================
    STOP LOSS INPUT - EXPANDED & ERGONOMIC (84px + Tabular Alignment)
    ========================================================================== */
+.risk-ceiling-icon {
+  font-size: 11px;
+  cursor: help;
+  display: inline-block;
+  margin-left: 3px;
+}
+
 .sl-input-cell-wrapper {
   position: relative;
   display: inline-flex;

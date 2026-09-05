@@ -3,6 +3,7 @@ import { CalculatedSymbolResult } from '../../types';
 import { marketStore } from '../../stores/marketStore';
 import { preferencesStore } from '../../stores/preferencesStore';
 import { accountStore } from '../../stores/accountStore';
+import { MicroSparkline } from './MicroSparkline';
 
 interface Props {
   symbol: string;
@@ -20,6 +21,8 @@ export const SymbolRow: Component<Props> = (props) => {
   const isPinned = () => preferencesStore.isPinned(props.symbol);
   const isDragging = () => marketStore.draggedSymbol() === props.symbol;
   const isDragOver = () => marketStore.dragOverSymbol() === props.symbol;
+  const [isRowHovered, setIsRowHovered] = createSignal(false);
+
   const defaultSL = createMemo<number>(() => {
     const d = item();
     if (!d) return 20.0;
@@ -76,6 +79,15 @@ export const SymbolRow: Component<Props> = (props) => {
     const target = d.calc.target_risk_pct || 1.0;
     const effective = d.calc.effective_risk_pct || 1.0;
     return Math.abs(effective - target) / target > 0.10;
+  });
+
+  // Max Risk Per Trade Safety Ceiling Guard
+  const isMaxRiskExceeded = createMemo(() => {
+    const d = item();
+    if (!d) return false;
+    const maxCeiling = preferencesStore.maxRiskCeilingPct();
+    const effective = d.calc.effective_risk_pct || 1.0;
+    return effective > maxCeiling + 0.001;
   });
 
   // Spread Surge Guard: rolling median check
@@ -208,6 +220,8 @@ export const SymbolRow: Component<Props> = (props) => {
             'drag-over': isDragOver(),
           }}
           draggable={true}
+          onMouseEnter={() => setIsRowHovered(true)}
+          onMouseLeave={() => setIsRowHovered(false)}
           onDblClick={() => props.onOpenDeepDive(data())}
           title="Double-click row to open Deep Dive calculation"
           onDragStart={(e) => {
@@ -255,35 +269,45 @@ export const SymbolRow: Component<Props> = (props) => {
             </div>
           </td>
 
-          {/* Col 2: Market Price & Spread (Stacked) */}
+          {/* Col 2: Market Price & Spread (Stacked with Micro-Sparkline Ribbon) */}
           <td class="text-right">
-            <div class="price-stacked">
-              <div class="price-bid-row">
-                <span
-                  class="price-bid tabular-num"
-                  classList={{
-                    'tick-flash-up': tickDirection() === 'up',
-                    'tick-flash-down': tickDirection() === 'down',
-                  }}
-                >
-                  {data().spec.bid_display}
-                </span>
-                <span
-                  class="spread-pill-mini"
-                  classList={{
-                    'spread-pill-surge': isSpreadSurge(),
-                  }}
-                  title={
-                    isSpreadSurge()
-                      ? `⚠️ Spread Surge: ${data().spec.spread_display}p exceeds 2.0x median (${data().spec.median_spread_pips?.toFixed(1)}p)`
-                      : undefined
-                  }
-                >
-                  {isSpreadSurge() ? '⚠️ ' : ''}{data().spec.spread_display}p
-                </span>
-              </div>
-              <div class="price-ask-row">
-                <span class="price-ask tabular-num">{data().spec.ask_display}</span>
+            <div class="price-cell-with-sparkline">
+              <MicroSparkline
+                symbol={props.symbol}
+                price={data().spec.bid}
+                isPinned={isPinned()}
+                isHovered={isRowHovered()}
+                width={46}
+                height={18}
+              />
+              <div class="price-stacked">
+                <div class="price-bid-row">
+                  <span
+                    class="price-bid tabular-num"
+                    classList={{
+                      'tick-flash-up': tickDirection() === 'up',
+                      'tick-flash-down': tickDirection() === 'down',
+                    }}
+                  >
+                    {data().spec.bid_display}
+                  </span>
+                  <span
+                    class="spread-pill-mini"
+                    classList={{
+                      'spread-pill-surge': isSpreadSurge(),
+                    }}
+                    title={
+                      isSpreadSurge()
+                        ? `⚠️ Spread Surge: ${data().spec.spread_display}p exceeds 2.0x median (${data().spec.median_spread_pips?.toFixed(1)}p)`
+                        : undefined
+                    }
+                  >
+                    {isSpreadSurge() ? '⚠️ ' : ''}{data().spec.spread_display}p
+                  </span>
+                </div>
+                <div class="price-ask-row">
+                  <span class="price-ask tabular-num">{data().spec.ask_display}</span>
+                </div>
               </div>
             </div>
           </td>
@@ -329,8 +353,14 @@ export const SymbolRow: Component<Props> = (props) => {
 
           {/* Col 4: Stop Loss (Wider 76px numeric input with Auto-Select & Custom Reset) */}
           <td class="text-center">
-            <div class="sl-input-cell-wrapper" classList={{ 'is-overridden': isCustomSL() }}>
+            <div
+              class="sl-input-cell-wrapper"
+              classList={{ 'is-overridden': isCustomSL() }}
+            >
               <input
+                id={`sl-input-${props.symbol}`}
+                name={`sl_${props.symbol}`}
+                aria-label={`Stop Loss for ${props.symbol} in pips`}
                 type="number"
                 class="sl-input tabular-num"
                 classList={{ 'sl-input-custom': isCustomSL() }}
@@ -359,7 +389,9 @@ export const SymbolRow: Component<Props> = (props) => {
               />
               <Show when={isCustomSL()}>
                 <button
+                  type="button"
                   class="quick-sl-reset-btn"
+                  aria-label="Reset Stop Loss to global preset"
                   onClick={(e) => {
                     e.stopPropagation();
                     preferencesStore.resetSymbolSL(props.symbol);
@@ -385,6 +417,14 @@ export const SymbolRow: Component<Props> = (props) => {
                   ⚠️
                 </span>
               </Show>
+              <Show when={isMaxRiskExceeded()}>
+                <span
+                  class="risk-ceiling-icon"
+                  title={`Risk alert: Effective risk exceeds configured ceiling (${preferencesStore.maxRiskCeilingPct().toFixed(1)}%)`}
+                >
+                  🛑
+                </span>
+              </Show>
             </div>
           </td>
 
@@ -399,7 +439,7 @@ export const SymbolRow: Component<Props> = (props) => {
                 <span
                   class="risk-amount-tag tabular-num"
                   classList={{
-                    'risk-elevated': isRiskDeviated(),
+                    'risk-elevated': isRiskDeviated() || isMaxRiskExceeded(),
                   }}
                 >
                   {data().calc.risk_display}
