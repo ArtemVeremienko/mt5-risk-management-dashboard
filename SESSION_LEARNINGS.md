@@ -251,3 +251,75 @@
      - `currency`: `$X,XXX.XX`
      - `r_multiple`: `+X.XX R` / `-X.XX R`
      - `stealth_mask`: `***.**` (preserving sign indicator where applicable)
+
+---
+
+## ⚡ 11. Conservative Risk Ceilings, Pure HTTP Abstractions & Frontend Test Architecture
+
+### System & Architectural Insights
+* **The "Risk As Strict Ceiling" Imperative (Conservative Volume Stepping)**:
+  * **Observation**: In standard mathematical rounding (`Math.round(exact_lot / volume_step)`), half-steps round upward. For example, if an account's target risk budget dictates an exact lot of `0.017` with a broker volume step of `0.01`, rounding up yields `0.02` lots ($+17.6\%$ risk overshoot). In prop firm evaluations (FTMO, Topstep) and strict quantitative risk management, target risk percentage is a **strict ceiling**, never a target average.
+  * **Architectural Rule**: Sizing engines must strictly enforce conservative stepping via flooring:
+    $$\text{Stepped Lot} = \lfloor \frac{\text{Exact Lot}}{\text{Volume Step}} + \epsilon \rfloor \times \text{Volume Step}$$
+    This mathematically guarantees that $\text{Effective Risk} \le \text{Target Risk}$ across all instruments, ensuring zero accidental drawdown breaches.
+* **Full-Stack Mathematical Parity**:
+  * **Observation**: Calculating lot sizes on the client in TypeScript (`lotCalculator.ts`) and validating them on the backend in Python (`domain/math/risk_models.py`) creates a high risk of calculation divergence if stepping algorithms differ.
+  * **Architectural Rule**: Any change to pre-trade math (rounding vs flooring, step calculations, margin engines) must be synchronized synchronously across both TypeScript and Python with identical unit test assertions.
+* **Transport Failure vs. Domain Operation Outcome**:
+  * **Observation**: In trading terminals, a distinction exists between **transport/infrastructure failures** (network offline, 502 Bad Gateway, 500 internal server error) and **domain business outcomes** (broker reject, spread blowout guard, margin check failure).
+  * **Architectural Rule**:
+    * **Queries** (`fetchAccount`, `fetchPositions`) throw `ApiError` on HTTP failure to let UI layers trigger fallback/offline states.
+    * **Mutations/Orders** (`executeOrder`, `closePosition`, `modifyPosition`) return typed domain results `{ success: boolean, message: string }`. If a catastrophic transport failure or HTTP 5xx occurs, `api.ts` traps the `ApiError` and synthesizes `{ success: false, message: err.message }`. This guarantees that execution buttons and click handlers **never** encounter unhandled promise rejections or crash the Solid.js reactive tree.
+
+### Gotchas, Traps & Framework Quirks
+* **IEEE-754 Epsilon Trap in Conservative Flooring**:
+  * **Gotcha**: Using raw `Math.floor(exactLot / volumeStep)` without an epsilon causes severe binary representation bugs:
+    `Math.floor(0.03 / 0.01)` in JavaScript can evaluate as `Math.floor(2.9999999999999995) = 2` (`0.02` lots instead of `0.03`).
+  * **Remedy**: Always add a floating-point epsilon ($10^{-9}$):
+    ```typescript
+    const steps = Math.floor(exactLot / volumeStep + 1e-9);
+    ```
+    Similarly, in Python:
+    ```python
+    steps = math.floor(exact_lot / volume_step + 1e-9)
+    ```
+* **Vite / Vitest Environment Dependencies**:
+  * **Gotcha**: Adding `vitest` to a Solid.js/Vite project without an explicit DOM environment triggers `Error: Cannot find package 'jsdom'` during worker initialization when testing components or APIs that rely on `Headers`, `FormData`, or `window`.
+  * **Remedy**: Always install `jsdom` alongside `vitest` in `devDependencies` (`npm i -D vitest jsdom`) to provide standard web API primitives in test workers.
+* **FormData Multi-part Content-Type Header Stripping**:
+  * **Gotcha**: Setting `headers.set('Content-Type', 'application/json')` globally or forgetting to omit it on `FormData` uploads breaks `multipart/form-data` requests. Browsers and `fetch` polyfills require the `Content-Type` header to be unset so the runtime can auto-generate the boundary string (e.g. `multipart/form-data; boundary=----WebKitFormBoundary...`).
+  * **Remedy**: In generic HTTP clients, explicitly check `!(body instanceof FormData)` before applying default content headers:
+    ```typescript
+    if (body !== undefined && !(body instanceof FormData) && !headers.has('Content-Type')) {
+      headers.set('Content-Type', 'application/json');
+    }
+    ```
+
+### Domain & API Nuances
+* **FastAPI Error Payload Polymorphism**:
+  * **Nuance**: FastAPI returns different JSON error structures depending on how an exception was raised:
+    1. Standard `HTTPException(detail="...")`: `{ "detail": "Position not found" }`
+    2. Pydantic request validation error (`422`): `{ "detail": [{ "loc": ["body", "volume"], "msg": "field required" }] }`
+    3. Custom broker exceptions: `{ "error": "Spread blowout" }` or `{ "message": "Invalid action" }`
+  * **Rule**: A resilient API client must extract error messages hierarchically:
+    1. `data.message`
+    2. `data.error`
+    3. `data.detail` (if string)
+    4. `data.detail[0].msg` (if array, formatted with field path `field: message`)
+    5. Fallback to `res.statusText` or `HTTP error {status}`.
+
+### Negative Knowledge (What NOT to Do)
+1. **DO NOT use `Math.round` for lot volume stepping in pre-trade sizing**:
+   - *Why*: Rounding up increases position volume past the trader's explicit risk percentage, risking instant disqualification in funded trader accounts.
+2. **DO NOT pull heavy third-party HTTP client libraries (`axios`, `ky`) into lightweight Solid.js SPAs**:
+   - *Why*: An institutional-grade HTTP client with JSON serialization, timeout abortion, error extraction, and verb helpers requires only ~60 lines of native TypeScript. Third-party packages add dependency bloat, security audit overhead, and versioning churn without added utility.
+3. **DO NOT allow trade execution catch blocks to leak unhandled promise rejections**:
+   - *Why*: UI order buttons wired to async functions that throw unhandled errors leave buttons in a disabled or permanent loading state if a network disconnect occurs mid-flight.
+
+### Reusable Conventions & Rules
+1. **Epsilon-Protected Stepping Invariant**:
+   - Any volume or tick stepping calculation using flooring must use `+ 1e-9` prior to flooring: `floor(val / step + 1e-9) * step`.
+2. **Safe Order Mutation Contract**:
+   - All mutation endpoints in `api.ts` must return `Promise<OrderActionResult>` with `{ success: boolean, message: string }`, catching underlying `ApiError` exceptions and translating them into user-facing failure records.
+3. **Automated Frontend Regression Testing**:
+   - Every service or utility refactoring must be accompanied by Vitest unit tests in `src/services/*.test.ts` or `src/utils/*.test.ts`, verified via `npm test` and `npm run typecheck` before committing.
