@@ -1,11 +1,16 @@
-import { Component, Show, createSignal, createMemo, createEffect } from 'solid-js';
+import { Component, Show, createSignal, createMemo, createEffect, onCleanup } from 'solid-js';
 import { CalculatedSymbolResult } from '../../types';
 import { marketStore } from '../../stores/marketStore';
 import { preferencesStore } from '../../stores/preferencesStore';
+import { accountStore } from '../../stores/accountStore';
 
 interface Props {
   symbol: string;
-  onTradeClick: (item: CalculatedSymbolResult, action: 'BUY' | 'SELL') => void;
+  onTradeClick: (
+    item: CalculatedSymbolResult,
+    action: 'BUY' | 'SELL',
+    clientOrderId?: string
+  ) => Promise<{ success: boolean; message?: string } | void> | void;
   onOpenDeepDive: (item: CalculatedSymbolResult) => void;
 }
 
@@ -73,6 +78,104 @@ export const SymbolRow: Component<Props> = (props) => {
     return Math.abs(effective - target) / target > 0.10;
   });
 
+  // Spread Surge Guard: rolling median check
+  const isSpreadSurge = createMemo(() => {
+    const d = item();
+    if (!d) return false;
+    const med = d.spec.median_spread_pips;
+    return med !== undefined && med !== null && med > 0 && d.spec.spread_pips > med * 2.0;
+  });
+
+  // Pre-Flight Margin Check: required margin <= 95% of available free margin
+  const isMarginInsufficient = createMemo(() => {
+    const d = item();
+    if (!d) return false;
+    const free = accountStore.account().free_margin;
+    if (free === undefined || free === null || free <= 0) return false;
+    const req = d.calc.required_margin || 0;
+    return req > free * 0.95;
+  });
+
+  // 5-State Execution Button Engine & Dual-Arm Safety State Machine
+  const [armedAction, setArmedAction] = createSignal<'BUY' | 'SELL' | null>(null);
+  const [buttonState, setButtonState] = createSignal<'resting' | 'armed' | 'inflight' | 'flash_success' | 'flash_error'>('resting');
+  let armedTimer: any = null;
+  let flashTimer: any = null;
+
+  const disarm = () => {
+    if (armedTimer) clearTimeout(armedTimer);
+    setArmedAction(null);
+    if (buttonState() === 'armed') {
+      setButtonState('resting');
+    }
+  };
+
+  createEffect(() => {
+    if (armedAction()) {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          disarm();
+        }
+      };
+      const handleClickOutside = (e: MouseEvent) => {
+        const target = e.target as HTMLElement;
+        if (!target.closest(`.trade-btn-group-${props.symbol}`)) {
+          disarm();
+        }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      window.addEventListener('click', handleClickOutside);
+      return () => {
+        window.removeEventListener('keydown', handleKeyDown);
+        window.removeEventListener('click', handleClickOutside);
+      };
+    }
+  });
+
+  onCleanup(() => {
+    if (armedTimer) clearTimeout(armedTimer);
+    if (flashTimer) clearTimeout(flashTimer);
+  });
+
+  const handleExecute = async (e: MouseEvent, action: 'BUY' | 'SELL') => {
+    e.stopPropagation();
+    const d = item();
+    if (!d || isMarginInsufficient()) return;
+
+    // Dual-Arm Safety Gate:
+    // First click transitions row button to ARMED with 5.0s decaying dwell
+    if (armedAction() !== action) {
+      if (armedTimer) clearTimeout(armedTimer);
+      setArmedAction(action);
+      setButtonState('armed');
+      armedTimer = setTimeout(() => {
+        disarm();
+      }, 5000);
+      return;
+    }
+
+    // Second click while ARMED: atomically claim and dispatch
+    if (buttonState() === 'inflight') return;
+
+    if (armedTimer) clearTimeout(armedTimer);
+    setButtonState('inflight');
+
+    const clientOrderId = `order_${props.symbol}_${action}_${Date.now()}`;
+    try {
+      const res = await props.onTradeClick(d, action, clientOrderId);
+      const isSuccess = res && typeof res === 'object' && 'success' in res ? (res as any).success : true;
+      setButtonState(isSuccess ? 'flash_success' : 'flash_error');
+    } catch {
+      setButtonState('flash_error');
+    } finally {
+      if (flashTimer) clearTimeout(flashTimer);
+      flashTimer = setTimeout(() => {
+        setButtonState('resting');
+        setArmedAction(null);
+      }, 450);
+    }
+  };
+
   return (
     <Show when={item()}>
       {(data) => (
@@ -136,7 +239,19 @@ export const SymbolRow: Component<Props> = (props) => {
             <div class="price-stacked">
               <div class="price-bid-row">
                 <span class="price-bid tabular-num">{data().spec.bid_display}</span>
-                <span class="spread-pill-mini">{data().spec.spread_display}p</span>
+                <span
+                  class="spread-pill-mini"
+                  classList={{
+                    'spread-pill-surge': isSpreadSurge(),
+                  }}
+                  title={
+                    isSpreadSurge()
+                      ? `⚠️ Spread Surge: ${data().spec.spread_display}p exceeds 2.0x median (${data().spec.median_spread_pips?.toFixed(1)}p)`
+                      : undefined
+                  }
+                >
+                  {isSpreadSurge() ? '⚠️ ' : ''}{data().spec.spread_display}p
+                </span>
               </div>
               <div class="price-ask-row">
                 <span class="price-ask tabular-num">{data().spec.ask_display}</span>
@@ -267,28 +382,85 @@ export const SymbolRow: Component<Props> = (props) => {
             </div>
           </td>
 
-          {/* Col 7: Clean Action Execution Buttons (Universal Convention: SELL Left, BUY Right) */}
+          {/* Col 7: 5-State Execution Buttons with Dual-Arm Safety Gate */}
           <td class="text-center">
-            <div class="trade-btn-group">
+            <div class={`trade-btn-group trade-btn-group-${props.symbol}`}>
               <button
+                type="button"
                 class="btn-trade btn-sell"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  props.onTradeClick(data(), 'SELL');
+                classList={{
+                  'btn-armed': armedAction() === 'SELL' && buttonState() === 'armed',
+                  'btn-inflight': armedAction() === 'SELL' && buttonState() === 'inflight',
+                  'btn-flash-success': armedAction() === 'SELL' && buttonState() === 'flash_success',
+                  'btn-flash-error': armedAction() === 'SELL' && buttonState() === 'flash_error',
+                  'btn-dimmed': armedAction() === 'BUY',
+                  'btn-disabled-margin': isMarginInsufficient(),
                 }}
-                title={`Instant SELL ${data().calc.lot_display} Lot ${data().spec.symbol}`}
+                disabled={isMarginInsufficient() || (armedAction() === 'SELL' && buttonState() === 'inflight')}
+                onClick={(e) => handleExecute(e, 'SELL')}
+                title={
+                  isMarginInsufficient()
+                    ? `Insufficient Margin: Required $${data().calc.required_margin_display} exceeds 95% of Free Margin`
+                    : armedAction() === 'SELL'
+                    ? `Click again to CONFIRM SELL ${data().calc.lot_display} Lot ${data().spec.symbol}`
+                    : `Arm SELL ${data().calc.lot_display} Lot ${data().spec.symbol} (2-Step Safety)`
+                }
               >
-                SELL
+                <Show when={armedAction() === 'SELL' && buttonState() === 'armed'}>
+                  <span class="btn-trade-label">SELL</span>
+                  <div class="btn-armed-dwell-line" />
+                </Show>
+                <Show when={armedAction() === 'SELL' && buttonState() === 'inflight'}>
+                  <span class="btn-trade-spinner" />
+                </Show>
+                <Show when={armedAction() === 'SELL' && buttonState() === 'flash_success'}>
+                  <span class="btn-trade-glyph">✓</span>
+                </Show>
+                <Show when={armedAction() === 'SELL' && buttonState() === 'flash_error'}>
+                  <span class="btn-trade-glyph">✕</span>
+                </Show>
+                <Show when={armedAction() !== 'SELL' || buttonState() === 'resting'}>
+                  <span class="btn-trade-label">SELL</span>
+                </Show>
               </button>
+
               <button
+                type="button"
                 class="btn-trade btn-buy"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  props.onTradeClick(data(), 'BUY');
+                classList={{
+                  'btn-armed': armedAction() === 'BUY' && buttonState() === 'armed',
+                  'btn-inflight': armedAction() === 'BUY' && buttonState() === 'inflight',
+                  'btn-flash-success': armedAction() === 'BUY' && buttonState() === 'flash_success',
+                  'btn-flash-error': armedAction() === 'BUY' && buttonState() === 'flash_error',
+                  'btn-dimmed': armedAction() === 'SELL',
+                  'btn-disabled-margin': isMarginInsufficient(),
                 }}
-                title={`Instant BUY ${data().calc.lot_display} Lot ${data().spec.symbol}`}
+                disabled={isMarginInsufficient() || (armedAction() === 'BUY' && buttonState() === 'inflight')}
+                onClick={(e) => handleExecute(e, 'BUY')}
+                title={
+                  isMarginInsufficient()
+                    ? `Insufficient Margin: Required $${data().calc.required_margin_display} exceeds 95% of Free Margin`
+                    : armedAction() === 'BUY'
+                    ? `Click again to CONFIRM BUY ${data().calc.lot_display} Lot ${data().spec.symbol}`
+                    : `Arm BUY ${data().calc.lot_display} Lot ${data().spec.symbol} (2-Step Safety)`
+                }
               >
-                BUY
+                <Show when={armedAction() === 'BUY' && buttonState() === 'armed'}>
+                  <span class="btn-trade-label">BUY</span>
+                  <div class="btn-armed-dwell-line" />
+                </Show>
+                <Show when={armedAction() === 'BUY' && buttonState() === 'inflight'}>
+                  <span class="btn-trade-spinner" />
+                </Show>
+                <Show when={armedAction() === 'BUY' && buttonState() === 'flash_success'}>
+                  <span class="btn-trade-glyph">✓</span>
+                </Show>
+                <Show when={armedAction() === 'BUY' && buttonState() === 'flash_error'}>
+                  <span class="btn-trade-glyph">✕</span>
+                </Show>
+                <Show when={armedAction() !== 'BUY' || buttonState() === 'resting'}>
+                  <span class="btn-trade-label">BUY</span>
+                </Show>
               </button>
             </div>
           </td>

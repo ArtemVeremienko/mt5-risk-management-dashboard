@@ -91,15 +91,24 @@ export const App: Component = () => {
     wsService.disconnect();
   });
 
-  const handleTradeClick = async (item: CalculatedSymbolResult, action: 'BUY' | 'SELL') => {
+  const handleTradeClick = async (
+    item: CalculatedSymbolResult,
+    action: 'BUY' | 'SELL',
+    clientOrderId?: string
+  ): Promise<{ success: boolean; message?: string }> => {
     if (preferencesStore.oneClickEnabled()) {
-      await executeOrderDirectly(item, action);
+      return await executeOrderDirectly(item, action, clientOrderId);
     } else {
       setPendingTrade({ item, action });
+      return { success: true };
     }
   };
 
-  const executeOrderDirectly = async (item: CalculatedSymbolResult, action: 'BUY' | 'SELL') => {
+  const executeOrderDirectly = async (
+    item: CalculatedSymbolResult,
+    action: 'BUY' | 'SELL',
+    clientOrderId?: string
+  ): Promise<{ success: boolean; message?: string }> => {
     try {
       setIsSubmittingOrder(true);
       const res = await api.executeOrder({
@@ -109,6 +118,7 @@ export const App: Component = () => {
         sl_pips: item.calc.sl_pips,
         rr_ratio: preferencesStore.rrRatio(),
         comment: 'SolidRiskEngine',
+        client_order_id: clientOrderId,
       });
 
       if (res.success) {
@@ -118,11 +128,14 @@ export const App: Component = () => {
           'success'
         );
         setPendingTrade(null);
+        return { success: true, message: res.message };
       } else {
         toastStore.addToast('Execution Failed', res.message, 'error');
+        return { success: false, message: res.message };
       }
     } catch (e: any) {
       toastStore.addToast('Error', e.message || 'Trade submission failed', 'error');
+      return { success: false, message: e.message };
     } finally {
       setIsSubmittingOrder(false);
     }

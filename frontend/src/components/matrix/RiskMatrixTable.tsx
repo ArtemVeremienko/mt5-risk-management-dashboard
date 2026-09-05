@@ -5,7 +5,11 @@ import { SymbolRow } from './SymbolRow';
 import { CalculatedSymbolResult } from '../../types';
 
 interface Props {
-  onTradeClick: (item: CalculatedSymbolResult, action: 'BUY' | 'SELL') => void;
+  onTradeClick: (
+    item: CalculatedSymbolResult,
+    action: 'BUY' | 'SELL',
+    clientOrderId?: string
+  ) => Promise<{ success: boolean; message?: string } | void> | void;
   onOpenDeepDive: (item: CalculatedSymbolResult) => void;
 }
 

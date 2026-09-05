@@ -29,7 +29,7 @@
   - 🛡️ **Move to Break-Even (BE)**: Snaps SL to entry price with spread buffer (`POST /api/position/modify`).
   - ✂️ **Partial Close (50%)**: Instant half-position profit taking.
   - 🛑 **Emergency Close All**: Parallelized liquidation across all open positions with 2-step armed safety confirmation.
-- [ ] **Smart Flatten vs. Close All (Configurable Liquidation Engine)**:
+- [x] **Smart Flatten vs. Close All (Configurable Liquidation Engine)**:
   - Global user preference in Settings: `Emergency Action Mode` (`Close Positions Only` vs `Smart Flatten: Positions + Cancel Pending Orders`).
   - **Close All Mode**: Exclusively liquidates open market positions (`mt5.positions_get()`).
   - **Smart Flatten Mode**: Concurrently closes 100% of open positions AND deletes all active pending orders (`mt5.orders_get()`), guaranteeing true $0.00$ net exposure.
@@ -64,19 +64,19 @@
 > 📚 **Reference Standards**: See [`docs/01_institutional_terminal_design.md`](./docs/01_institutional_terminal_design.md) & [`docs/03_matrix_execution_and_oms.md`](./docs/03_matrix_execution_and_oms.md)
 
 ### 3. 🔒 Dual-Arm Safety State Machine
-- [ ] **Decaying Auto-Disarm Safety Gate**:
+- [x] **Decaying Auto-Disarm Safety Gate**:
   - Eliminate raw hair-trigger 1-click execution and quote-obsoleting blocking confirmation modals.
   - First click on BUY or SELL transitions the symbol row into an explicit `ARMED` state with a 5.0-second auto-decay window.
   - A visual decaying progress bar/ring renders beneath the button group indicating remaining armed dwell time.
   - A second click while `ARMED` atomically claims execution and dispatches the order to the MT5 pre-trade risk engine.
   - Orders auto-disarm immediately upon dispatch, on 5.0s timeout expiration, or when `Escape` is pressed.
-- [ ] **Anti-Double-Click & Debounce Interlock**:
+- [x] **Anti-Double-Click & Debounce Interlock**:
   - Atomic test-and-set claim token (`verify_and_claim_execution()`) in UI and backend preventing duplicate rapid-fire order dispatches during network jitter.
-- [ ] **Hotkey Focus Trapping & Safety Interlocks**:
+- [x] **Hotkey Focus Trapping & Safety Interlocks**:
   - Suppress execution hotkeys whenever any input field (`.sl-input`, search bar, popover) has DOM focus.
 
 ### 4. 🔘 5-State Institutional Execution Button Engine
-- [ ] **Canonical 5-State Button Lifecycle**:
+- [x] **Canonical 5-State Button Lifecycle**:
   - **State 1: Resting (Ghost / Outline)**: Subtle alpha-tinted border (`rgba(8, 153, 129, 0.15)` / `rgba(242, 54, 69, 0.15)`), preserving the 90-7-3 chromatic budget.
   - **State 2: Armed**: High-contrast active outline with decaying countdown timer line.
   - **State 3: Depressed**: Tactile mechanical feedback (`active` state, 1px translation).
@@ -110,18 +110,18 @@
 ## 🛡️ Phase 4: Pre-Trade Risk Interlocks & Smart Liquidation (P1 Priority)
 
 ### 6. 🚨 Pre-Trade Execution Safety Gatekeeper
-- [ ] **Spread Blowout Visual Warning & Soft Guard**:
+- [x] **Spread Blowout Visual Warning & Soft Guard**:
   - Track 14-day rolling median spread per instrument.
   - Subtle amber highlight ring on `.spread-pill-mini` if current spread exceeds $2.0\times$ median spread (`⚠️ Spread Surge`).
   - Require explicit double-arm confirmation before routing orders if spread exceeds $2.5\times$ median (rollover / news spike guard).
-- [ ] **Margin Health Pre-Flight Check**:
+- [x] **Margin Health Pre-Flight Check**:
   - Verify that `Required Margin <= Account Free Margin * 0.95` before allowing execution.
   - Visually disable execution buttons with an explanatory tooltip if margin is insufficient.
 - [ ] **Max Risk Per Trade Safety Ceiling (Optional Setting)**:
   - Configurable hard ceiling in Settings (e.g. max 2.0% risk) preventing oversized manual orders.
 
 ### 7. 🚨 Smart Flatten vs. Close All (Configurable Liquidation Engine)
-- [ ] **Smart Flatten Mode**:
+- [x] **Smart Flatten Mode**:
   - Global user preference in Settings: `Emergency Action Mode` (`Close Positions Only` vs `Smart Flatten: Positions + Cancel Pending Orders`).
   - **Close All Mode**: Exclusively liquidates open market positions (`mt5.positions_get()`).
   - **Smart Flatten Mode**: Concurrently closes 100% of open positions AND deletes all active pending orders (`mt5.orders_get()`), guaranteeing true $0.00$ net exposure.

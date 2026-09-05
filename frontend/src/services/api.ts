@@ -7,6 +7,8 @@ export interface ExecuteOrderPayload {
   sl_pips: number;
   rr_ratio: number;
   comment?: string;
+  client_order_id?: string;
+  bypass_spread_guard?: boolean;
 }
 
 export interface CalculateApiPayload {
@@ -86,6 +88,33 @@ export const api = {
 
   async closeAllPositions(): Promise<{ results: Array<{ success: boolean; message: string }>; count: number }> {
     const res = await fetch('/api/position/close-all', {
+      method: 'POST',
+    });
+    return res.json();
+  },
+
+  async flattenAll(): Promise<{
+    success: boolean;
+    orders_cancelled: number;
+    positions_closed: number;
+    order_results: Array<{ success: boolean; message?: string }>;
+    position_results: Array<{ success: boolean; message?: string }>;
+    message: string;
+    timestamp: number;
+  }> {
+    const res = await fetch('/api/position/flatten-all', {
+      method: 'POST',
+    });
+    return res.json();
+  },
+
+  async cancelAllOrders(): Promise<{
+    success: boolean;
+    cancelled_count: number;
+    total_count: number;
+    results: Array<{ success: boolean; message?: string }>;
+  }> {
+    const res = await fetch('/api/order/cancel-all', {
       method: 'POST',
     });
     return res.json();
