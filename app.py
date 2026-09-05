@@ -1,116 +1,103 @@
 """
 FastAPI application for MT5 Risk Management & Dynamic Lot Sizing Dashboard.
-Provides:
-- REST APIs for Account, Symbols, Bulk Risk Calculation, Trade Statistics, CSV Upload, Manual Overrides
-- WebSocket streaming for real-time market updates with client-configurable Turbo Mode (500ms vs 2.0s)
-- Static HTML UI delivery
+Modularized with FastAPI Depends() Dependency Injection, Clean Architecture Services,
+and Centralized Pub/Sub BroadcastHub.
 """
 
 import os
 import asyncio
-import json
-import io
-import csv
 import logging
-import dataclasses
-from typing import Dict, List, Optional, Any, Set, Tuple
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, Form, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
 
-try:
-    from risk_management_dashboard.risk_calculator import (
-        calculate_trade_statistics,
-        calculate_lot_for_symbol,
-        TradeStats,
-        LotCalculationResult,
-        SampleSizeTier,
-        evaluate_sample_size,
-        calculate_broker_margin
-    )
-    from risk_management_dashboard.feed import MT5RiskFeed
-    from risk_management_dashboard.application.broadcaster import BroadcastHub
-except ImportError:
-    from risk_calculator import (
-        calculate_trade_statistics,
-        calculate_lot_for_symbol,
-        TradeStats,
-        LotCalculationResult,
-        SampleSizeTier,
-        evaluate_sample_size,
-        calculate_broker_margin
-    )
-    from feed import MT5RiskFeed
-    from application.broadcaster import BroadcastHub
+from config.settings import AppSettings
+from infrastructure.providers.mt5_provider import MT5NativeProvider
+from infrastructure.providers.mock_provider import MockDataProvider
+from application.broadcaster import BroadcastHub
+from application.market_service import (
+    MarketService,
+    CalculationRequest,
+    ManualStatsRequest,
+    compute_effective_sl_pips,
+)
+from application.execution_service import (
+    ExecutionService,
+    OrderExecuteRequest,
+    PositionCloseRequest,
+    PositionModifyRequest,
+)
+from presentation.routers import (
+    account_router,
+    symbols_router,
+    trades_router,
+    orders_router,
+    positions_router,
+)
+from presentation.websocket import websocket_router
+from feed import MT5RiskFeed
 
 logger = logging.getLogger("RiskApp")
-feed = MT5RiskFeed()
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
+DIST_DIR = os.path.join(STATIC_DIR, "dist")
 if not os.path.exists(STATIC_DIR):
     os.makedirs(STATIC_DIR, exist_ok=True)
 
-
-class CalculationRequest(BaseModel):
-    working_capital: float = Field(default=100.0, description="Virtual / Real Working Capital for risk budgeting")
-    deposited_cash: float = Field(default=20.0, description="Broker account deposited equity for margin checks")
-    leverage: float = Field(default=300.0, description="Broker account leverage (e.g. 300 for 1:300)")
-    risk_method: str = Field(default="fractional", description="Risk model: fractional, kelly_half")
-    custom_risk_pct: float = Field(default=1.0, description="Fractional risk percentage (e.g. 1.0 = 1.0%)")
-    min_risk_floor_pct: float = Field(default=0.25, description="Quantitative risk floor (%)")
-    max_risk_ceiling_pct: float = Field(default=2.50, description="Quantitative risk ceiling (%)")
-    global_sl_mode: str = Field(default="1/4 ADR", description="Global SL preset: 1/4 ADR, 1/3 ADR, 1/2 ADR, 1.0 ADR, ATR(14), 20 pips, 50 pips, custom")
-    global_sl_pips: float = Field(default=20.0, description="Custom global SL pips when mode is custom")
-    symbol_sl_overrides: Dict[str, float] = Field(default_factory=dict, description="Per-symbol SL pips overrides")
-    symbols: Optional[List[str]] = Field(default=None, description="Optional subset of symbols to calculate")
-
-
-class ManualStatsRequest(BaseModel):
-    win_rate: float = Field(default=0.55, ge=0.01, le=1.0)
-    payoff_ratio: float = Field(default=1.5, gt=0.0)
-    total_trades: int = Field(default=150, ge=1)
-
-
+# Backward-compatibility singletons
+feed = MT5RiskFeed()
 manager = BroadcastHub()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    settings = getattr(app.state, "settings", None) or AppSettings()
+    provider = getattr(app.state, "market_provider", None) or (MockDataProvider() if settings.mock_mode else feed)
+    broadcaster = getattr(app.state, "broadcast_hub", None) or manager
+    market_service = getattr(app.state, "market_service", None) or MarketService(provider)
+    execution_service = getattr(app.state, "execution_service", None) or ExecutionService(provider, broadcaster, market_service)
+
+    # Attach to app.state for FastAPI Depends() injection
+    app.state.settings = settings
+    app.state.market_provider = provider
+    app.state.execution_provider = provider
+    app.state.broadcast_hub = broadcaster
+    app.state.market_service = market_service
+    app.state.execution_service = execution_service
+
     # 1. Proactive background volatility cache worker (refreshes 14D ADR/ATR every 15 minutes)
     async def volatility_cache_task():
-        await asyncio.to_thread(feed.refresh_volatility_cache)
+        await market_service.refresh_volatility_cache()
         while True:
-            await asyncio.sleep(900)  # 15 minutes
+            await asyncio.sleep(settings.volatility_ttl_seconds)
             try:
-                await asyncio.to_thread(feed.refresh_volatility_cache)
+                await market_service.refresh_volatility_cache()
             except Exception as e:
                 logger.error(f"Error refreshing volatility cache: {e}")
 
-    # 2. Centralized single-producer market broadcast loop (eliminates per-client polling storms)
+    # 2. Centralized single-producer market broadcast loop
     last_pos_count = -1
     last_stats_time = asyncio.get_event_loop().time()
 
     async def produce_live_snapshot():
         nonlocal last_pos_count, last_stats_time
-        symbols = await asyncio.to_thread(feed.get_market_symbols)
-        account = await asyncio.to_thread(feed.get_account_summary)
-        positions = await asyncio.to_thread(feed.get_open_positions)
-        curr_pos_count = len(positions) if positions else 0
+        symbols = await market_service.get_market_symbols()
+        account = await market_service.get_account_summary()
+        positions = await market_service.get_open_positions()
+        curr_pos_count = len(positions)
         now_time = asyncio.get_event_loop().time()
 
         payload = {
             "type": "symbols_update",
-            "symbols": symbols,
-            "account": account,
-            "positions": positions,
+            "symbols": [s.model_dump() for s in symbols],
+            "account": account.model_dump(),
+            "positions": [p.model_dump() for p in positions],
             "timestamp": now_time
         }
 
-        # Check stats if position count decreased (e.g. SL/TP hit in MT5) or 5-second heartbeat
         if (last_pos_count != -1 and curr_pos_count < last_pos_count) or (now_time - last_stats_time >= 5.0):
-            stats, sample_info = await get_trade_stats_payload()
+            stats, sample_info = await market_service.get_trade_stats()
             payload["trade_stats"] = stats
             payload["sample_info"] = sample_info
             last_stats_time = now_time
@@ -119,448 +106,68 @@ async def lifespan(app: FastAPI):
         return payload
 
     vol_task = asyncio.create_task(volatility_cache_task())
-    broadcast_task = asyncio.create_task(manager.run_loop(produce_live_snapshot))
+    broadcast_task = asyncio.create_task(broadcaster.run_loop(produce_live_snapshot))
     yield
     vol_task.cancel()
-    manager.stop()
+    broadcaster.stop()
     broadcast_task.cancel()
+    provider.shutdown()
     feed.shutdown()
 
 
-app = FastAPI(
-    title="MT5 Risk Management & Lot Sizing Dashboard",
-    description="Dynamic Multi-Model Risk Matrix with Kelly Criterion, Optimal f, Turbo Mode & Real-Time Caching",
-    lifespan=lifespan
-)
-
-
-def compute_effective_sl_pips(spec: Dict[str, Any], global_mode: str, global_pips: float, overrides: Dict[str, float]) -> float:
-    """Resolves dynamic SL in pips from mode, ADR, ATR, or overrides."""
-    symbol = spec["symbol"]
-    if symbol in overrides and overrides[symbol] > 0:
-        return float(overrides[symbol])
-    
-    adr = spec.get("adr_14_pips", 60.0)
-    atr = spec.get("atr_14_pips", 65.0)
-    
-    if global_mode == "1/4 ADR":
-        return max(5.0, round(adr * 0.25, 1))
-    elif global_mode == "1/3 ADR":
-        return max(5.0, round(adr * (1.0 / 3.0), 1))
-    elif global_mode == "1/2 ADR":
-        return max(5.0, round(adr * 0.5, 1))
-    elif global_mode in ("1 ADR", "1.0 ADR"):
-        return max(10.0, round(adr * 1.0, 1))
-    elif global_mode in ("1 ATR", "1.0 ATR", "ATR(14)"):
-        return max(10.0, round(atr * 1.0, 1))
-    elif global_mode == "20 pips":
-        return 20.0
-    elif global_mode == "50 pips":
-        return 50.0
-    else:
-        return max(1.0, float(global_pips))
-
-
-@app.get("/api/account")
-async def get_account():
-    """Returns live or simulated MT5 account balance, equity, leverage, and margin."""
-    return await asyncio.to_thread(feed.get_account_summary)
-
-
-@app.get("/api/symbols")
-async def get_symbols():
-    """Returns all available Market Watch symbols with specifications and 14D ADR."""
-    return await asyncio.to_thread(feed.get_market_symbols)
-
-
-async def get_trade_stats_payload() -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    """Fetches closed deals history, groups by position_id, and computes JSON-serializable TradeStats."""
-    trades_pnl = await asyncio.to_thread(feed.fetch_closed_deals_history)
-    trade_records = getattr(feed, "_cached_trade_records", None)
-    stats = calculate_trade_statistics(trades_pnl, trades_records=trade_records)
-    stats_dict = stats.model_dump() if hasattr(stats, "model_dump") else dataclasses.asdict(stats)
-    return stats_dict, stats_dict.get("sample_info", {})
-
-
-@app.get("/api/trade-history")
-async def get_trade_history():
-    """Returns trade statistics, Kelly metrics, and sample size tier."""
-    stats, sample_info = await get_trade_stats_payload()
-    return {
-        "stats": stats,
-        "sample_info": sample_info,
-        "recent_trades": feed._cached_trades[-50:] if feed._cached_trades else []
-    }
-
-
-@app.post("/api/calculate")
-async def calculate_risk_matrix(req: CalculationRequest):
-    """
-    Computes lot sizing for all symbols under the requested risk model,
-    working capital, leverage, and dynamic SL settings.
-    Decoupled from slow IPC queries with fast in-memory execution.
-    """
-    trades_pnl = await asyncio.to_thread(feed.fetch_closed_deals_history)
-    trade_records = getattr(feed, "_cached_trade_records", None)
-    trade_stats = calculate_trade_statistics(trades_pnl, trades_records=trade_records)
-    symbols_specs = await asyncio.to_thread(feed.get_market_symbols)
-    account = await asyncio.to_thread(feed.get_account_summary)
-    acc_leverage = float(account.get("leverage", 2000.0))
-    
-    if req.symbols:
-        requested_set = {s.upper() for s in req.symbols}
-        symbols_specs = [s for s in symbols_specs if s["symbol"].upper() in requested_set]
-
-    results = []
-    min_clamped_count = 0
-    margin_exceeded_count = 0
-
-    for spec in symbols_specs:
-        sym = spec["symbol"]
-        sl_pips = compute_effective_sl_pips(spec, req.global_sl_mode, req.global_sl_pips, req.symbol_sl_overrides)
-        ref_price = spec.get("ask", spec.get("bid", 1.0))
-        cat = spec.get("category", "")
-        cs = spec.get("trade_contract_size", 100000.0)
-        mpl = spec.get("margin_per_lot")
-
-        def resolve_margin(exec_lot: float) -> float:
-            return calculate_broker_margin(
-                symbol=sym,
-                lots=exec_lot,
-                price=spec["ask"],
-                acc_leverage=acc_leverage,
-                user_leverage=req.leverage,
-                margin_per_lot=mpl,
-                ref_price=ref_price,
-                category=cat,
-                contract_size=cs
-            )
-        
-        pre_calc = calculate_lot_for_symbol(
-            symbol=sym, working_capital=req.working_capital, deposited_cash=req.deposited_cash, leverage=req.leverage,
-            sl_pips=sl_pips, pip_value_per_lot=spec["pip_value_per_lot"], market_price=spec["ask"],
-            contract_size=cs, volume_min=spec["volume_min"], volume_max=spec["volume_max"],
-            volume_step=spec["volume_step"], risk_method=req.risk_method, custom_risk_pct=req.custom_risk_pct,
-            trade_stats=trade_stats, currency_base=spec.get("currency_base", "USD"),
-            currency_profit=spec.get("currency_profit", "USD"), currency_margin=spec.get("currency_margin", "USD")
-        )
-        
-        broker_margin = resolve_margin(pre_calc.executable_lot)
-        
-        calc = calculate_lot_for_symbol(
-            symbol=sym,
-            working_capital=req.working_capital,
-            deposited_cash=req.deposited_cash,
-            leverage=req.leverage,
-            sl_pips=sl_pips,
-            pip_value_per_lot=spec["pip_value_per_lot"],
-            market_price=spec["ask"],
-            contract_size=cs,
-            volume_min=spec["volume_min"],
-            volume_max=spec["volume_max"],
-            volume_step=spec["volume_step"],
-            risk_method=req.risk_method,
-            custom_risk_pct=req.custom_risk_pct,
-            trade_stats=trade_stats,
-            currency_base=spec.get("currency_base", "USD"),
-            currency_profit=spec.get("currency_profit", "USD"),
-            currency_margin=spec.get("currency_margin", "USD"),
-            exact_broker_margin=broker_margin,
-            min_risk_floor_pct=req.min_risk_floor_pct,
-            max_risk_ceiling_pct=req.max_risk_ceiling_pct
-        )
-        
-        if calc.is_clamped_to_min:
-            min_clamped_count += 1
-        if calc.is_margin_exceeded:
-            margin_exceeded_count += 1
-
-        # Comparison calculations (pure in-memory, zero MT5 IPC overhead)
-        alt_frac_pre = calculate_lot_for_symbol(
-            symbol=sym, working_capital=req.working_capital, deposited_cash=req.deposited_cash, leverage=req.leverage,
-            sl_pips=sl_pips, pip_value_per_lot=spec["pip_value_per_lot"], market_price=spec["ask"],
-            contract_size=cs, volume_min=spec["volume_min"], volume_max=spec["volume_max"],
-            volume_step=spec["volume_step"], risk_method="fractional", custom_risk_pct=1.0, trade_stats=trade_stats,
-            currency_base=spec.get("currency_base", "USD"), currency_profit=spec.get("currency_profit", "USD"),
-            currency_margin=spec.get("currency_margin", "USD")
-        )
-        margin_frac = resolve_margin(alt_frac_pre.executable_lot)
-        alt_fractional = calculate_lot_for_symbol(
-            symbol=sym, working_capital=req.working_capital, deposited_cash=req.deposited_cash, leverage=req.leverage,
-            sl_pips=sl_pips, pip_value_per_lot=spec["pip_value_per_lot"], market_price=spec["ask"],
-            contract_size=cs, volume_min=spec["volume_min"], volume_max=spec["volume_max"],
-            volume_step=spec["volume_step"], risk_method="fractional", custom_risk_pct=1.0, trade_stats=trade_stats,
-            currency_base=spec.get("currency_base", "USD"), currency_profit=spec.get("currency_profit", "USD"),
-            currency_margin=spec.get("currency_margin", "USD"), exact_broker_margin=margin_frac
-        )
-
-        alt_hk_pre = calculate_lot_for_symbol(
-            symbol=sym, working_capital=req.working_capital, deposited_cash=req.deposited_cash, leverage=req.leverage,
-            sl_pips=sl_pips, pip_value_per_lot=spec["pip_value_per_lot"], market_price=spec["ask"],
-            contract_size=cs, volume_min=spec["volume_min"], volume_max=spec["volume_max"],
-            volume_step=spec["volume_step"], risk_method="kelly_half", custom_risk_pct=1.0, trade_stats=trade_stats,
-            currency_base=spec.get("currency_base", "USD"), currency_profit=spec.get("currency_profit", "USD"),
-            currency_margin=spec.get("currency_margin", "USD"), min_risk_floor_pct=req.min_risk_floor_pct,
-            max_risk_ceiling_pct=req.max_risk_ceiling_pct
-        )
-        margin_hk = resolve_margin(alt_hk_pre.executable_lot)
-        alt_half_kelly = calculate_lot_for_symbol(
-            symbol=sym, working_capital=req.working_capital, deposited_cash=req.deposited_cash, leverage=req.leverage,
-            sl_pips=sl_pips, pip_value_per_lot=spec["pip_value_per_lot"], market_price=spec["ask"],
-            contract_size=cs, volume_min=spec["volume_min"], volume_max=spec["volume_max"],
-            volume_step=spec["volume_step"], risk_method="kelly_half", custom_risk_pct=1.0, trade_stats=trade_stats,
-            currency_base=spec.get("currency_base", "USD"), currency_profit=spec.get("currency_profit", "USD"),
-            currency_margin=spec.get("currency_margin", "USD"), exact_broker_margin=margin_hk,
-            min_risk_floor_pct=req.min_risk_floor_pct, max_risk_ceiling_pct=req.max_risk_ceiling_pct
-        )
-
-        results.append({
-            "spec": spec,
-            "calc": calc,
-            "comparison": {
-                "fractional_1pct": {"lot": alt_fractional.executable_lot, "risk_pct": alt_fractional.effective_risk_pct, "margin": alt_fractional.required_margin},
-                "half_kelly": {"lot": alt_half_kelly.executable_lot, "risk_pct": alt_half_kelly.effective_risk_pct, "margin": alt_half_kelly.required_margin}
-            }
-        })
-
-    return {
-        "trade_stats": trade_stats,
-        "results": results,
-        "summary": {
-            "total_symbols": len(results),
-            "min_clamped_count": min_clamped_count,
-            "margin_exceeded_count": margin_exceeded_count,
-            "working_capital": req.working_capital,
-            "deposited_cash": req.deposited_cash,
-            "leverage": req.leverage,
-            "risk_method": req.risk_method
-        }
-    }
-
-
-@app.post("/api/upload-trades")
-async def upload_trades_csv(file: UploadFile = File(...)):
-    """Uploads a CSV file containing closed trade profits to recalculate Kelly and Optimal f."""
-    content = await file.read()
-    text = content.decode("utf-8", errors="ignore")
-    reader = csv.reader(io.StringIO(text))
-    
-    pnl_list = []
-    for row in reader:
-        if not row:
-            continue
-        for cell in row:
-            try:
-                cleaned = cell.replace("$", "").replace(",", "").strip()
-                val = float(cleaned)
-                pnl_list.append(val)
-                break
-            except ValueError:
-                continue
-                
-    if len(pnl_list) < 5:
-        raise HTTPException(status_code=400, detail="CSV must contain at least 5 numeric trade PnL entries.")
-
-    feed.set_custom_trades(pnl_list)
-    stats = calculate_trade_statistics(pnl_list)
-    return {
-        "status": "success",
-        "message": f"Successfully parsed {len(pnl_list)} trades from CSV.",
-        "stats": stats,
-        "sample_info": stats.sample_info
-    }
-
-
-@app.post("/api/manual-stats")
-async def set_manual_stats(req: ManualStatsRequest):
-    """Sets manual strategy performance parameters (Win Rate, Payoff, Total Trades)."""
-    stats = calculate_trade_statistics(
-        override_win_rate=req.win_rate,
-        override_payoff_ratio=req.payoff_ratio,
-        override_total_trades=req.total_trades
+def create_app(
+    market_service: Optional[MarketService] = None,
+    execution_service: Optional[ExecutionService] = None,
+    market_provider: Optional[Any] = None,
+    execution_provider: Optional[Any] = None,
+    broadcast_hub: Optional[BroadcastHub] = None,
+    settings: Optional[AppSettings] = None
+) -> FastAPI:
+    """Application factory configuring routers, lifespan, and static assets."""
+    application = FastAPI(
+        title="MT5 Risk Management & Lot Sizing Dashboard",
+        description="Dynamic Multi-Model Risk Matrix with Kelly Criterion, Turbo Mode & Real-Time Caching",
+        lifespan=lifespan
     )
-    return {
-        "status": "success",
-        "stats": stats,
-        "sample_info": stats.sample_info
-    }
+
+    app_settings = settings or AppSettings()
+    prov = market_provider or (market_service.provider if market_service else (MockDataProvider() if app_settings.mock_mode else feed))
+    broadcaster = broadcast_hub or manager
+    m_service = market_service or MarketService(prov)
+    e_service = execution_service or ExecutionService(prov, broadcaster, m_service)
+
+    # Attach to application.state for FastAPI Depends()
+    application.state.settings = app_settings
+    application.state.market_provider = prov
+    application.state.execution_provider = execution_provider or prov
+    application.state.broadcast_hub = broadcaster
+    application.state.market_service = m_service
+    application.state.execution_service = e_service
+
+    # Register presentation routers
+    application.include_router(account_router)
+    application.include_router(symbols_router)
+    application.include_router(trades_router)
+    application.include_router(orders_router)
+    application.include_router(positions_router)
+    application.include_router(websocket_router)
+
+    # Mount static assets
+    if os.path.exists(DIST_DIR):
+        application.mount("/assets", StaticFiles(directory=os.path.join(DIST_DIR, "assets")), name="assets")
+    application.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+    @application.get("/", response_class=HTMLResponse)
+    async def serve_index():
+        dist_index = os.path.join(DIST_DIR, "index.html")
+        if os.path.exists(dist_index):
+            return FileResponse(dist_index)
+        index_path = os.path.join(STATIC_DIR, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(index_path)
+        return HTMLResponse("<h1>Risk Management Dashboard UI Loading...</h1>")
+
+    return application
 
 
-class OrderExecuteRequest(BaseModel):
-    symbol: str
-    action: str = Field(..., description="'BUY' or 'SELL'")
-    volume: float = Field(..., ge=0.001, description="Lot size")
-    sl_pips: float = Field(..., gt=0, description="Stop loss in pips")
-    rr_ratio: float = Field(default=1.0, ge=0.0, description="Risk:Reward ratio for Take Profit (0 for no TP)")
-    comment: str = Field(default="RiskDashboard", description="Trade comment")
-
-
-class PositionCloseRequest(BaseModel):
-    ticket: int
-    volume: Optional[float] = Field(default=None, description="Optional volume to close (for partial liquidation)")
-
-
-class PositionModifyRequest(BaseModel):
-    ticket: int
-    sl: Optional[float] = Field(default=None, description="New absolute Stop Loss price")
-    tp: Optional[float] = Field(default=None, description="New absolute Take Profit price")
-
-
-@app.post("/api/order/execute")
-async def execute_order(req: OrderExecuteRequest):
-    """Executes a market BUY or SELL order directly into MT5 with exact lot sizing and SL/TP prices."""
-    res = await asyncio.to_thread(
-        feed.send_market_order,
-        symbol=req.symbol,
-        action=req.action,
-        volume=req.volume,
-        sl_pips=req.sl_pips,
-        rr_ratio=req.rr_ratio,
-        comment=req.comment
-    )
-    if not res.get("success"):
-        return res
-    
-    # Broadcast update event to connected WebSocket clients
-    asyncio.create_task(manager.broadcast({
-        "type": "symbols_update",
-        "timestamp": asyncio.get_event_loop().time()
-    }))
-    return res
-
-
-@app.get("/api/positions")
-async def get_positions():
-    """Retrieves all currently open positions with floating P&L and R-multiples."""
-    positions = await asyncio.to_thread(feed.get_open_positions)
-    return {"positions": positions, "count": len(positions)}
-
-
-@app.post("/api/position/close")
-async def close_position(req: PositionCloseRequest):
-    """Closes an open position (full or partial volume)."""
-    res = await asyncio.to_thread(feed.close_position, ticket=req.ticket, volume=req.volume)
-    if res.get("success"):
-        stats, sample_info = await get_trade_stats_payload()
-        asyncio.create_task(manager.broadcast({
-            "type": "symbols_update",
-            "trade_stats": stats,
-            "sample_info": sample_info,
-            "timestamp": asyncio.get_event_loop().time()
-        }))
-    return res
-
-
-@app.post("/api/position/modify")
-async def modify_position(req: PositionModifyRequest):
-    """Modifies SL/TP price levels on an open position."""
-    res = await asyncio.to_thread(feed.modify_position_sltp, ticket=req.ticket, sl=req.sl, tp=req.tp)
-    if res.get("success"):
-        asyncio.create_task(manager.broadcast({
-            "type": "symbols_update",
-            "timestamp": asyncio.get_event_loop().time()
-        }))
-    return res
-
-
-@app.post("/api/position/close-all")
-async def close_all_positions():
-    """Closes all open positions in MT5."""
-    results = await asyncio.to_thread(feed.close_all_positions)
-    stats, sample_info = await get_trade_stats_payload()
-    asyncio.create_task(manager.broadcast({
-        "type": "symbols_update",
-        "trade_stats": stats,
-        "sample_info": sample_info,
-        "timestamp": asyncio.get_event_loop().time()
-    }))
-    return {"results": results, "count": len(results)}
-
-
-@app.post("/api/position/break-even-all")
-async def break_even_all_positions():
-    """Snaps SL to Universal Cost-Absorbing BE for all eligible open positions."""
-    res = await asyncio.to_thread(feed.break_even_all_positions)
-    asyncio.create_task(manager.broadcast({
-        "type": "symbols_update",
-        "timestamp": asyncio.get_event_loop().time()
-    }))
-    return res
-
-
-@app.post("/api/position/close-50-all")
-async def close_50_all_positions():
-    """Closes 50% volume and locks BE on remaining volume across all eligible open positions."""
-    res = await asyncio.to_thread(feed.close_50_all_positions)
-    stats, sample_info = await get_trade_stats_payload()
-    asyncio.create_task(manager.broadcast({
-        "type": "symbols_update",
-        "trade_stats": stats,
-        "sample_info": sample_info,
-        "timestamp": asyncio.get_event_loop().time()
-    }))
-    return res
-
-
-@app.websocket("/ws/live")
-async def websocket_live(websocket: WebSocket):
-    """
-    Real-time WebSocket streaming with dynamic client-configurable refresh interval.
-    Powered by centralized single-producer BroadcastHub with Turbo Mode (500ms).
-    """
-    await manager.connect(websocket, initial_interval=2.0)
-    try:
-        # Send initial symbols, account state, open positions, and trade statistics
-        symbols = await asyncio.to_thread(feed.get_market_symbols)
-        account = await asyncio.to_thread(feed.get_account_summary)
-        positions = await asyncio.to_thread(feed.get_open_positions)
-        stats, sample_info = await get_trade_stats_payload()
-        await websocket.send_json({
-            "type": "initial_symbols",
-            "symbols": symbols,
-            "account": account,
-            "positions": positions,
-            "trade_stats": stats,
-            "sample_info": sample_info
-        })
-        while True:
-            data = await websocket.receive_text()
-            try:
-                msg = json.loads(data)
-                if isinstance(msg, dict):
-                    if msg.get("action") == "set_rate":
-                        interval_ms = float(msg.get("interval_ms", 2000))
-                        await manager.set_interval(websocket, interval_ms / 1000.0)
-                        await websocket.send_json({
-                            "type": "rate_updated",
-                            "interval_ms": interval_ms
-                        })
-                    elif msg.get("action") == "ping":
-                        await websocket.send_json({"type": "pong"})
-            except json.JSONDecodeError:
-                if data.strip().lower() == "ping":
-                    await websocket.send_json({"type": "pong"})
-    except WebSocketDisconnect:
-        pass
-    except Exception as e:
-        logger.debug(f"WebSocket unexpected error: {e}")
-    finally:
-        await manager.disconnect(websocket)
-
-
-# Mount static directory: check dist first, fallback to static
-DIST_DIR = os.path.join(STATIC_DIR, "dist")
-if os.path.exists(DIST_DIR):
-    app.mount("/assets", StaticFiles(directory=os.path.join(DIST_DIR, "assets")), name="assets")
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
-
-
-@app.get("/", response_class=HTMLResponse)
-async def serve_index():
-    dist_index = os.path.join(DIST_DIR, "index.html")
-    if os.path.exists(dist_index):
-        return FileResponse(dist_index)
-    index_path = os.path.join(STATIC_DIR, "index.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
-    return HTMLResponse("<h1>Risk Management Dashboard UI Loading...</h1>")
+app = create_app()

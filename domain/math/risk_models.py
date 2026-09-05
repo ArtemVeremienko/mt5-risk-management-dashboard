@@ -162,10 +162,20 @@ def calculate_trade_statistics(
     if trades_records and len(trades_records) > 0:
         now_utc = datetime.now(timezone.utc)
         start_of_month_ts = datetime(now_utc.year, now_utc.month, 1, tzinfo=timezone.utc).timestamp()
-        mtd_trades = [r for r in trades_records if float(r.get("time", 0)) >= start_of_month_ts]
+        def _get_ts(r):
+            if isinstance(r, dict):
+                return float(r.get("close_time", r.get("time", 0)))
+            return float(getattr(r, "close_time", getattr(r, "time", 0)) or 0)
+
+        def _get_pnl(r):
+            if isinstance(r, dict):
+                return float(r.get("pnl", r.get("net_pnl", 0.0)))
+            return float(getattr(r, "pnl", getattr(r, "net_pnl", 0.0)) or 0)
+
+        mtd_trades = [r for r in trades_records if _get_ts(r) >= start_of_month_ts]
         monthly_trades = len(mtd_trades)
         if monthly_trades > 0:
-            monthly_pnl = float(sum(float(r.get("net_pnl", 0.0)) for r in mtd_trades))
+            monthly_pnl = float(sum(_get_pnl(r) for r in mtd_trades))
             monthly_r = (monthly_pnl / avg_loss) if avg_loss > 0 else 0.0
     elif trades_pnl and len(trades_pnl) > 0:
         # Fallback estimation for flat PnL arrays without timestamps (recent 25% of trades)

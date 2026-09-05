@@ -15,7 +15,8 @@ docs/
 ├── 01_institutional_terminal_design.md    # Institutional & Quant Terminal Design Systems
 ├── 02_trading_psychology_and_ergonomics.md # Trading Psychology, Cognitive Ergonomics & De-Biasing
 ├── 03_matrix_execution_and_oms.md          # Matrix Execution, Pre-Trade Risk Engine & OMS Architecture
-└── 04_metatrader5_python_best_practices.md # High-Performance MetaTrader 5 Python Architecture & IPC Engine
+├── 04_metatrader5_python_best_practices.md # High-Performance MetaTrader 5 Python Architecture & IPC Engine
+└── 05_terminal_comparison_and_sparkline_architecture.md # Terminal Benchmark, Discretionary Workflow & Sparkline Specs
 ```
 
 ---
@@ -80,7 +81,16 @@ docs/
 * **Statistical Integrity & Trade Accounting**:
   * Deconstructing Positions vs. Orders vs. Deals.
   * Why naive deal slicing destroys statistical validity.
-  * Production deal aggregation engine grouped by `position_id` for true win rates, payoff ratios, expectancy $E[R]$, profit factors, and peak-to-trough drawdowns.
+### 6. [05. Terminal UX/UI Comparison, Discretionary Workflow & Sparkline Architecture](./05_terminal_comparison_and_sparkline_architecture.md)
+* **Terminal Benchmarks**: MT5, cTrader, TradingView, and Quantower comparative capability matrix.
+* **Ergonomic Strategy**: Resolving the pending order dilemma (deprioritizing table-based pending orders in favor of instant market orders and MT5 native fallback).
+* **Discretionary Workflow Alignment**: Optimizing the cockpit for pre-session 2–3 focus pair pinning, ADR exhaustion checks, sub-second execution, and active position de-risking.
+* **Micro-Tick Sparkline Ribbon Specification**:
+  * Why raw tick counts fail across heterogeneous assets (`NZDUSD` vs `XAUUSD`).
+  * Uniform 60-second linear time sampling ($X_i = \text{const}$).
+  * High-performance, zero-garbage-collection `Float32Array` Circular Ring Buffer ($240\text{ bytes}$).
+  * Selective rendering budget strictly for Pinned and Focused symbols.
+* **Mathematical Deprecation**: Deprecation of Ralph Vince Optimal $f$ in favor of Bounded Dynamic Half-Kelly ($f^*/2$).
 
 ---
 

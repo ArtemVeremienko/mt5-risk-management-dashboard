@@ -2,10 +2,11 @@
 Domain models for Universal Cost-Absorbing Break-Even Sizing and Qualification.
 """
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict
+from domain.models.base import DomainModel
 
 
-class BreakEvenInputs(BaseModel):
+class BreakEvenInputs(DomainModel):
     """
     Typed input parameters for calculating a universal break-even price.
     Pure data contract completely isolated from MetaTrader 5 C-extension structures.
@@ -31,7 +32,7 @@ class BreakEvenInputs(BaseModel):
     min_safety_pad_dollars: float = 1.00 # Cash floor for safety pad
 
 
-class BreakEvenResult(BaseModel):
+class BreakEvenResult(DomainModel):
     """
     Calculated break-even target price, cost breakdown, and profitability status.
     """

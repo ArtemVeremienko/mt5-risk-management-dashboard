@@ -3,10 +3,11 @@ Domain models for Lot Size Calculation Results and Margin Specifications.
 """
 
 from typing import List
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field, ConfigDict
+from domain.models.base import DomainModel
 
 
-class MarginSpecs(BaseModel):
+class MarginSpecs(DomainModel):
     """
     Resolved margin rate and required margin per 1.0 standard lot.
     """
@@ -20,7 +21,7 @@ class MarginSpecs(BaseModel):
         return getattr(self, item)
 
 
-class LotCalculationResult(BaseModel):
+class LotCalculationResult(DomainModel):
     """
     Complete pre-trade sizing, volume step clamping, risk budget,
     and margin requirement breakdown for a single symbol.
@@ -31,7 +32,7 @@ class LotCalculationResult(BaseModel):
     working_capital: float
     deposited_cash: float
     leverage: float
-    risk_method: str           # "fractional", "kelly_half", "optimal_f"
+    risk_method: str           # "fractional", "kelly_half" (deprecated: "optimal_f")
     target_risk_pct: float     # e.g. 1.0 = 1.0%
     target_risk_amount: float  # in currency, e.g. $1.00
     sl_pips: float

@@ -3,7 +3,6 @@ export interface AccountSummary {
   equity: number;
   margin: number;
   free_margin?: number;
-  margin_free?: number;
   margin_level: number;
   leverage: number;
   profit?: number;

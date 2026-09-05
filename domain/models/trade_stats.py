@@ -4,7 +4,8 @@ Domain models for Trade Statistics, Sample Size Reliability Tiers, and Trade Acc
 
 from enum import Enum
 from typing import Optional
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict
+from domain.models.base import DomainModel
 
 
 class SampleSizeTier(str, Enum):
@@ -14,7 +15,7 @@ class SampleSizeTier(str, Enum):
     ROBUST = "robust"                  # 500+ trades
 
 
-class SampleSizeInfo(BaseModel):
+class SampleSizeInfo(DomainModel):
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
     tier: SampleSizeTier
@@ -25,7 +26,7 @@ class SampleSizeInfo(BaseModel):
     recommendation: str
 
 
-class TradeRecord(BaseModel):
+class TradeRecord(DomainModel):
     """
     Normalized record of a closed position aggregated from raw broker deals.
     """
@@ -46,7 +47,7 @@ class TradeRecord(BaseModel):
     comment: str = ""
 
 
-class TradeStats(BaseModel):
+class TradeStats(DomainModel):
     """
     Aggregated statistical profile of historical trading performance,
     including Van Tharp R-multiples, expectancy, and Kelly Criterion fractions.

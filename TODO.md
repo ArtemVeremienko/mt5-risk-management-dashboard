@@ -46,8 +46,8 @@
 ## ⚡ Next Architectural Milestone: Solid.js + Vite + TypeScript Enterprise Migration
 - [x] **Modular Component Architecture**:
   - `<HeaderMetricsBar />`: Balance, Equity, Floating P&L, Status, and Workspace Switcher (`📡 Screener` / `💼 Positions`).
-  - `<RiskControlsBar />`: Working Capital, Risk Sizing Selector (Fixed %, Kelly, Vince), Global SL Mode, RR Ratio.
-  - `<StrategyStatsBanner />`: Collapsible sample size tier and Kelly / Vince Optimal $f$ metrics.
+  - `<RiskControlsBar />`: Working Capital, Risk Sizing Selector (Fixed %, Dynamic Half-Kelly), Global SL Mode, RR Ratio.
+  - `<StrategyStatsBanner />`: Collapsible sample size tier and Kelly Criterion metrics (Ralph Vince Optimal $f$ deprecated/dropped).
   - `<RiskMatrixTable />`: Fine-grained Signal-bound table rows with drag & drop reordering and symbol pinning.
   - `<OrderManagementPanel />`: Live position management table with one-click actions.
 - [x] **Fine-Grained Reactive Pipeline**:
@@ -145,6 +145,10 @@
 ### 9. 🎨 Volatility & Interaction Micro-Polish
 - [ ] **Quick-Preset SL Hover Bar (cTrader Pattern)**:
   - On hovering a symbol's SL box, display micro-chips (`[¼ ADR]`, `[½ ADR]`, `[1 ADR]`, `[1 ATR]`) for instant 1-click preset overrides without manual typing.
+- [ ] **Sub-Minute Micro-Tick Sparkline Ribbon (Matrix Column 2 Integration)**:
+  - Embed an ultra-compact 60-second / 100-tick canvas sparkline ribbon within the Market Price & Spread cell.
+  - Renders live tick trajectory, micro-momentum slope, and a pulsing live edge tick dot without increasing row height (fixed 34–36px) or triggering layout thrashing.
+  - Gives the operator instant visual velocity feedback (breakout speed vs. stalled consolidation) right at the point of execution.
 - [ ] **Session ADR Exhaustion & Volatility Micro-Gauge (Matrix Column 3 Upgrade)**:
   - **Quantitative Engine (`feed.py`)**:
     - Query today's D1 bar (`mt5.copy_rates_from_pos(sym, TIMEFRAME_D1, 0, 1)`) to obtain real-time session extremes: $\text{Range}_{\text{today}} = \text{High}_{\text{today}} - \text{Low}_{\text{today}}$.

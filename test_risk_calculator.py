@@ -5,6 +5,7 @@ Unit tests for Risk Management & Lot Sizing Engine.
 import pytest
 import numpy as np
 from fastapi.testclient import TestClient
+from domain.models import SymbolSpec, Position
 
 try:
     from risk_calculator import (
@@ -199,7 +200,7 @@ def test_leverage_and_margin():
 
 def test_adr_dynamic_sl_resolution():
     """Test resolving SL pips from 14D ADR presets."""
-    spec = {"symbol": "EURUSD", "adr_14_pips": 80.0, "atr_14_pips": 85.0}
+    spec = SymbolSpec(symbol="EURUSD", adr_14_pips=80.0, atr_14_pips=85.0)
     
     # 1/4 ADR of 80 = 20 pips
     assert compute_effective_sl_pips(spec, "1/4 ADR", 20.0, {}) == 20.0
@@ -488,10 +489,10 @@ def test_fast_symbol_polling_performance():
     # Fast in-memory resolution should execute in under 15ms
     assert duration_ms < 15.0
     for sym in symbols:
-        assert "adr_14_pips" in sym
-        assert "atr_14_pips" in sym
-        assert "bid" in sym
-        assert "ask" in sym
+        assert sym.adr_14_pips > 0
+        assert sym.atr_14_pips > 0
+        assert sym.bid > 0
+        assert sym.ask > 0
 
 
 def test_positions_api_endpoints():
@@ -661,10 +662,10 @@ def test_immutable_initial_risk_and_positive_stop_rmultiple():
 
         # Gain is 4.6 pips. Initial risk is 15.0 pips.
         # R-Multiple should be 4.6 / 15.0 = +0.31 R (NOT 4.6 / 0.7 = +6.57 R!)
-        assert pos_data["r_multiple"] == 0.31
-        assert pos_data["is_sl_in_profit"] is True
-        assert pos_data["locked_r"] == 0.05 # 0.7 pips / 15.0 pips = 0.05R
-        assert pos_data["pnl_pips"] == 4.6
+        assert pos_data.r_multiple == 0.31
+        assert pos_data.is_sl_in_profit is True
+        assert pos_data.locked_r == 0.05 # 0.7 pips / 15.0 pips = 0.05R
+        assert pos_data.pnl_pips == 4.6
     finally:
         feed_module.mt5 = orig_mt5
 

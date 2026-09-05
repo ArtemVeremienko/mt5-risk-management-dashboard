@@ -33,8 +33,8 @@ An enterprise-grade, high-frequency risk management and real-time position sizin
 
 3. **🧮 Multi-Model Position Sizing Engine**:
    - **Fixed Fractional Risk**: Customizable from 0.1% to 10.0% of Working Capital.
-   - **Kelly Criterion**: Full Kelly ($f^*$), Half Kelly ($f^*/2$), and Quarter Kelly ($f^*/4$).
-   - **Ralph Vince Optimal $f$**: Full $f$, Half $f/2$, and Quarter $f/4$.
+   - **Kelly Criterion**: Dynamic Half Kelly ($f^*/2$) with configurable risk floors and ceilings.
+   - **Ralph Vince Optimal $f$ (Deprecated)**: Dropped in favor of bounded Half-Kelly due to excessive drawdown variance and sensitivity to outlier losses.
    - **Statistical Confidence Tiers**: Visual alerts for sample size (< 100 informational, 100–300 exploratory, 300–500 moderate, 500+ robust).
 
 4. **🎯 Dynamic Stop Loss & Volatility Presets**:

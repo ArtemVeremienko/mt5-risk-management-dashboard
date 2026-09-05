@@ -6,7 +6,7 @@
 
 ## 📌 1. Project Overview & Architecture
 
-The **MT5 Risk Management & Dynamic Lot Sizing Dashboard** is an institutional-grade, real-time risk budgeting and pre-trade execution terminal for MetaTrader 5. It couples mathematical risk modeling (Fixed Fractional, Ralph Vince Optimal $f$, Kelly Criterion) with high-frequency WebSocket quote streaming and 1-click execution safety.
+The **MT5 Risk Management & Dynamic Lot Sizing Dashboard** is an institutional-grade, real-time risk budgeting and pre-trade execution terminal for MetaTrader 5. It couples mathematical risk modeling (Fixed Fractional, Kelly Criterion; Ralph Vince Optimal $f$ deprecated) with high-frequency WebSocket quote streaming and 1-click execution safety.
 
 ### 🏗️ Monorepo & Technology Stack
 - **Backend**: Python 3.10+ / FastAPI / `MetaTrader5` IPC library / Asyncio WebSockets.
@@ -153,3 +153,4 @@ uv run python run.py
 - [ ] Confirmed that 500ms Turbo Mode streaming does not cause input focus resets or DOM tearing.
 - [ ] Confirmed any frontend-specific architecture docs live in `frontend/` (not in `docs/`).
 - [ ] Confirmed all stylesheet modifications exclusively consume `--sys-*` semantic tokens (zero legacy tokens or raw hex colors).
+- [ ] Confirmed domain models and provider interfaces strictly return typed models (no dictionary emulation methods or `.model_dump()` conversions within business layers; see [`SESSION_LEARNINGS.md`](./SESSION_LEARNINGS.md)).
