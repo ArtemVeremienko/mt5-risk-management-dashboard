@@ -203,7 +203,7 @@ export const RiskMatrixTable: Component<Props> = (props) => {
                   </div>
                 </th>
 
-                <th onClick={() => marketStore.toggleSort('bid')} class="cursor-pointer text-right" style={{ width: '150px' }}>
+                <th onClick={() => marketStore.toggleSort('bid')} class="cursor-pointer text-right" style={{ width: '175px' }}>
                   Market Price (Spread) <span class="sort-icon">{marketStore.sortIcon('bid')}</span>
                 </th>
                 <th onClick={() => marketStore.toggleSort('adr')} class="cursor-pointer text-right" style={{ width: '100px' }}>

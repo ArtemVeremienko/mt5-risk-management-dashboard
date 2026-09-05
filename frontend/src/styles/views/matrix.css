@@ -419,7 +419,9 @@ tr.drag-over {
 .price-cell-with-sparkline {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
+  width: 100%;
+  min-width: 0;
   gap: 8px;
 }
 
