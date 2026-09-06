@@ -44,6 +44,9 @@
 }
 
 th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   background: #10141e;
   color: var(--sys-color-on-surface-variant);
   font-size: 11px;
