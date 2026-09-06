@@ -1639,11 +1639,29 @@ body {
    HEADER ACTIONS: CVD COLORWAY TOGGLE & KEYBOARD SHORTCUTS TRIGGER
    ========================================================================== */
 .btn-header-cvd {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   transition: all 0.15s ease;
 }
 
+.cvd-swatch-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, var(--sys-color-buy) 50%, var(--sys-color-sell) 50%);
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: transform 0.15s ease;
+}
+
+.btn-header-cvd:hover .cvd-swatch-dot {
+  transform: scale(1.15);
+}
+
 .btn-header-cvd.is-cvd {
-  background: rgba(0, 242, 254, 0.15);
+  background: rgba(0, 180, 216, 0.12);
   border-color: var(--sys-color-buy);
   color: var(--sys-color-buy);
 }

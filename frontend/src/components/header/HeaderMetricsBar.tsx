@@ -593,12 +593,13 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
           }}
           title={
             preferencesStore.colorway() === 'cvd'
-              ? 'Colorway: CVD Accessible (Cyan/Amber) [Hotkey: C]'
-              : 'Colorway: Standard (Emerald/Coral) [Hotkey: C]'
+              ? 'Colorway: Universal CVD (Cyan/Amber) [Hotkey: C]'
+              : 'Colorway: Standard Institutional (Emerald/Coral) [Hotkey: C]'
           }
         >
-          <span class="toggle-text">
-            {preferencesStore.colorway() === 'cvd' ? '🎨 CVD' : '🎨 Standard'}
+          <span class="cvd-swatch-dot" />
+          <span class="toggle-text font-mono">
+            {preferencesStore.colorway() === 'cvd' ? 'CVD' : 'STD'}
           </span>
         </button>
 
