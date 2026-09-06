@@ -1,4 +1,4 @@
-import { Component, createSignal, createMemo, createEffect, onCleanup } from 'solid-js';
+import { Component, createSignal, createMemo, createEffect, onCleanup, untrack } from 'solid-js';
 import { OpenPosition } from '../../types';
 import { api } from '../../services/api';
 import { toastStore } from '../../stores/toastStore';
@@ -30,20 +30,6 @@ interface SltpEditHubProps {
 
 export const SltpEditHub: Component<SltpEditHubProps> = (props) => {
   let hubRef: HTMLDivElement | undefined;
-
-  const [slPrice, setSlPrice] = createSignal<string>('');
-  const [slPips, setSlPips] = createSignal<string>('');
-  const [slCash, setSlCash] = createSignal<string>('');
-  const [slR, setSlR] = createSignal<string>('');
-
-  const [tpPrice, setTpPrice] = createSignal<string>('');
-  const [tpPips, setTpPips] = createSignal<string>('');
-  const [tpCash, setTpCash] = createSignal<string>('');
-  const [tpR, setTpR] = createSignal<string>('');
-
-  const [isSubmitting, setIsSubmitting] = createSignal<boolean>(false);
-  const [editingSide] = createSignal<'SL' | 'TP'>(props.initialSide || 'SL');
-
   const stepRule = createMemo(() => {
     const p = props.position;
     return getAssetStepRule(p.symbol, p.digits, p.pip_size, p.step_rule);
@@ -54,20 +40,6 @@ export const SltpEditHub: Component<SltpEditHubProps> = (props) => {
     return calcResult?.calc?.pip_value_per_lot || 10.0;
   });
 
-  const slRMultipleText = createMemo(() => {
-    const val = parseFloat(slCash());
-    if (isNaN(val) || val === 0) return '';
-    const oneR = positionsStore.oneRCash();
-    return oneR > 0 ? `${(val / oneR).toFixed(2)} R` : '';
-  });
-
-  const tpRMultipleText = createMemo(() => {
-    const val = parseFloat(tpCash());
-    if (isNaN(val) || val === 0) return '';
-    const oneR = positionsStore.oneRCash();
-    return oneR > 0 ? `${(val / oneR).toFixed(2)} R` : '';
-  });
-
   // Helper to compute R from cash
   const calcRFromCash = (cashVal: string | number) => {
     const val = typeof cashVal === 'string' ? parseFloat(cashVal) : cashVal;
@@ -76,39 +48,36 @@ export const SltpEditHub: Component<SltpEditHubProps> = (props) => {
     return oneR > 0 ? (val / oneR).toFixed(2) : '';
   };
 
-  // Initialize signals from current position values
-  createEffect(() => {
-    const p = props.position;
-    const rule = stepRule();
-    const pipVal = pipValPerLot();
-    const isBuy = p.type === 'BUY';
+  // One-time initialization on construction (untracked to decouple from background quote/position stream)
+  const initP = props.position;
+  const initRule = getAssetStepRule(initP.symbol, initP.digits, initP.pip_size, initP.step_rule);
+  const initPipVal = untrack(() => marketStore.getCalculatedResult(initP.symbol)?.calc?.pip_value_per_lot || 10.0);
+  const initIsBuy = initP.type === 'BUY';
 
-    if (p.sl && p.sl > 0) {
-      const res = slPriceToPipsCash(p.sl, p.price_open, isBuy, p.volume, rule.pipSize, pipVal, p.digits);
-      setSlPrice(res.price);
-      setSlPips(res.pips);
-      setSlCash(res.cash);
-      setSlR(calcRFromCash(res.cash));
-    } else {
-      setSlPrice('');
-      setSlPips('');
-      setSlCash('');
-      setSlR('');
-    }
+  const initSlRes = (initP.sl && initP.sl > 0)
+    ? slPriceToPipsCash(initP.sl, initP.price_open, initIsBuy, initP.volume, initRule.pipSize, initPipVal, initP.digits)
+    : null;
 
-    if (p.tp && p.tp > 0) {
-      const res = tpPriceToPipsCash(p.tp, p.price_open, isBuy, p.volume, rule.pipSize, pipVal, p.digits);
-      setTpPrice(res.price);
-      setTpPips(res.pips);
-      setTpCash(res.cash);
-      setTpR(calcRFromCash(res.cash));
-    } else {
-      setTpPrice('');
-      setTpPips('');
-      setTpCash('');
-      setTpR('');
-    }
-  });
+  const initTpRes = (initP.tp && initP.tp > 0)
+    ? tpPriceToPipsCash(initP.tp, initP.price_open, initIsBuy, initP.volume, initRule.pipSize, initPipVal, initP.digits)
+    : null;
+
+  const initOneR = untrack(() => positionsStore.oneRCash());
+  const initSlR = initSlRes && initOneR > 0 ? (parseFloat(initSlRes.cash) / initOneR).toFixed(2) : '';
+  const initTpR = initTpRes && initOneR > 0 ? (parseFloat(initTpRes.cash) / initOneR).toFixed(2) : '';
+
+  const [slPrice, setSlPrice] = createSignal<string>(initSlRes?.price || '');
+  const [slPips, setSlPips] = createSignal<string>(initSlRes?.pips || '');
+  const [slCash, setSlCash] = createSignal<string>(initSlRes?.cash || '');
+  const [slR, setSlR] = createSignal<string>(initSlR);
+
+  const [tpPrice, setTpPrice] = createSignal<string>(initTpRes?.price || '');
+  const [tpPips, setTpPips] = createSignal<string>(initTpRes?.pips || '');
+  const [tpCash, setTpCash] = createSignal<string>(initTpRes?.cash || '');
+  const [tpR, setTpR] = createSignal<string>(initTpR);
+
+  const [isSubmitting, setIsSubmitting] = createSignal<boolean>(false);
+  const [editingSide] = createSignal<'SL' | 'TP'>(props.initialSide || 'SL');
 
   // SL update handlers
   const updateSlFromPrice = (val: string | number) => {
@@ -278,15 +247,8 @@ export const SltpEditHub: Component<SltpEditHubProps> = (props) => {
     updateSlFromPips(bufferPips);
   };
 
-  const applyAdrSlSnap = (fraction: number) => {
-    const calcResult = marketStore.getCalculatedResult(props.position.symbol);
-    const adrPips = calcResult?.spec?.adr_14_pips || 0;
-    const slDistPips = adrPips > 0 ? adrPips * fraction : 15.0;
-    updateSlFromPips(slDistPips);
-  };
-
-  const applyOneRPreset = () => {
-    updateSlFromR(-1.0);
+  const applySlRPreset = (rMultiple: number) => {
+    updateSlFromR(-Math.abs(rMultiple));
   };
 
   const applyRrSnap = (ratio: number) => {
@@ -585,29 +547,29 @@ export const SltpEditHub: Component<SltpEditHubProps> = (props) => {
               <button
                 type="button"
                 class="btn-preset-chip"
+                onClick={() => applySlRPreset(0.5)}
+                title="Snap SL to -0.5 R Initial Risk"
+                tabindex="-1"
+              >
+                🎯 0.5 R
+              </button>
+              <button
+                type="button"
+                class="btn-preset-chip"
+                onClick={() => applySlRPreset(1.0)}
+                title="Snap SL to exactly -1 R Initial Risk"
+                tabindex="-1"
+              >
+                🎯 1 R
+              </button>
+              <button
+                type="button"
+                class="btn-preset-chip"
                 onClick={applyBreakEvenSnap}
                 title="Snap SL to Entry Price + Spread Buffer"
                 tabindex="-1"
               >
                 🛡️ Entry / BE
-              </button>
-              <button
-                type="button"
-                class="btn-preset-chip"
-                onClick={() => applyAdrSlSnap(0.25)}
-                title="Snap SL to 1/4 ADR distance"
-                tabindex="-1"
-              >
-                📐 1/4 ADR
-              </button>
-              <button
-                type="button"
-                class="btn-preset-chip"
-                onClick={applyOneRPreset}
-                title="Snap SL to exactly -1.0 R Initial Risk"
-                tabindex="-1"
-              >
-                🎯 1.0 R
               </button>
             </div>
           </div>
@@ -825,29 +787,38 @@ export const SltpEditHub: Component<SltpEditHubProps> = (props) => {
               <button
                 type="button"
                 class="btn-preset-chip"
-                onClick={() => applyRrSnap(1.5)}
-                title="Set TP to 1:1.5 Risk-Reward Ratio"
+                onClick={() => applyRrSnap(1.0)}
+                title="Set TP to 1:1 Risk-Reward Ratio (1 R)"
                 tabindex="-1"
               >
-                🎯 1:1.5 RR
+                🎯 1 R
+              </button>
+              <button
+                type="button"
+                class="btn-preset-chip"
+                onClick={() => applyRrSnap(1.5)}
+                title="Set TP to 1:1.5 Risk-Reward Ratio (1.5 R)"
+                tabindex="-1"
+              >
+                🎯 1.5 R
               </button>
               <button
                 type="button"
                 class="btn-preset-chip"
                 onClick={() => applyRrSnap(2.0)}
-                title="Set TP to 1:2 Risk-Reward Ratio"
+                title="Set TP to 1:2 Risk-Reward Ratio (2 R)"
                 tabindex="-1"
               >
-                🎯 1:2 RR
+                🎯 2 R
               </button>
               <button
                 type="button"
                 class="btn-preset-chip"
                 onClick={() => applyRrSnap(3.0)}
-                title="Set TP to 1:3 Risk-Reward Ratio"
+                title="Set TP to 1:3 Risk-Reward Ratio (3 R)"
                 tabindex="-1"
               >
-                🎯 1:3 RR
+                🎯 3 R
               </button>
             </div>
           </div>
