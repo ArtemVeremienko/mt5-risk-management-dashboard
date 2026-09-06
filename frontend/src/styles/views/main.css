@@ -1678,8 +1678,13 @@ body {
 .btn-header-shortcuts {
   font-family: var(--sys-font-mono);
   font-weight: 700;
-  padding: 3px 8px;
+  font-size: 11px;
+  width: 26px;
+  min-width: 26px;
+  padding: 0;
+  justify-content: center;
 }
+
 
 /* ==========================================================================
    KEYBOARD SHORTCUTS MODAL SPECIFICATION

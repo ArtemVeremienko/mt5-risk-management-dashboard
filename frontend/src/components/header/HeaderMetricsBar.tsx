@@ -614,7 +614,7 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
           onClick={() => props.onOpenShortcutsModal?.()}
           title="Keyboard Shortcuts Cheat Sheet [Hotkey: ?]"
         >
-          <span class="toggle-text">⌨️ ?</span>
+          <span class="toggle-text font-mono">?</span>
         </button>
 
         {/* Sub-group Divider */}
