@@ -67,6 +67,7 @@
   /* Long / BUY Actions & Floating Profit (#089981 Pine Emerald) */
   --sys-color-buy: var(--ref-color-emerald-500);
   --sys-color-buy-hover: var(--ref-color-emerald-600);
+  --sys-color-on-buy: #ffffff;
   --sys-color-profit: var(--ref-color-emerald-500);
   --sys-color-success: var(--ref-color-emerald-500);
 
@@ -158,6 +159,7 @@ body[data-colorway="cvd"] {
   /* Long / BUY Actions & Floating Profit (#00B4D8 Electric Cyan) */
   --sys-color-buy: var(--ref-color-cyan-400);
   --sys-color-buy-hover: var(--ref-color-cyan-500);
+  --sys-color-on-buy: #08090c;
   --sys-color-profit: var(--ref-color-cyan-400);
   --sys-color-success: var(--ref-color-cyan-400);
 

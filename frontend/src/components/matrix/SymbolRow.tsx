@@ -422,8 +422,8 @@ export const SymbolRow: Component<Props> = (props) => {
                       {(data().spec.adr_used_pct || 0) >= 90
                         ? '⚠️ EXHAUSTED'
                         : (data().spec.adr_used_pct || 0) >= 70
-                        ? 'HIGH EXPANSION'
-                        : 'NORMAL RANGE'}
+                        ? 'EXPANDED'
+                        : 'NORMAL'}
                     </span>
                   </div>
 

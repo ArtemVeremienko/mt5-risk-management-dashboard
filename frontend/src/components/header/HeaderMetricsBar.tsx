@@ -23,23 +23,28 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
   const tradeStats = marketStore.tradeStats;
   const sampleInfo = marketStore.sampleInfo;
 
-  const [isAccountInfoOpen, setIsAccountInfoOpen] = createSignal<boolean>(false);
-  const [isStatsHovered, setIsStatsHovered] = createSignal<boolean>(false);
+  type TelemetryPopover = 'account' | 'stats' | 'none';
+  const [activeTelemetryPopover, setActiveTelemetryPopover] = createSignal<TelemetryPopover>('none');
   let accountInfoRef: HTMLDivElement | undefined;
+  let statsInfoRef: HTMLDivElement | undefined;
 
-  // Global Escape & Click-Outside dismissal for Account Info popover
+  // Global Escape & Click-Outside dismissal for Telemetry Popovers
   createEffect(() => {
-    if (!isAccountInfoOpen()) return;
+    if (activeTelemetryPopover() === 'none') return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setIsAccountInfoOpen(false);
+        setActiveTelemetryPopover('none');
       }
     };
 
     const handleClickOutside = (e: MouseEvent) => {
-      if (accountInfoRef && !accountInfoRef.contains(e.target as Node)) {
-        setIsAccountInfoOpen(false);
+      const target = e.target as Node;
+      const current = activeTelemetryPopover();
+      if (current === 'account' && accountInfoRef && !accountInfoRef.contains(target)) {
+        setActiveTelemetryPopover('none');
+      } else if (current === 'stats' && statsInfoRef && !statsInfoRef.contains(target)) {
+        setActiveTelemetryPopover('none');
       }
     };
 
@@ -336,17 +341,24 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
             <span class="pill-arrow">⚙️</span>
           </button>
 
-          {/* Pill 2: Strategy Performance Telemetry (Read-Only Indicative Display with HTML Popover) */}
+          {/* Pill 2: Strategy Performance Telemetry (Click-to-Toggle Popover) */}
           <div
             class="stats-pill-wrapper"
-            onMouseEnter={() => setIsStatsHovered(true)}
-            onMouseLeave={() => setIsStatsHovered(false)}
+            ref={statsInfoRef}
           >
-            <div
-              class="header-nav-pill stats-pill read-only"
+            <button
+              type="button"
+              class="header-nav-pill stats-pill"
+              classList={{
+                active: activeTelemetryPopover() === 'stats',
+              }}
               style={{
                 '--tier-color': sampleInfo()?.badge_color || 'var(--sys-color-primary)',
               }}
+              onClick={() => {
+                setActiveTelemetryPopover((prev) => (prev === 'stats' ? 'none' : 'stats'));
+              }}
+              title={`Strategy Performance: Expectancy ${expectancyTag()} · ${monthlyRTag()} · Click for detailed telemetry`}
             >
               <span class="pill-icon">📊</span>
               <div class="pill-content">
@@ -364,10 +376,11 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
                   {monthlyRTag()}
                 </span>
               </div>
-            </div>
+              <span class="pill-arrow pill-chevron">▾</span>
+            </button>
 
             {/* Rich HTML Telemetry Popover */}
-            <Show when={isStatsHovered()}>
+            <Show when={activeTelemetryPopover() === 'stats'}>
               <div class="stats-telemetry-popover">
                 <div class="stats-popover-header">
                   <div class="stats-popover-title-group">
@@ -625,9 +638,11 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
               connected: isConnected(),
               'mode-real': isConnected() && isRealAccount(),
               'mode-demo': isConnected() && !isRealAccount(),
-              active: isAccountInfoOpen(),
+              active: activeTelemetryPopover() === 'account',
             }}
-            onClick={() => setIsAccountInfoOpen(!isAccountInfoOpen())}
+            onClick={() => {
+              setActiveTelemetryPopover((prev) => (prev === 'account' ? 'none' : 'account'));
+            }}
             title={
               isConnected()
                 ? `Connected: ${account().server || 'MT5 Feed'} (${isRealAccount() ? 'Real Account' : 'Demo Account'}) · Click for Account Telemetry`
@@ -644,7 +659,7 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
           </button>
 
           {/* Floating Account Details Popover */}
-          <Show when={isAccountInfoOpen()}>
+          <Show when={activeTelemetryPopover() === 'account'}>
             <div class="account-info-popover right-aligned">
               <div class="acc-popover-header">
                 <div class="acc-popover-title-group">

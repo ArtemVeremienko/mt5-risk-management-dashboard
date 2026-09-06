@@ -719,7 +719,7 @@
 .btn-sltp-apply-main {
   background: var(--sys-color-buy);
   border: 1px solid var(--sys-color-buy-hover);
-  color: #ffffff;
+  color: var(--sys-color-on-buy);
   font-size: 11px;
   font-weight: 800;
   padding: 5px 12px;
@@ -731,6 +731,7 @@
 
 .btn-sltp-apply-main:hover:not(:disabled) {
   background: var(--sys-color-buy-hover);
+  color: var(--sys-color-on-buy);
   box-shadow: 0 0 12px var(--sys-color-buy);
 }
 

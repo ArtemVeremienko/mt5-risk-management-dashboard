@@ -616,7 +616,7 @@ tr.drag-over {
   top: calc(100% + 6px);
   right: 0;
   z-index: 1050;
-  width: 270px;
+  width: 285px;
   background: #141824;
   border: 1px solid #283044;
   border-top: 2px solid var(--sys-color-secondary);
