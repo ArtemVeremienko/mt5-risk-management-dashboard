@@ -479,3 +479,46 @@
    - High-density table cells requiring secondary telemetry must use the `<div class="*-cell-wrapper" onMouseEnter={...} onMouseLeave={...}>` pattern paired with `pointer-events: none` and `animation: popoverFadeIn 0.15s ease`.
 2. **Exhaustion Color Palette Semantics**:
    - In all volatility and ADR telemetry, adhere strictly to the 3-state token mapping: `< 70%` $\rightarrow$ `--sys-color-profit`, `70%–89%` $\rightarrow$ `--sys-color-warning`, and `≥ 90%` $\rightarrow$ `--sys-color-loss`.
+
+---
+
+## 🏛️ 15. Completed Architecture Refactoring Summary (Phases 1–4 Across Full Stack)
+
+### 📦 Backend Refactoring Milestones (Hexagonal Architecture)
+* **Phase 1 (Domain Decoupling & Unified Margin)**:
+  - Unified fragmented margin calculations into [`domain/math/margin_engine.py`](./domain/math/margin_engine.py).
+  - Extracted pure cost-absorbing break-even math into [`domain/math/break_even.py`](./domain/math/break_even.py).
+  - Standardized immutable domain entities on pure Pydantic v2 models (`AccountState`, `SymbolSpec`, `Position`, `TradeRecord`).
+* **Phase 2 (Concurrency & Event Loop Hygiene)**:
+  - Implemented [`MT5IPCWorker`](./infrastructure/ipc/mt5_worker.py) with a dedicated single-threaded executor (`max_workers=1`) for serialized Win32 C-extension access.
+  - Implemented single-producer multi-consumer [`BroadcastHub`](./application/broadcaster.py), eliminating per-client polling storms over MT5 IPC.
+  - Offloaded all synchronous margin/tick calculations out of FastAPI request handlers.
+* **Phase 3 (Provider Abstraction & Dependency Injection)**:
+  - Defined abstract [`IMarketDataProvider`](./infrastructure/providers/base.py) and [`IExecutionProvider`](./infrastructure/providers/base.py) interfaces.
+  - Decomposed legacy 1,570-line `feed.py` into [`MT5NativeProvider`](./infrastructure/providers/mt5_provider.py) and [`MockDataProvider`](./infrastructure/providers/mock_provider.py).
+  - Modularized `app.py` into FastAPI REST routers (`account.py`, `symbols.py`, `orders.py`, `positions.py`, `trades.py`) with `Depends()` injection.
+* **Phase 4 (Institutional Hardening & OMS Gates)**:
+  - Pinned all MT5 C-extension operations strictly to the worker thread via `MT5IPCWorker.call()`, resolving caller-thread deadlock and Win32 handle corruption.
+  - Built institutional [`LiquidationService`](./application/liquidation_service.py) implementing atomic two-phase Smart Flatten (`cancel_all_orders` $\to$ `close_all_positions`), guaranteeing $\$0.00$ Net Delta.
+  - Built [`PreTradeGatekeeper`](./domain/safety/gatekeeper.py) with rolling median spread surge interception ($>2.5\times$), pre-flight margin utilization check ($\le 95\%$ free margin), and 300ms order debouncing.
+  - Streamed session ADR exhaustion metrics (`today_range_pips`, `adr_used_pct`, `room_up_pips`, `room_down_pips`) in 500ms broadcast frames.
+* **Verification**: 64 automated pytest unit/integration tests passing (0 failures).
+
+### 🎨 Frontend Refactoring Milestones (Solid.js Clean Architecture)
+* **Phase 1 (Input Safety & Transport Resilience)**:
+  - Fixed Stop Loss input trapping via decoupled drafting signal (`localVal`) paired with `isFocused` shielding.
+  - Protected against `volumeStep <= 0` in [`lotCalculator.ts`](./frontend/src/utils/lotCalculator.ts) and zero-division in [`portfolioAnalytics.ts`](./frontend/src/utils/portfolioAnalytics.ts).
+  - Built zero-dependency institutional [`httpClient.ts`](./frontend/src/services/httpClient.ts) and [`api.ts`](./frontend/src/services/api.ts) trapping transport errors and returning typed result contracts.
+* **Phase 2 (Domain Extraction & Decomposition)**:
+  - Extracted 4-way bidirectional synchronization ($\text{Price} \longleftrightarrow \text{Pips} \longleftrightarrow \text{Cash} \longleftrightarrow \text{R}$) into [`positionMath.ts`](./frontend/src/utils/positionMath.ts).
+  - Decomposed `PositionRow.tsx` by extracting the 400-line inline editing popover into [`SltpEditHub.tsx`](./frontend/src/components/positions/SltpEditHub.tsx).
+  - Consolidated Van Tharp $1R$ normalization baseline (`positionsStore.oneRCash()`) and centralized SL preset math (`computeDefaultSlPips`).
+* **Phase 3 (Tokens & Design System Standards)**:
+  - Created [`constants.ts`](./frontend/src/config/constants.ts) for storage keys, risk thresholds, and default leverage.
+  - Purged all raw hex colors into a 3-Layer Design Token architecture (`tokens/primitives.css`, `tokens/semantic.css`, `views/*.css`) with CVD Cyan/Amber support.
+* **Phase 4 (Performance & Ergonomics)**:
+  - Built zero-allocation dual-buffer sparklines ([`CircularPriceBuffer`](./frontend/src/utils/sparklineBuffer.ts)) with retina DPI scaling and selective canvas rendering.
+  - Enforced 5-state invariant hitbox execution engine ($64\text{px}$ locked geometry, 2px countdown bar, Instant Pivot contract).
+  - Standardized psychological de-biasing stealth standard (`••••••`) and zero-latency micro-popovers (`pointer-events: none`).
+* **Verification**: 23 Vitest unit tests passing; Vite production build compiling in ~700ms.
+

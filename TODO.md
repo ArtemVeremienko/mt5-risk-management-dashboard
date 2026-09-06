@@ -1,6 +1,6 @@
 # MT5 Risk Management Dashboard — Focused Roadmap & Architecture Plan
 
-> 📚 **Backend Architecture & Refactoring Master Plan**: See [`BACKEND_REFACTORING_PLAN.md`](./BACKEND_REFACTORING_PLAN.md) for the Hexagonal Architecture blueprint, interface specifications (`IMarketDataProvider`, `IExecutionProvider`), and IPC concurrency overhaul.
+> 📚 **Backend Architecture & Systems Guide**: See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the Hexagonal Architecture blueprint, interface specifications (`IMarketDataProvider`, `IExecutionProvider`), and [`SESSION_LEARNINGS.md`](./SESSION_LEARNINGS.md) for historical refactoring milestones and retrospectives.
 
 ---
 
