@@ -99,6 +99,29 @@ export const PositionRow: Component<Props> = (props) => {
     return info.dollarText;
   };
 
+  const currentRMultiple = createMemo(() => {
+    const p = position();
+    if (!p) return 0;
+    if (p.r_multiple !== null && p.r_multiple !== undefined) {
+      return p.r_multiple;
+    }
+    const oneR = positionsStore.oneRCash();
+    return oneR > 0 ? parseFloat((p.profit / oneR).toFixed(2)) : 0;
+  });
+
+  const formattedR = createMemo(() => {
+    const r = currentRMultiple();
+    return `${r > 0 ? '+' : ''}${r.toFixed(2)} R`;
+  });
+
+  const formattedPips = createMemo(() => {
+    const p = position();
+    if (!p) return '';
+    const pips = p.pnl_pips || 0;
+    const rule = stepRule();
+    return `${pips > 0 ? '+' : ''}${pips} ${rule.unitLabel}`;
+  });
+
   const handleClosePosition = async (volume?: number) => {
     const p = position();
     if (!p) return;
@@ -307,60 +330,29 @@ export const PositionRow: Component<Props> = (props) => {
             </Show>
           </td>
 
-          {/* 8. Floating P&L */}
+          {/* 8. Unified Floating P&L & R-Multiple */}
           <td class="text-right pos-cell-pnl">
-            <div class="pos-pnl-cell text-right">
-              <span
-                class="pos-profit tabular-num"
-                classList={{
-                  'text-profit': pos().profit > 0,
-                  'text-loss': pos().profit < 0,
-                  'text-neutral': pos().profit === 0,
-                }}
-              >
-                {preferencesStore.pnlDisplayMode() === 'stealth_mask'
-                  ? '••••••'
-                  : preferencesStore.pnlDisplayMode() === 'r_multiple'
-                  ? pos().r_multiple !== null
-                    ? `${(pos().r_multiple || 0) > 0 ? '+' : ''}${pos().r_multiple} R`
-                    : (() => {
-                        const oneR = positionsStore.oneRCash();
-                        const r = oneR > 0 ? pos().profit / oneR : 0;
-                        return `${r > 0 ? '+' : ''}${r.toFixed(2)} R`;
-                      })()
-                  : pos().profit > 0
-                  ? `+${formatCurrency(pos().profit)}`
-                  : formatCurrency(pos().profit)}
-              </span>
-              <span class="pos-pips-sub tabular-num">
-                {preferencesStore.pnlDisplayMode() === 'stealth_mask'
-                  ? '(•••• p)'
-                  : `(${pos().pnl_pips > 0 ? `+${pos().pnl_pips}` : pos().pnl_pips} ${stepRule().unitLabel})`}
-              </span>
-            </div>
-          </td>
-
-          {/* 9. R-Multiple */}
-          <td class="text-center pos-cell-r">
-            <Show
-              when={pos().r_multiple !== null}
-              fallback={<span class="text-muted">—</span>}
+            <div
+              class="pos-pnl-cell text-right"
+              title={`Floating P&L: ${pos().profit > 0 ? `+${formatCurrency(pos().profit)}` : formatCurrency(pos().profit)} · ${formattedR()} · (${formattedPips()})`}
             >
-              <div class="r-multiple-stack">
+              {/* Primary Line */}
+              <div class="pos-pnl-primary-row">
                 <span
-                  class="r-multiple-pill tabular-num"
+                  class="pos-profit tabular-num"
                   classList={{
-                    'r-profit': (pos().r_multiple || 0) > 0,
-                    'r-loss': (pos().r_multiple || 0) < 0,
-                    'r-neutral': (pos().r_multiple || 0) === 0,
+                    'text-profit': pos().profit > 0,
+                    'text-loss': pos().profit < 0,
+                    'text-neutral': pos().profit === 0,
                   }}
-                  title={pos().initial_sl ? `Floating R based on initial SL: ${pos().initial_sl}` : `Floating R-Multiple`}
                 >
                   {preferencesStore.pnlDisplayMode() === 'stealth_mask'
-                    ? '••••'
-                    : (pos().r_multiple || 0) > 0
-                    ? `+${pos().r_multiple} R`
-                    : `${pos().r_multiple || 0} R`}
+                    ? '••••••'
+                    : preferencesStore.pnlDisplayMode() === 'r_multiple'
+                    ? formattedR()
+                    : pos().profit > 0
+                    ? `+${formatCurrency(pos().profit)}`
+                    : formatCurrency(pos().profit)}
                 </span>
                 <Show when={(pos().locked_r || 0) > 0}>
                   <span
@@ -371,10 +363,19 @@ export const PositionRow: Component<Props> = (props) => {
                   </span>
                 </Show>
               </div>
-            </Show>
+
+              {/* Sub-Telemetry Line */}
+              <Show when={preferencesStore.pnlDisplayMode() !== 'stealth_mask'}>
+                <span class="pos-pnl-sub tabular-num">
+                  {preferencesStore.pnlDisplayMode() === 'r_multiple'
+                    ? `(${formattedPips()})`
+                    : `${formattedR()} · (${formattedPips()})`}
+                </span>
+              </Show>
+            </div>
           </td>
 
-          {/* 10. Quick Actions */}
+          {/* 9. Quick Actions */}
           <td class="text-right pos-cell-actions">
             <div class="pos-actions-segmented">
               <button

@@ -1,4 +1,4 @@
-import { Component, createSignal, createMemo, createEffect, onCleanup, untrack } from 'solid-js';
+import { Component, createSignal, createMemo, createEffect, onCleanup, untrack, Show } from 'solid-js';
 import { OpenPosition } from '../../types';
 import { api } from '../../services/api';
 import { toastStore } from '../../stores/toastStore';

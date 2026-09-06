@@ -232,7 +232,6 @@ export const OrderManagementPanel: Component = () => {
                 <th class="text-center col-th-sl">Stop Loss</th>
                 <th class="text-center col-th-tp">Take Profit</th>
                 <th class="text-right col-th-pnl">Floating P&L</th>
-                <th class="text-center col-th-r">R-Multiple</th>
                 <th class="text-right col-th-actions">Actions</th>
               </tr>
             </thead>
@@ -241,7 +240,7 @@ export const OrderManagementPanel: Component = () => {
                 when={positions().length > 0}
                 fallback={
                   <tr>
-                    <td colspan="10" class="empty-table-cell">
+                    <td colspan="9" class="empty-table-cell">
                       <div class="empty-state-card">
                         <span class="empty-state-icon">💼</span>
                         <div class="empty-state-title">No Open Positions Active</div>
