@@ -608,12 +608,16 @@
   * *Impact*: In a multi-asset Market Watch, displaying raw points (`60.0p` next to `3350.0 pts` next to `240.0 pts`) obscures true relative market expansion and makes sorting by volatility meaningless.
   * *Architectural Rule*: Implement **Normalized Volatility Percentage ($\text{ADR}_{\%}$)**:
     $$\text{ADR}_{\%} = \frac{\text{ADR}_{14 \text{ (pips)}} \times \text{pip\_size}}{\bar{P}_{\text{mid}}} \times 100\%$$
-    This mathematical normalization equalizes Bitcoin ($3.98\%$), Nasdaq ($1.21\%$), and EURUSD ($0.55\%$), allowing instant cross-asset ranking with 100% broker invariance.
+    This mathematical normalization equalizes Bitcoin ($3.21\%$), Gold ($2.54\%$), and EURUSD ($0.40\%$), allowing instant cross-asset ranking with 100% broker invariance.
 * **The Two-Line Tabular Telemetry Invariant for Screener Cells**:
-  * *Pattern*: Rather than forcing a global mode toggle that hides native broker points, preserve both metrics in a stacked two-line visual hierarchy within the fixed `120px` column schedule:
-    - **Line 1 (Primary)**: Normalized Volatility % (`1.21%`) + Session Exhaustion Badge (`82% ⚠️`).
-    - **Line 2 (Secondary)**: Native broker points/pips (`240.0 pts` or `60.0p`) aligned with the hairline 2px progress track.
+  * *Pattern*: Rather than forcing a global mode toggle that hides native broker points, preserve both metrics in a stacked two-line visual hierarchy within the fixed column schedule:
+    - **Line 1 (Primary)**: Normalized Volatility % (`3.21%`) + Session Exhaustion Badge (`36%` or `⚠️ 103%`).
+    - **Line 2 (Secondary)**: Native broker points/pips (`255542.1p` or `46.6p`) aligned with the hairline 2px progress track.
     Zero column resizing, zero clicks, zero information loss.
+* **Asynchronous Market Watch Discovery vs. Volatility Cache Race**:
+  * *Observation*: On server startup, background task `volatility_cache_task()` in `app.py` triggered a volatility refresh before `self._cached_symbol_names` had been populated by the first Market Watch sync.
+  * *Impact*: The background refresh processed zero symbols. Incoming ticks then queried `_get_symbol_specs_sync(symbol)`, which lacked on-demand computation and fell back to hardcoded Forex defaults (`adr = 60.0`), producing absurd volatility metrics (e.g. `0.00%` on Bitcoin).
+  * *Architectural Rule*: Never assume background cache warmup precedes consumer requests. Cache-miss lookups must trigger serialized on-demand computation on the IPC worker thread, and Market Watch discovery must actively push discovered symbols into the volatility cache.
 
 ### 🪤 2. Gotchas, Traps & Framework Quirks
 * **Zero Mid-Price Division Guard in Volatility Normalization**:
@@ -622,5 +626,70 @@
 * **Micro-Badge Radius Consistency & Semantic Token Mapping**:
   * *Trap*: Applying hardcoded pixel values (e.g. `border-radius: 3px;` vs `2px`) across adjacent micro-badges (such as `.spread-pill-mini` in Column 3 and `.adr-pct-badge` in Column 4) creates subtle visual dissonance and violates the 3-Layer Design Token Architecture.
   * *Remedy*: Declare `--sys-radius-xs: var(--ref-radius-xs);` (`2px`) in Layer 2 `semantic.css` and bind all adjacent micro-badges, pill indicators, and hairline progress fills to `var(--sys-radius-xs)`. This guarantees uniform corner curvature and cohesive horizontal rhythm across the screener table.
+* **Inline Raw Emoji Stretching Badge Geometry & Baselines**:
+  * *Trap*: Prefixing raw text emojis directly inside inline text containers (e.g. `{isSpreadSurge() ? '⚠️ ' : ''}{spread}p` or `<span>⚠️ {pct}%</span>`) causes browser rendering engines to measure the system emoji font metrics (typically 12–14px with generous vertical line boxes). This stretches the parent badge height from `16px` to `19px–21px`, distorts horizontal padding, and causes visible baseline jitter relative to neighboring price digits.
+  * *Remedy*: Strictly isolate icon glyphs into dedicated wrappers (`<span class="spread-badge-icon">⚠️</span>` / `<span class="adr-badge-icon">⚠️</span>`) with:
+    ```css
+    font-size: 8.5px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    margin-top: -1px; /* Optical centering against uppercase tabular numerals */
+    ```
+    Pair this with explicit modifier classes (`.has-danger-icon`) that adjust asymmetric padding (`padding: 0 4px 0 2px; gap: 2px;` vs `padding: 0 5px;`).
+* **High-Digit Crypto Pips Overflowing Popover Progress Insets**:
+  * *Trap*: In fixed-width telemetry popovers (`330px`), labels combining descriptive prefixes with high-digit values (e.g. `Session: 91245p (1.14%)` and `14D ADR: 255542.1p (3.21%)`) exceed available line width. With `white-space: nowrap`, the rightmost percentage overflows past the inset border; without it, strings break awkwardly onto two lines.
+  * *Remedy*:
+    1. Shorten repetitive label prefixes: `Session:` $\to$ `Range:`, `14D ADR:` $\to$ `ADR:`.
+    2. Budget font size to `10.5px` with `font-variant-numeric: tabular-nums` and `gap: 8px`.
+    3. Expand popover container width from `330px` to `345px` and add `overflow: hidden;` to `.adr-popover-progress-box`.
+
+### 🌐 3. Domain & API Nuances
+* **MetaTrader 5 `copy_rates_from_pos` Requires Active Terminal Subscription**:
+  * *Nuance*: In the MT5 C-extension, calling `mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_D1, 0, 15)` for a symbol not actively charted or recently selected in Market Watch returns `None` or an empty tuple, even if the symbol is valid and trading.
+  * *Fix*: Always invoke `mt5.symbol_select(symbol, True)` immediately prior to querying D1 bar history. This forces the MT5 client terminal to synchronize local history cache with the broker server.
+* **Broker Symbol Naming Fragmentation (Fuzzy Matching Fallback)**:
+  * *Nuance*: MT5 brokers employ wildly inconsistent symbol naming conventions for non-FX assets: Bitcoin may be named `"BITCOIN"`, `"BTCUSD"`, `"BTCUSDm"`, or `"BTCUSD.raw"`; Gold may be `"GOLD"`, `"XAUUSD"`, or `"GOLD365"`; Nasdaq may be `"USTECH"`, `"NAS100"`, `"NDX365"`, or `"US100"`.
+  * *Fix*: Implement fuzzy canonical fallback maps in provider volatility engines so that if historical bar extraction encounters broker gaps, synthetic volatility fallbacks resolve correctly rather than defaulting to Forex pip sizing ($0.0001$).
+* **Pip Size vs Point Size in Multi-Asset Math**:
+  * *Nuance*: For Forex, 1 pip = 10 points ($0.0001$ on EURUSD, $0.01$ on USDJPY). For Bitcoin ($79,600$), brokers often set `point = 0.01` and `pip_size = 0.01` (1 point = 1 pip). For Indices ($20,000$), `point = 0.1` and `pip_size = 0.1`.
+  * *Rule*: Never hardcode point-to-pip multipliers ($10\times$). Always query broker `SymbolInfo.point` and dynamically compute `pip_size = 10 * point` for standard Forex, or `pip_size = point` for Crypto and Indices where digits $\le 2$.
+
+### 🚫 4. Negative Knowledge (What NOT to Do)
+1. **DO NOT rely exclusively on asynchronous background cron tasks for critical market data caches**:
+   - *Why*: Cold boots and rapid automated test suites will query provider endpoints before cron cycles complete. If cache misses do not execute synchronous, serial IPC fallbacks on demand, downstream clients receive corrupted zeroes or inaccurate defaults.
+2. **DO NOT place raw emoji characters directly into layout-critical table cells or micro-badges without isolation**:
+   - *Why*: Raw emojis inherit platform-specific fallback font metrics that break fixed-height badges (`16px`), causing baseline misalignments and layout shift across different operating systems (Windows Segoe UI Emoji vs macOS Apple Color Emoji).
+3. **DO NOT resize table columns dynamically based on displayed telemetry**:
+   - *Why*: Intraday trading screener tables must maintain locked column schedules (Fitts's Law). Swapping or displaying metrics must occur within the existing spatial allocation (e.g. stacked two-line rows) to eliminate saccadic eye fatigue and accidental click misses.
+4. **DO NOT hardcode border radii in view stylesheets (`3px`, `2px`, etc.)**:
+   - *Why*: Hardcoded pixel radii bypass the M3 token hierarchy, causing adjacent elements (such as spread indicators and volatility badges) to visually clash under high-density inspection.
+
+### 📏 5. Reusable Conventions & Rules
+1. **The Micro-Badge Geometry Standard**:
+   - All high-density table indicator badges (e.g. `.spread-pill-mini`, `.adr-pct-badge`) MUST conform to:
+     ```css
+     display: inline-flex;
+     align-items: center;
+     justify-content: center;
+     height: 16px;
+     padding: 0 5px;
+     font-size: var(--sys-font-size-header); /* 10px */
+     line-height: 1;
+     border-radius: var(--sys-radius-xs);    /* 2px */
+     box-sizing: border-box;
+     vertical-align: middle;
+     ```
+   - When an indicator contains a warning icon, apply `.has-danger-icon` (`padding: 0 4px 0 2px; gap: 2px;`) and wrap the icon in a container with `font-size: 8.5px; line-height: 1; margin-top: -1px;`.
+2. **Normalized Cross-Asset Volatility Metric**:
+   - Any multi-asset volatility calculation exposed in pre-trade interfaces must normalize raw distance by current midpoint price ($\text{ADR}_{\%} = (\text{ADR}_{\text{pips}} \times \text{pip\_size} / \bar{P}_{\text{mid}}) \times 100\%$). Native points are retained strictly on secondary telemetry lines.
+3. **Layer 2 Semantic Radius Scale Completeness**:
+   - `tokens/semantic.css` must expose the full spectrum of structural radii mapped to primitives:
+     `--sys-radius-xs: var(--ref-radius-xs);` (2px)
+     `--sys-radius-sm: var(--ref-radius-sm);` (4px)
+     `--sys-radius-md: var(--ref-radius-md);` (8px)
+     `--sys-radius-lg: var(--ref-radius-lg);` (12px)
+     `--sys-radius-full: var(--ref-radius-full);` (9999px)
+
 
 
