@@ -271,44 +271,46 @@ export const SymbolRow: Component<Props> = (props) => {
             </div>
           </td>
 
-          {/* Col 2: Market Price & Spread (Stacked with Micro-Sparkline Ribbon) */}
+          {/* Col 2: Trend (60s) Micro-Sparkline Ribbon */}
+          <td class="text-center trend-cell">
+            <MicroSparkline
+              symbol={props.symbol}
+              price={data().spec.bid}
+              isPinned={isPinned()}
+              isHovered={isRowHovered()}
+              width={64}
+              height={20}
+            />
+          </td>
+
+          {/* Col 3: Market Price & Spread */}
           <td class="text-right">
-            <div class="price-cell-with-sparkline">
-              <MicroSparkline
-                symbol={props.symbol}
-                price={data().spec.bid}
-                isPinned={isPinned()}
-                isHovered={isRowHovered()}
-                width={60}
-                height={20}
-              />
-              <div class="price-quotes-cluster">
-                <div class="quotes-stacked">
-                  <span
-                    class="price-bid tabular-num"
-                    classList={{
-                      'tick-flash-up': tickDirection() === 'up',
-                      'tick-flash-down': tickDirection() === 'down',
-                    }}
-                  >
-                    {data().spec.bid_display}
-                  </span>
-                  <span class="price-ask tabular-num">{data().spec.ask_display}</span>
-                </div>
+            <div class="price-quotes-cluster">
+              <div class="quotes-stacked">
                 <span
-                  class="spread-pill-mini"
+                  class="price-bid tabular-num"
                   classList={{
-                    'spread-pill-surge': isSpreadSurge(),
+                    'tick-flash-up': tickDirection() === 'up',
+                    'tick-flash-down': tickDirection() === 'down',
                   }}
-                  title={
-                    isSpreadSurge()
-                      ? `⚠️ Spread Surge: ${data().spec.spread_display}p exceeds 2.0x median (${data().spec.median_spread_pips?.toFixed(1)}p)`
-                      : undefined
-                  }
                 >
-                  {isSpreadSurge() ? '⚠️ ' : ''}{data().spec.spread_display}p
+                  {data().spec.bid_display}
                 </span>
+                <span class="price-ask tabular-num">{data().spec.ask_display}</span>
               </div>
+              <span
+                class="spread-pill-mini"
+                classList={{
+                  'spread-pill-surge': isSpreadSurge(),
+                }}
+                title={
+                  isSpreadSurge()
+                    ? `⚠️ Spread Surge: ${data().spec.spread_display}p exceeds 2.0x median (${data().spec.median_spread_pips?.toFixed(1)}p)`
+                    : undefined
+                }
+              >
+                {isSpreadSurge() ? '⚠️ ' : ''}{data().spec.spread_display}p
+              </span>
             </div>
           </td>
 

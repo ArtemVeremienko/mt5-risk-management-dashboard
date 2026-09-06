@@ -202,8 +202,10 @@ export const RiskMatrixTable: Component<Props> = (props) => {
                     </div>
                   </div>
                 </th>
-
-                <th onClick={() => marketStore.toggleSort('bid')} class="cursor-pointer text-right" style={{ width: '190px' }}>
+                <th class="text-center" style={{ width: '80px' }}>
+                  Trend (60s)
+                </th>
+                <th onClick={() => marketStore.toggleSort('bid')} class="cursor-pointer text-right" style={{ width: '125px' }}>
                   Market Price (Spread) <span class="sort-icon">{marketStore.sortIcon('bid')}</span>
                 </th>
                 <th onClick={() => marketStore.toggleSort('adr')} class="cursor-pointer text-right" style={{ width: '110px' }}>
@@ -228,7 +230,7 @@ export const RiskMatrixTable: Component<Props> = (props) => {
                 when={symbols().length > 0}
                 fallback={
                   <tr>
-                    <td colspan="7" class="empty-table-cell">
+                    <td colspan="8" class="empty-table-cell">
                       <div class="empty-state-card">
                         <span class="empty-state-icon">🔍</span>
                         <div class="empty-state-title">No Symbols Match Current Filter</div>

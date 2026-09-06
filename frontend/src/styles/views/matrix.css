@@ -418,14 +418,10 @@ tr.drag-over {
   letter-spacing: 0.3px;
 }
 
-/* Price Cell with Micro-Sparkline Ribbon */
-.price-cell-with-sparkline {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  width: 100%;
-  min-width: 0;
-  gap: 10px;
+/* Dedicated Trend (60s) Cell */
+.trend-cell {
+  text-align: center !important;
+  padding: 8px 6px;
 }
 
 .micro-sparkline-container {
@@ -444,7 +440,9 @@ tr.drag-over {
 .price-quotes-cluster {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 6px;
+  width: 100%;
 }
 
 .quotes-stacked {

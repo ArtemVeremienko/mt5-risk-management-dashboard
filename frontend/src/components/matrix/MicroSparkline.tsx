@@ -12,7 +12,7 @@ interface Props {
 
 export const MicroSparkline: Component<Props> = (props) => {
   let canvasRef: HTMLCanvasElement | undefined;
-  const width = () => props.width ?? 60;
+  const width = () => props.width ?? 64;
   const height = () => props.height ?? 20;
 
   const metrics = { min: 0, max: 0, first: 0, last: 0 };
