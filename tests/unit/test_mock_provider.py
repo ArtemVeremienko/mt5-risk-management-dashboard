@@ -27,6 +27,14 @@ def test_mock_provider_symbol_specs():
     assert eurusd.symbol == "EURUSD"
     assert eurusd.digits == 5
     assert eurusd.ask > eurusd.bid
+    assert eurusd.adr_pct is not None and eurusd.adr_pct > 0.0
+    assert eurusd.today_range_pct is not None and eurusd.today_range_pct > 0.0
+    assert eurusd.room_up_pct is not None and eurusd.room_up_pct >= 0.0
+    assert eurusd.room_down_pct is not None and eurusd.room_down_pct >= 0.0
+
+    btcusd = provider.get_symbol_specs("BITCOIN")
+    if btcusd:
+        assert btcusd.adr_pct is not None and btcusd.adr_pct > eurusd.adr_pct
 
 
 def test_mock_provider_order_and_position_lifecycle():

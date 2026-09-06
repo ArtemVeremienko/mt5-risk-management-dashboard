@@ -100,6 +100,7 @@
   /* --------------------------------------------------------------------------
    * 6. Structural Shapes & Elevation Roles
    * -------------------------------------------------------------------------- */
+  --sys-radius-xs: var(--ref-radius-xs);
   --sys-radius-sm: var(--ref-radius-sm);
   --sys-radius-md: var(--ref-radius-md);
   --sys-radius-lg: var(--ref-radius-lg);

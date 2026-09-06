@@ -160,6 +160,66 @@ export const SymbolRow: Component<Props> = (props) => {
     return `Click to view deep dive analysis · Risk: $${riskAmount} (${riskR} R) · Margin: $${reqMargin} (${marginUtilPct}% of deposit)`;
   });
 
+  // Normalized Volatility & Cross-Asset Telemetry Memos
+  const normalizedAdrPct = createMemo(() => {
+    const d = item();
+    if (!d) return 0;
+    if (d.spec.adr_pct !== undefined && d.spec.adr_pct !== null) {
+      return d.spec.adr_pct;
+    }
+    const mid = ((d.spec.bid || 0) + (d.spec.ask || 0)) / 2;
+    return mid > 0 ? ((d.spec.adr_14_pips * (d.spec.pip_size || 0.0001)) / mid) * 100 : 0;
+  });
+
+  const todayRangePct = createMemo(() => {
+    const d = item();
+    if (!d) return 0;
+    if (d.spec.today_range_pct !== undefined && d.spec.today_range_pct !== null) {
+      return d.spec.today_range_pct;
+    }
+    const mid = ((d.spec.bid || 0) + (d.spec.ask || 0)) / 2;
+    const rangePips = d.spec.today_range_pips ?? (d.spec.adr_14_pips * 0.45);
+    return mid > 0 ? ((rangePips * (d.spec.pip_size || 0.0001)) / mid) * 100 : 0;
+  });
+
+  const atrPct = createMemo(() => {
+    const d = item();
+    if (!d) return 0;
+    const mid = ((d.spec.bid || 0) + (d.spec.ask || 0)) / 2;
+    const atrPips = d.spec.atr_14_pips || d.spec.adr_14_pips;
+    return mid > 0 ? ((atrPips * (d.spec.pip_size || 0.0001)) / mid) * 100 : 0;
+  });
+
+  const roomUpPct = createMemo(() => {
+    const d = item();
+    if (!d) return 0;
+    if (d.spec.room_up_pct !== undefined && d.spec.room_up_pct !== null) {
+      return d.spec.room_up_pct;
+    }
+    const mid = ((d.spec.bid || 0) + (d.spec.ask || 0)) / 2;
+    const roomPips = d.spec.room_up_pips ?? 0;
+    return mid > 0 ? ((roomPips * (d.spec.pip_size || 0.0001)) / mid) * 100 : 0;
+  });
+
+  const roomDownPct = createMemo(() => {
+    const d = item();
+    if (!d) return 0;
+    if (d.spec.room_down_pct !== undefined && d.spec.room_down_pct !== null) {
+      return d.spec.room_down_pct;
+    }
+    const mid = ((d.spec.bid || 0) + (d.spec.ask || 0)) / 2;
+    const roomPips = d.spec.room_down_pips ?? 0;
+    return mid > 0 ? ((roomPips * (d.spec.pip_size || 0.0001)) / mid) * 100 : 0;
+  });
+
+  const stopLossPct = createMemo(() => {
+    const d = item();
+    if (!d) return 0;
+    const mid = ((d.spec.bid || 0) + (d.spec.ask || 0)) / 2;
+    const sl = activeSL();
+    return mid > 0 ? ((sl * (d.spec.pip_size || 0.0001)) / mid) * 100 : 0;
+  });
+
   // 5-State Execution Button Engine & Dual-Arm Safety State Machine
   const [armedAction, setArmedAction] = createSignal<'BUY' | 'SELL' | null>(null);
   const [buttonState, setButtonState] = createSignal<'resting' | 'armed' | 'inflight' | 'flash_success' | 'flash_error'>('resting');
@@ -376,31 +436,38 @@ export const SymbolRow: Component<Props> = (props) => {
             >
               <div class="adr-cell-stacked">
                 <div class="adr-top-row">
-                  <span class="adr-val tabular-num">{data().spec.adr_display}p</span>
+                  <span class="adr-val tabular-num">{normalizedAdrPct().toFixed(2)}%</span>
                   <Show when={data().spec.adr_used_pct !== undefined}>
                     <span
                       class="adr-pct-badge tabular-num"
                       classList={{
                         'adr-warning': (data().spec.adr_used_pct || 0) >= 90,
                         'adr-caution': (data().spec.adr_used_pct || 0) >= 70 && (data().spec.adr_used_pct || 0) < 90,
+                        'has-danger-icon': (data().spec.adr_used_pct || 0) >= 90,
                       }}
                     >
-                      {(data().spec.adr_used_pct || 0) >= 90 ? '⚠️ ' : ''}{Math.round(data().spec.adr_used_pct || 0)}%
+                      <Show when={(data().spec.adr_used_pct || 0) >= 90}>
+                        <span class="adr-badge-icon">⚠️</span>
+                      </Show>
+                      {Math.round(data().spec.adr_used_pct || 0)}%
                     </span>
                   </Show>
                 </div>
-                <Show when={data().spec.adr_used_pct !== undefined}>
-                  <div class="adr-gauge-bar">
-                    <div
-                      class="adr-gauge-fill"
-                      classList={{
-                        'gauge-danger': (data().spec.adr_used_pct || 0) >= 90,
-                        'gauge-caution': (data().spec.adr_used_pct || 0) >= 70 && (data().spec.adr_used_pct || 0) < 90,
-                      }}
-                      style={{ width: `${Math.min(100, Math.max(2, data().spec.adr_used_pct || 0))}%` }}
-                    />
-                  </div>
-                </Show>
+                <div class="adr-sub-row">
+                  <span class="adr-sub-pips tabular-num">{data().spec.adr_display}p</span>
+                  <Show when={data().spec.adr_used_pct !== undefined}>
+                    <div class="adr-gauge-bar">
+                      <div
+                        class="adr-gauge-fill"
+                        classList={{
+                          'gauge-danger': (data().spec.adr_used_pct || 0) >= 90,
+                          'gauge-caution': (data().spec.adr_used_pct || 0) >= 70 && (data().spec.adr_used_pct || 0) < 90,
+                        }}
+                        style={{ width: `${Math.min(100, Math.max(2, data().spec.adr_used_pct || 0))}%` }}
+                      />
+                    </div>
+                  </Show>
+                </div>
               </div>
 
               {/* Rich Institutional ADR & Session Range Micro-Popover */}
@@ -431,10 +498,10 @@ export const SymbolRow: Component<Props> = (props) => {
                   <div class="adr-popover-progress-box">
                     <div class="adr-progress-labels">
                       <span class="adr-progress-left font-mono">
-                        Session: <strong>{data().spec.today_range_pips ?? data().spec.adr_display}p</strong>
+                        Session: <strong>{data().spec.today_range_pips ?? data().spec.adr_display}p</strong> ({todayRangePct().toFixed(2)}%)
                       </span>
                       <span class="adr-progress-right font-mono">
-                        14D ADR: <strong>{data().spec.adr_display}p</strong>
+                        14D ADR: <strong>{data().spec.adr_display}p</strong> ({normalizedAdrPct().toFixed(2)}%)
                       </span>
                     </div>
                     <div class="adr-popover-track">
@@ -470,11 +537,11 @@ export const SymbolRow: Component<Props> = (props) => {
 
                     <div class="adr-popover-item">
                       <span class="adr-item-label">14D Volatility (ATR)</span>
-                      <span class="adr-item-val font-mono">{data().spec.atr_display ?? data().spec.adr_display}p</span>
+                      <span class="adr-item-val font-mono">{data().spec.atr_display ?? data().spec.adr_display}p ({atrPct().toFixed(2)}%)</span>
                     </div>
 
                     <div class="adr-popover-item">
-                      <span class="adr-item-label">Remaining Room ↑ Long</span>
+                      <span class="adr-item-label">Room ↑ Long</span>
                       <span
                         class="adr-item-val font-mono"
                         classList={{
@@ -483,13 +550,13 @@ export const SymbolRow: Component<Props> = (props) => {
                         }}
                       >
                         {data().spec.room_up_pips !== undefined
-                          ? `↑ +${data().spec.room_up_pips!.toFixed(1)}p`
+                          ? `↑ +${data().spec.room_up_pips!.toFixed(1)}p (+${roomUpPct().toFixed(2)}%)`
                           : '—'}
                       </span>
                     </div>
 
                     <div class="adr-popover-item">
-                      <span class="adr-item-label">Remaining Room ↓ Short</span>
+                      <span class="adr-item-label">Room ↓ Short</span>
                       <span
                         class="adr-item-val font-mono"
                         classList={{
@@ -498,7 +565,7 @@ export const SymbolRow: Component<Props> = (props) => {
                         }}
                       >
                         {data().spec.room_down_pips !== undefined
-                          ? `↓ -${data().spec.room_down_pips!.toFixed(1)}p`
+                          ? `↓ -${data().spec.room_down_pips!.toFixed(1)}p (-${roomDownPct().toFixed(2)}%)`
                           : '—'}
                       </span>
                     </div>
@@ -546,7 +613,7 @@ export const SymbolRow: Component<Props> = (props) => {
                     e.currentTarget.blur();
                   }
                 }}
-                title="Stop Loss in Points/Pips (Auto-selects on focus, Enter to commit)"
+                title={`Stop Loss: ${activeSL()} pips (${stopLossPct().toFixed(2)}% of price) · Enter to commit`}
               />
               <Show when={isCustomSL()}>
                 <button

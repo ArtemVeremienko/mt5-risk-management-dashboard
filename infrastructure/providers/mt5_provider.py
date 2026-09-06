@@ -267,6 +267,7 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
         mt5_lib = self._get_mt5()
         if self.is_live and mt5_lib is not None:
             try:
+                mt5_lib.symbol_select(symbol, True)
                 rates = mt5_lib.copy_rates_from_pos(symbol, mt5_lib.TIMEFRAME_D1, 1, period)
                 if rates is not None and len(rates) >= 3:
                     highs = rates['high']
@@ -308,14 +309,26 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
             except Exception as e:
                 logger.debug(f"Error calculating ADR/ATR for {symbol}: {e}")
 
-        # Fallback to mock / default
-        default_adr = 60.0
-        default_atr = 65.0
+        # Fallback to mock / fuzzy match / category default
+        sym_clean = symbol.upper()
+        matched_item = None
         for item in MOCK_SYMBOLS_SPECS:
-            if item["symbol"] == symbol:
-                default_adr = item["adr_14_pips"]
-                default_atr = item["atr_14_pips"]
+            if item["symbol"].upper() == sym_clean:
+                matched_item = item
                 break
+        if not matched_item:
+            for item in MOCK_SYMBOLS_SPECS:
+                m_sym = item["symbol"].upper()
+                if (m_sym == "BTCUSD" and ("BTC" in sym_clean or "BITCOIN" in sym_clean)) or \
+                   (m_sym == "XAUUSD" and ("XAU" in sym_clean or "GOLD" in sym_clean)) or \
+                   (m_sym == "XAGUSD" and ("XAG" in sym_clean or "SILVER" in sym_clean)) or \
+                   (m_sym == "USTECH" and ("TECH" in sym_clean or "NDX" in sym_clean or "NAS" in sym_clean or "100" in sym_clean)) or \
+                   (m_sym == "USOIL" and ("OIL" in sym_clean or "WTI" in sym_clean or "BRENT" in sym_clean)):
+                    matched_item = item
+                    break
+
+        default_adr = matched_item["adr_14_pips"] if matched_item else 60.0
+        default_atr = matched_item["atr_14_pips"] if matched_item else 65.0
 
         self._volatility_cache[symbol] = {
             "adr_14_pips": default_adr,
@@ -438,6 +451,10 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
             pip_val = (base_spec["trade_tick_value"] / base_spec["trade_tick_size"]) * pip_size if base_spec["trade_tick_size"] > 0 else 1.0
 
             vol = self._volatility_cache.get(symbol)
+            if not vol or (time.time() - vol.get("timestamp", 0) > self.VOLATILITY_TTL_SECONDS):
+                self._calculate_adr_and_atr_sync(symbol, base_spec["point"], digits, 14, pip_size, time.time())
+                vol = self._volatility_cache.get(symbol)
+
             adr = vol.get("adr_14_pips", 60.0) if vol else 60.0
             atr = vol.get("atr_14_pips", 65.0) if vol else 65.0
 
@@ -457,6 +474,12 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
             curr_price = (ask + bid) / 2.0
             room_up_pips = max(0.0, round(((today_low + (adr * pip_size)) - curr_price) / pip_size, 1)) if (today_low > 0 and pip_size > 0) else round(adr_left_pips * 0.5, 1)
             room_down_pips = max(0.0, round((curr_price - (today_high - (adr * pip_size))) / pip_size, 1)) if (today_high > 0 and pip_size > 0) else round(adr_left_pips * 0.5, 1)
+
+            # Compute Normalized Volatility % (Relative price expansion)
+            adr_pct = round(((adr * pip_size) / curr_price) * 100.0, 2) if curr_price > 0 else 0.0
+            today_range_pct = round(((today_range_pips * pip_size) / curr_price) * 100.0, 2) if curr_price > 0 else 0.0
+            room_up_pct = round(((room_up_pips * pip_size) / curr_price) * 100.0, 2) if curr_price > 0 else 0.0
+            room_down_pct = round(((room_down_pips * pip_size) / curr_price) * 100.0, 2) if curr_price > 0 else 0.0
 
             step_rule = self.compute_step_rule(
                 symbol=symbol,
@@ -510,7 +533,11 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
                 adr_used_pct=adr_used_pct,
                 adr_left_pips=adr_left_pips,
                 room_up_pips=room_up_pips,
-                room_down_pips=room_down_pips
+                room_down_pips=room_down_pips,
+                adr_pct=adr_pct,
+                today_range_pct=today_range_pct,
+                room_up_pct=room_up_pct,
+                room_down_pct=room_down_pct
             )
         except Exception as e:
             logger.error(f"Error reading symbol specs for {symbol}: {e}")
@@ -539,6 +566,8 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
                 visible_names = [s.name for s in symbols if getattr(s, "visible", False)]
                 self._cached_symbol_names = visible_names if visible_names else [s.name for s in symbols if getattr(s, "select", False)]
                 self._last_symbol_sync_time = now
+                # Proactively warm up volatility metrics for active Market Watch symbols
+                self._refresh_volatility_cache_sync(self._cached_symbol_names, False, now)
         except Exception as e:
             logger.error(f"Error fetching symbols: {e}")
 

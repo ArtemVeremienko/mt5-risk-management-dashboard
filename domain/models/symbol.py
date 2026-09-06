@@ -63,3 +63,8 @@ class SymbolSpec(DomainModel):
     adr_left_pips: Optional[float] = None
     room_up_pips: Optional[float] = None
     room_down_pips: Optional[float] = None
+    # Normalized Volatility % (Cross-Asset Benchmark)
+    adr_pct: Optional[float] = None
+    today_range_pct: Optional[float] = None
+    room_up_pct: Optional[float] = None
+    room_down_pct: Optional[float] = None

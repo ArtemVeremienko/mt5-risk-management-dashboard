@@ -200,6 +200,12 @@ class MockDataProvider(IMarketDataProvider, IExecutionProvider):
             room_up_pips = round(adr_left_pips * 0.6, 1)
             room_down_pips = round(adr_left_pips * 0.4, 1)
 
+            curr_price = (raw["ask"] + raw["bid"]) / 2.0
+            adr_pct = round(((adr * raw["pip_size"]) / curr_price) * 100.0, 2) if curr_price > 0 else 0.0
+            today_range_pct = round(((today_range * raw["pip_size"]) / curr_price) * 100.0, 2) if curr_price > 0 else 0.0
+            room_up_pct = round(((room_up_pips * raw["pip_size"]) / curr_price) * 100.0, 2) if curr_price > 0 else 0.0
+            room_down_pct = round(((room_down_pips * raw["pip_size"]) / curr_price) * 100.0, 2) if curr_price > 0 else 0.0
+
             step_rule = self._compute_step_rule(
                 digits=raw["digits"],
                 point=raw["point"],
@@ -239,7 +245,11 @@ class MockDataProvider(IMarketDataProvider, IExecutionProvider):
                 adr_used_pct=adr_used_pct,
                 adr_left_pips=adr_left_pips,
                 room_up_pips=room_up_pips,
-                room_down_pips=room_down_pips
+                room_down_pips=room_down_pips,
+                adr_pct=adr_pct,
+                today_range_pct=today_range_pct,
+                room_up_pct=room_up_pct,
+                room_down_pct=room_down_pct
             )
             specs.append(spec)
         return specs

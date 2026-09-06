@@ -522,3 +522,105 @@
   - Standardized psychological de-biasing stealth standard (`••••••`) and zero-latency micro-popovers (`pointer-events: none`).
 * **Verification**: 23 Vitest unit tests passing; Vite production build compiling in ~700ms.
 
+---
+
+## 🧭 16. Telemetry Popover State Machines, Multi-Action CVD Colorways, and High-Luminance Contrast Invariants
+
+### 🏛️ 1. System & Architectural Insights
+* **State Machine Modeling for Mutually Exclusive Overlay UI**:
+  * *Assumption*: Managing independent boolean signals (`isAccountInfoOpen`, `isStatsInfoOpen`) with manual cross-signal setter calls (`if (next) setIsOther(false)`) was thought to be quick and sufficient.
+  * *Reality*: Independent booleans allow impossible states (both `true`), require fragile pairwise cancellation logic, and duplicate click-outside / `Escape` key event listeners.
+  * *Architectural Rule*: Model mutually exclusive UI overlays as a single discriminated union enum signal:
+    ```typescript
+    type TelemetryPopover = 'account' | 'stats' | 'none';
+    const [activeTelemetryPopover, setActiveTelemetryPopover] = createSignal<TelemetryPopover>('none');
+    ```
+    Toggle handlers simplify to pure functional transitions:
+    ```typescript
+    setActiveTelemetryPopover(prev => prev === 'stats' ? 'none' : 'stats')
+    ```
+    This physically guarantees that only one overlay is open, and a single global listener handles outside-click dismissal across all container references.
+
+* **Trigger Affordance Symmetry Across Command Bars**:
+  * *Insight*: Mixing hover triggers (instant preview) with click triggers (persistent popover) in adjacent header elements creates erratic user friction. Users attempting to read or copy data from hover cards lose focus the moment the cursor drifts.
+  * *Pattern*: Primary command bar pills containing dense analytical telemetry (Account Specs, MTD Expectancy & Goal Tracking) must standardize on persistent **Click-to-Toggle** with visual affordance indicators (`▾` rotating chevron) and active state highlight glows.
+
+### 🪤 2. Gotchas, Traps & Framework Quirks
+* **The High-Luminance Theme Inversion Trap (Electric Cyan vs. White Text)**:
+  * *Trap*: Buttons and execution badges designed for standard dark-mode palettes typically use crisp white text (`color: #ffffff`) over saturated primary hues (e.g. Pine Emerald `#089981`, Deep Blue `#2962ff`, Crimson Coral `#f23645`). When switching to CVD mode where positive/buy semantics map to high-luminance **Electric Cyan** (`#00f2fe` / `#00b4d8`), white text produces an illegible, washed-out contrast ratio (~$1.2:1$), completely failing WCAG AA.
+  * *Root Cause*: Coupling button text colors to static `#ffffff` rather than semantic contrast tokens (`--sys-color-on-*`).
+  * *Workaround & Fix*: Introduce paired on-color semantic tokens:
+    ```css
+    /* Standard Dark Theme */
+    --sys-color-buy: var(--ref-color-emerald-500);
+    --sys-color-on-buy: #ffffff; /* 4.76:1 contrast on emerald */
+
+    /* CVD Theme */
+    :root[data-colorway="cvd"] {
+      --sys-color-buy: var(--ref-color-cyan-400);
+      --sys-color-on-buy: #08090c; /* 11.2:1 contrast on electric cyan */
+    }
+    ```
+
+* **Multi-Action CVD Hue Collisions in Blotters / OMS**:
+  * *Trap*: In a standard 2-color CVD palette (Cyan for Long/Profit, Amber for Short/Loss), mapping all "exit/liquidation" actions to `--sys-color-critical` (Amber `#ff8c00`) causes severe semantic ambiguity when the interface offers:
+    1. Routine scale-out (`50%` Take Profit 1)
+    2. Single-position close (`CLOSE`)
+    3. Bulk position close (`Close All`)
+    4. Emergency account liquidation (`Flatten All ($0\Delta)`)
+    All four buttons collapsed into an identical orange/amber blob.
+  * *Fix*: Establish a multi-chroma semantic scale for trade management:
+    - **Routine Scale-Out / Partial (`50%`)**: Uncouple from loss/liquidation. Map to Cool Indigo/Violet (`#a5b4fc` / `#818cf8` in CVD).
+    - **Single & Bulk Position Close (`CLOSE` / `Close All`)**: Warm Amber (`#ff8c00` in CVD).
+    - **Emergency Circuit Breaker (`Flatten All ($0\Delta)`)**: High-urgency Electric Magenta/Fuchsia (`#f472b6` / `#e879f9` in CVD), maintaining 100% chromatic distinction against both Cyan and Amber across Deuteranopia, Protanopia, and Tritanopia.
+
+### 🌐 3. Domain & API Nuances
+* **Micro-Popover Geometry vs. Multi-Word Status Badges**:
+  * *Nuance*: Fixed-width popover cards (`width: 270px`) with stacked horizontal title bars (`align-items: center; justify-content: space-between;`) will overflow if status strings exceed ~10 characters.
+  * *Example*: `NORMAL RANGE` (12 chars + padding) and `HIGH EXPANSION` (14 chars + padding) collided with the section title `SESSION RANGE & ADR`, forcing text truncation or clipping outside the card container.
+  * *Fix*:
+    1. Simplify categorical domain labels to concise, punchy states: `NORMAL` (6 chars), `EXPANDED` (8 chars), `⚠️ EXHAUSTED` (13 chars with icon).
+    2. Expand container width with intentional margin budgeting (`270px` $\to$ `285px`), preserving at least $12\text{px}$ gap between the title and status badge.
+
+### 🚫 4. Negative Knowledge (What NOT to Do)
+1. **DO NOT hardcode `#ffffff` text on interactive buttons that consume themeable semantic backgrounds**:
+   - *Why*: Any theme, high-contrast overlay, or accessibility colorway that substitutes a high-luminance background (such as Cyan, Yellow, or Gold) immediately destroys text legibility. Always pair background tokens with an explicit `--sys-color-on-*` token.
+2. **DO NOT map both scale-out (profit taking) and emergency liquidation (panic shutdown) to the same color family in CVD modes**:
+   - *Why*: Profit scale-out is a constructive routine action (TP1); Flatten All is a destructive risk-off action. Collapsing both to Amber creates dangerous cognitive hesitation during live trade execution.
+3. **DO NOT leave hover-only triggers on primary dashboard navigation or performance pills**:
+   - *Why*: Complex popovers featuring progress bars, MTD metrics, or tabular numbers require intentional inspection and click-to-copy capability. Hover cards vanish when the user moves their mouse toward child elements.
+
+### 📏 5. Reusable Conventions & Rules
+1. **The M3 `on-*` Semantic Contrast Contract**:
+   - Every semantic action background token (`--sys-color-buy`, `--sys-color-scale`, `--sys-color-flatten`) MUST declare a corresponding `--sys-color-on-*` text token. Component styles must bind text color exclusively to `var(--sys-color-on-*)`.
+2. **Overlay State Singularity**:
+   - Any view with two or more contextual overlay panels (menus, modals, telemetry popovers) must govern active visibility through a single union state type (`'type_a' | 'type_b' | 'none'`). Pairwise boolean toggles are strictly prohibited.
+3. **Dynamic Affordance Chevrons**:
+   - Header pills opening persistent overlays must include an affordance indicator (`.pill-chevron`) with a smooth CSS rotation transition (`transform: rotate(180deg)` with `0.2s cubic-bezier(0.16, 1, 0.3, 1)`).
+
+---
+
+## 🌐 17. Multi-Asset Normalized Volatility (% vs Points) & Cross-Asset Screener Alignment
+
+### 🏛️ 1. System & Architectural Insights
+* **The Broker Point Incommensurability Trap**:
+  * *Observation*: Native MT5 broker definitions for `point`, `digits`, and `pip_size` vary wildly across asset classes. For EURUSD, 1 pip is `0.0001` (10 points); for BTCUSD, brokers configure pip size anywhere from `0.01` to `1.0`; for Nasdaq indices, point sizes differ between cash and futures CFDs.
+  * *Impact*: In a multi-asset Market Watch, displaying raw points (`60.0p` next to `3350.0 pts` next to `240.0 pts`) obscures true relative market expansion and makes sorting by volatility meaningless.
+  * *Architectural Rule*: Implement **Normalized Volatility Percentage ($\text{ADR}_{\%}$)**:
+    $$\text{ADR}_{\%} = \frac{\text{ADR}_{14 \text{ (pips)}} \times \text{pip\_size}}{\bar{P}_{\text{mid}}} \times 100\%$$
+    This mathematical normalization equalizes Bitcoin ($3.98\%$), Nasdaq ($1.21\%$), and EURUSD ($0.55\%$), allowing instant cross-asset ranking with 100% broker invariance.
+* **The Two-Line Tabular Telemetry Invariant for Screener Cells**:
+  * *Pattern*: Rather than forcing a global mode toggle that hides native broker points, preserve both metrics in a stacked two-line visual hierarchy within the fixed `120px` column schedule:
+    - **Line 1 (Primary)**: Normalized Volatility % (`1.21%`) + Session Exhaustion Badge (`82% ⚠️`).
+    - **Line 2 (Secondary)**: Native broker points/pips (`240.0 pts` or `60.0p`) aligned with the hairline 2px progress track.
+    Zero column resizing, zero clicks, zero information loss.
+
+### 🪤 2. Gotchas, Traps & Framework Quirks
+* **Zero Mid-Price Division Guard in Volatility Normalization**:
+  * *Trap*: If a symbol is booting or has zero quotes (`bid = 0, ask = 0`), calculating `((adr * pip_size) / curr_price) * 100` evaluates to `Infinity` or `NaN`.
+  * *Remedy*: Always guard `curr_price > 0` and provide client-side fallback defaulting to `0.0` or raw `adr_14_pips`.
+* **Micro-Badge Radius Consistency & Semantic Token Mapping**:
+  * *Trap*: Applying hardcoded pixel values (e.g. `border-radius: 3px;` vs `2px`) across adjacent micro-badges (such as `.spread-pill-mini` in Column 3 and `.adr-pct-badge` in Column 4) creates subtle visual dissonance and violates the 3-Layer Design Token Architecture.
+  * *Remedy*: Declare `--sys-radius-xs: var(--ref-radius-xs);` (`2px`) in Layer 2 `semantic.css` and bind all adjacent micro-badges, pill indicators, and hairline progress fills to `var(--sys-radius-xs)`. This guarantees uniform corner curvature and cohesive horizontal rhythm across the screener table.
+
+

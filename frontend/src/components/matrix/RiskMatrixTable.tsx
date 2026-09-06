@@ -208,8 +208,13 @@ export const RiskMatrixTable: Component<Props> = (props) => {
                 <th onClick={() => marketStore.toggleSort('bid')} class="cursor-pointer text-right" style={{ width: '145px' }}>
                   Market Price (Spread) <span class="sort-icon">{marketStore.sortIcon('bid')}</span>
                 </th>
-                <th onClick={() => marketStore.toggleSort('adr')} class="cursor-pointer text-right" style={{ width: '120px' }}>
-                  14D ADR <span class="sort-icon">{marketStore.sortIcon('adr')}</span>
+                <th
+                  onClick={() => marketStore.toggleSort('adr')}
+                  class="cursor-pointer text-right"
+                  style={{ width: '120px' }}
+                  title="Click to sort by Normalized Volatility % (14D ADR)"
+                >
+                  14D ADR (%/p) <span class="sort-icon">{marketStore.sortIcon('adr')}</span>
                 </th>
                 <th class="text-center" style={{ width: '120px' }}>
                   Stop Loss

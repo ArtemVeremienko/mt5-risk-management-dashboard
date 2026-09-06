@@ -181,8 +181,15 @@ function createMarketStore() {
         valA = a.spec.spread_pips;
         valB = b.spec.spread_pips;
       } else if (col === 'adr') {
-        valA = a.spec.adr_14_pips;
-        valB = b.spec.adr_14_pips;
+        const getAdrPct = (item: typeof a) => {
+          if (item.spec.adr_pct !== undefined && item.spec.adr_pct !== null) {
+            return item.spec.adr_pct;
+          }
+          const mid = ((item.spec.bid || 0) + (item.spec.ask || 0)) / 2;
+          return mid > 0 ? ((item.spec.adr_14_pips * (item.spec.pip_size || 0.0001)) / mid) * 100 : item.spec.adr_14_pips;
+        };
+        valA = getAdrPct(a);
+        valB = getAdrPct(b);
       } else if (col === 'lot') {
         valA = a.calc.executable_lot;
         valB = b.calc.executable_lot;

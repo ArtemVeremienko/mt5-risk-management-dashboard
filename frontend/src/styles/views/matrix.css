@@ -523,7 +523,7 @@ tr.drag-over {
   background: rgba(148, 163, 184, 0.10);
   color: #94a3b8;
   padding: 1px 5px;
-  border-radius: 3px;
+  border-radius: var(--sys-radius-xs);
   border: 1px solid rgba(148, 163, 184, 0.20);
   line-height: 1.2;
   white-space: nowrap;
@@ -559,17 +559,36 @@ tr.drag-over {
 }
 
 .adr-pct-badge {
-  font-size: var(--sys-font-size-header);
-  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 16px;
+  padding: 0 5px;
+  font-size: 10px;
+  font-weight: 700;
   font-family: var(--sys-font-mono);
   font-variant-numeric: tabular-nums;
+  border-radius: var(--sys-radius-xs);
+  line-height: 1;
+  white-space: nowrap;
+  box-sizing: border-box;
+  vertical-align: middle;
   background: rgba(148, 163, 184, 0.12);
   color: var(--sys-color-on-surface-muted);
-  padding: 1px 4px;
-  border-radius: 3px;
   border: 1px solid rgba(148, 163, 184, 0.20);
-  line-height: 1.1;
-  white-space: nowrap;
+}
+
+.adr-pct-badge.has-danger-icon {
+  padding: 0 4px 0 2px;
+  gap: 2px;
+}
+
+.adr-badge-icon {
+  font-size: 8.5px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  margin-top: -1px;
 }
 
 .adr-pct-badge.adr-caution {
@@ -584,19 +603,37 @@ tr.drag-over {
   border-color: rgba(242, 54, 69, 0.35);
 }
 
+.adr-sub-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  width: 100%;
+}
+
+.adr-sub-pips {
+  font-family: var(--sys-font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--sys-color-on-surface-muted);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.2px;
+}
+
 .adr-gauge-bar {
   width: 100%;
-  max-width: 68px;
+  max-width: 48px;
   height: 3px;
   background: rgba(255, 255, 255, 0.08);
-  border-radius: 2px;
+  border-radius: var(--sys-radius-xs);
   overflow: hidden;
 }
 
 .adr-gauge-fill {
   height: 100%;
   background: var(--sys-color-secondary);
-  border-radius: 2px;
+  border-radius: var(--sys-radius-xs);
   transition: width 0.3s ease;
 }
 
@@ -616,7 +653,7 @@ tr.drag-over {
   top: calc(100% + 6px);
   right: 0;
   z-index: 1050;
-  width: 285px;
+  width: 330px;
   background: #141824;
   border: 1px solid #283044;
   border-top: 2px solid var(--sys-color-secondary);
@@ -704,6 +741,12 @@ tr.drag-over {
   align-items: center;
   font-size: 11px;
   color: var(--sys-color-on-surface-variant);
+  gap: 10px;
+}
+
+.adr-progress-left,
+.adr-progress-right {
+  white-space: nowrap;
 }
 
 .adr-progress-labels strong {
@@ -743,7 +786,7 @@ tr.drag-over {
 .adr-popover-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px 12px;
+  gap: 8px 14px;
 }
 
 .adr-popover-item {
@@ -758,13 +801,15 @@ tr.drag-over {
   color: var(--sys-color-on-surface-muted);
   text-transform: uppercase;
   letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .adr-item-val {
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--sys-color-on-surface);
+  white-space: nowrap;
 }
 
 /* ==========================================================================

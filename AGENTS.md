@@ -53,6 +53,10 @@ The **MT5 Risk Management & Dynamic Lot Sizing Dashboard** is an institutional-g
 8. **Zero-Latency Telemetry Micro-Popovers**:
    - High-density table cells requiring secondary telemetry (e.g. ADR session exhaustion) wrap content in a relative container (`.adr-cell-wrapper`) and toggle micro-popover cards (`.adr-telemetry-popover`).
    - Floating cards MUST declare `pointer-events: none` to eliminate hover flickering and prevent intercepting clicks on underlying table rows or BUY/SELL execution buttons.
+9. **Overlay State Singularity**:
+   - Any component hosting multiple contextual overlay cards or popovers (e.g. command bar pills) must govern active overlay visibility via a single union state type (`createSignal<'account' | 'stats' | 'none'>('none')`), never independent boolean flags.
+10. **The M3 `on-*` Semantic Text Contrast Invariant**:
+   - Interactive buttons or chips that consume themeable action backgrounds (`--sys-color-buy`, `--sys-color-scale`, `--sys-color-flatten`) MUST bind text color to paired `--sys-color-on-*` semantic tokens. Never hardcode `#ffffff` text on backgrounds that map to high-luminance colors (e.g. `#00b4d8` Electric Cyan in CVD mode).
 
 ---
 

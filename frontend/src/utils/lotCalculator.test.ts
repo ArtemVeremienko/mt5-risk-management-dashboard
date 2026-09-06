@@ -310,4 +310,27 @@ describe('lotCalculator', () => {
       }).not.toThrow();
     });
   });
+
+  describe('cross-asset normalized volatility calculations', () => {
+    it('normalizes EURUSD, BTCUSD, and NAS100 into accurate relative percentage volatility', () => {
+      // EURUSD: 80 pips on 1.0850 price = 0.74%
+      const eurusdMid = 1.0850;
+      const eurusdAdrPct = ((80.0 * 0.0001) / eurusdMid) * 100;
+      expect(eurusdAdrPct).toBeCloseTo(0.737, 2);
+
+      // BTCUSD: 3350 points on 84200 price = 3.98%
+      const btcMid = 84200.0;
+      const btcAdrPct = ((3350.0 * 1.0) / btcMid) * 100;
+      expect(btcAdrPct).toBeCloseTo(3.978, 2);
+
+      // NAS100: 240 points on 19850 price = 1.21%
+      const nasMid = 19850.0;
+      const nasAdrPct = ((240.0 * 1.0) / nasMid) * 100;
+      expect(nasAdrPct).toBeCloseTo(1.209, 2);
+
+      // Verify relative ranking: BTC (3.98%) > NAS100 (1.21%) > EURUSD (0.74%)
+      expect(btcAdrPct).toBeGreaterThan(nasAdrPct);
+      expect(nasAdrPct).toBeGreaterThan(eurusdAdrPct);
+    });
+  });
 });

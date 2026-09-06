@@ -62,6 +62,11 @@ export interface SymbolSpec {
   room_up_pips?: number;
   room_down_pips?: number;
   median_spread_pips?: number;
+  // Normalized Volatility % (Cross-Asset Benchmark)
+  adr_pct?: number;
+  today_range_pct?: number;
+  room_up_pct?: number;
+  room_down_pct?: number;
 }
 
 export interface ModelComparison {
