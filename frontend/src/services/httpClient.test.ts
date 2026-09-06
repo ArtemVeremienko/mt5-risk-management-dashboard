@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { httpClient, ApiError } from './httpClient';
 
+declare const global: any;
+
 describe('httpClient', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -191,7 +193,7 @@ describe('httpClient', () => {
           throw new Error('Not JSON');
         },
         text: async () => '<html>502 Bad Gateway</html>',
-      } as Response);
+      } as unknown as Response);
 
       try {
         await httpClient.get('/api/test');

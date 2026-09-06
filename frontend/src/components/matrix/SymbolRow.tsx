@@ -461,7 +461,7 @@ export const SymbolRow: Component<Props> = (props) => {
                           'text-profit': (data().spec.adr_used_pct || 0) < 70,
                         }}
                       >
-                        {data().spec.adr_used_pct !== undefined ? `${Math.round(data().spec.adr_used_pct)}%` : '—'}
+                        {data().spec.adr_used_pct !== undefined ? `${Math.round(data().spec.adr_used_pct!)}%` : '—'}
                       </span>
                     </div>
 
@@ -480,7 +480,7 @@ export const SymbolRow: Component<Props> = (props) => {
                         }}
                       >
                         {data().spec.room_up_pips !== undefined
-                          ? `↑ +${data().spec.room_up_pips.toFixed(1)}p`
+                          ? `↑ +${data().spec.room_up_pips!.toFixed(1)}p`
                           : '—'}
                       </span>
                     </div>
@@ -495,7 +495,7 @@ export const SymbolRow: Component<Props> = (props) => {
                         }}
                       >
                         {data().spec.room_down_pips !== undefined
-                          ? `↓ -${data().spec.room_down_pips.toFixed(1)}p`
+                          ? `↓ -${data().spec.room_down_pips!.toFixed(1)}p`
                           : '—'}
                       </span>
                     </div>
