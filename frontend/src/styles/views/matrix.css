@@ -37,8 +37,7 @@
   min-height: 440px;
 }
 
-.risk-matrix-table,
-.positions-table {
+.risk-matrix-table {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
@@ -323,12 +322,6 @@ th.cursor-pointer:hover {
   min-width: 1105px;
   border-collapse: collapse;
   table-layout: fixed;
-  text-align: left;
-}
-
-.positions-table {
-  width: 100%;
-  border-collapse: collapse;
   text-align: left;
 }
 
