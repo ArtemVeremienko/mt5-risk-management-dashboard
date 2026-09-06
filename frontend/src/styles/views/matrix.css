@@ -516,17 +516,36 @@ tr.drag-over {
 }
 
 .spread-pill-mini {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 16px;
+  padding: 0 5px;
   font-size: var(--sys-font-size-header);
   font-weight: 600;
   font-family: var(--sys-font-mono);
   font-variant-numeric: tabular-nums;
+  border-radius: var(--sys-radius-xs);
+  line-height: 1;
+  white-space: nowrap;
+  box-sizing: border-box;
+  vertical-align: middle;
   background: rgba(148, 163, 184, 0.10);
   color: #94a3b8;
-  padding: 1px 5px;
-  border-radius: var(--sys-radius-xs);
   border: 1px solid rgba(148, 163, 184, 0.20);
-  line-height: 1.2;
-  white-space: nowrap;
+}
+
+.spread-pill-mini.has-danger-icon {
+  padding: 0 4px 0 2px;
+  gap: 2px;
+}
+
+.spread-badge-icon {
+  font-size: 8.5px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  margin-top: -1px;
 }
 
 .adr-cell-wrapper {

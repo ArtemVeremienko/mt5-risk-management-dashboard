@@ -412,9 +412,10 @@ export const SymbolRow: Component<Props> = (props) => {
                 <span class="price-ask tabular-num">{data().spec.ask_display}</span>
               </div>
               <span
-                class="spread-pill-mini"
+                class="spread-pill-mini tabular-num"
                 classList={{
                   'spread-pill-surge': isSpreadSurge(),
+                  'has-danger-icon': isSpreadSurge(),
                 }}
                 title={
                   isSpreadSurge()
@@ -422,7 +423,10 @@ export const SymbolRow: Component<Props> = (props) => {
                     : undefined
                 }
               >
-                {isSpreadSurge() ? '⚠️ ' : ''}{data().spec.spread_display}p
+                <Show when={isSpreadSurge()}>
+                  <span class="spread-badge-icon">⚠️</span>
+                </Show>
+                {data().spec.spread_display}p
               </span>
             </div>
           </td>
