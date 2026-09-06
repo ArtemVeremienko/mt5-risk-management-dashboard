@@ -495,15 +495,15 @@ export const SymbolRow: Component<Props> = (props) => {
                   </div>
 
                   {/* Visual Session Range vs ADR Progress Bar */}
-                  <div class="adr-popover-progress-box">
-                    <div class="adr-progress-labels">
-                      <span class="adr-progress-left font-mono">
-                        Session: <strong>{data().spec.today_range_pips ?? data().spec.adr_display}p</strong> ({todayRangePct().toFixed(2)}%)
-                      </span>
-                      <span class="adr-progress-right font-mono">
-                        14D ADR: <strong>{data().spec.adr_display}p</strong> ({normalizedAdrPct().toFixed(2)}%)
-                      </span>
-                    </div>
+                    <div class="adr-popover-progress-box">
+                      <div class="adr-progress-labels">
+                        <span class="adr-progress-left font-mono">
+                          Range: <strong>{data().spec.today_range_pips ?? data().spec.adr_display}p</strong> ({todayRangePct().toFixed(2)}%)
+                        </span>
+                        <span class="adr-progress-right font-mono">
+                          ADR: <strong>{data().spec.adr_display}p</strong> ({normalizedAdrPct().toFixed(2)}%)
+                        </span>
+                      </div>
                     <div class="adr-popover-track">
                       <div
                         class="adr-popover-fill"
