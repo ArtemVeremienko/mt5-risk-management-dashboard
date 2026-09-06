@@ -55,7 +55,8 @@ export const PositionRow: Component<Props> = (props) => {
       rule.pipSize,
       pipValPerLot(),
       p.digits,
-      rule.unitLabel
+      rule.unitLabel,
+      positionsStore.oneRCash()
     );
   });
 
@@ -71,9 +72,32 @@ export const PositionRow: Component<Props> = (props) => {
       rule.pipSize,
       pipValPerLot(),
       p.digits,
-      rule.unitLabel
+      rule.unitLabel,
+      positionsStore.oneRCash()
     );
   });
+
+  const slSubTelemetry = (info: { pipText: string; dollarText: string; rText: string }) => {
+    const mode = preferencesStore.pnlDisplayMode();
+    if (mode === 'r_multiple') {
+      return info.rText;
+    }
+    if (mode === 'stealth_mask') {
+      return info.pipText;
+    }
+    return info.dollarText;
+  };
+
+  const tpSubTelemetry = (info: { pipText: string; dollarText: string; rText: string }) => {
+    const mode = preferencesStore.pnlDisplayMode();
+    if (mode === 'r_multiple') {
+      return info.rText;
+    }
+    if (mode === 'stealth_mask') {
+      return info.pipText;
+    }
+    return info.dollarText;
+  };
 
   const handleClosePosition = async (volume?: number) => {
     const p = position();
@@ -224,8 +248,9 @@ export const PositionRow: Component<Props> = (props) => {
                         'text-risk': info().isRisk,
                         'text-profit': info().isBeOrProfit,
                       }}
+                      title={`Stop Loss: ${info().price} · Distance: ${info().pipText} · Risk: ${info().dollarText} (${info().rText})`}
                     >
-                      {info().pipText} ({info().dollarText})
+                      {slSubTelemetry(info())}
                     </span>
                   </div>
                 )}
@@ -260,8 +285,9 @@ export const PositionRow: Component<Props> = (props) => {
                         'text-profit': info().isGain,
                         'text-loss': !info().isGain,
                       }}
+                      title={`Take Profit: ${info().price} · Distance: ${info().pipText} · Target: ${info().dollarText} (${info().rText})`}
                     >
-                      {info().pipText} ({info().dollarText})
+                      {tpSubTelemetry(info())}
                     </span>
                   </div>
                 )}
@@ -293,20 +319,22 @@ export const PositionRow: Component<Props> = (props) => {
                 }}
               >
                 {preferencesStore.pnlDisplayMode() === 'stealth_mask'
-                  ? '***.**'
+                  ? '••••••'
                   : preferencesStore.pnlDisplayMode() === 'r_multiple'
                   ? pos().r_multiple !== null
                     ? `${(pos().r_multiple || 0) > 0 ? '+' : ''}${pos().r_multiple} R`
-                    : pos().profit > 0
-                    ? `+${formatCurrency(pos().profit)}`
-                    : formatCurrency(pos().profit)
+                    : (() => {
+                        const oneR = positionsStore.oneRCash();
+                        const r = oneR > 0 ? pos().profit / oneR : 0;
+                        return `${r > 0 ? '+' : ''}${r.toFixed(2)} R`;
+                      })()
                   : pos().profit > 0
                   ? `+${formatCurrency(pos().profit)}`
                   : formatCurrency(pos().profit)}
               </span>
               <span class="pos-pips-sub tabular-num">
                 {preferencesStore.pnlDisplayMode() === 'stealth_mask'
-                  ? '(*** p)'
+                  ? '(•••• p)'
                   : `(${pos().pnl_pips > 0 ? `+${pos().pnl_pips}` : pos().pnl_pips} ${stepRule().unitLabel})`}
               </span>
             </div>
@@ -328,7 +356,9 @@ export const PositionRow: Component<Props> = (props) => {
                   }}
                   title={pos().initial_sl ? `Floating R based on initial SL: ${pos().initial_sl}` : `Floating R-Multiple`}
                 >
-                  {(pos().r_multiple || 0) > 0
+                  {preferencesStore.pnlDisplayMode() === 'stealth_mask'
+                    ? '••••'
+                    : (pos().r_multiple || 0) > 0
                     ? `+${pos().r_multiple} R`
                     : `${pos().r_multiple || 0} R`}
                 </span>

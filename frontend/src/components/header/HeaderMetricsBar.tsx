@@ -107,7 +107,7 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
   const formattedHeaderPnl = createMemo(() => {
     const mode = preferencesStore.pnlDisplayMode();
     const pnl = floatingProfit();
-    if (mode === 'stealth_mask') return '***.**';
+    if (mode === 'stealth_mask') return '••••••';
     if (mode === 'r_multiple') {
       const oneR = positionsStore.oneRCash();
       const rVal = oneR > 0 ? pnl / oneR : 0;
@@ -119,13 +119,7 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
   const formattedHeaderEquity = createMemo(() => {
     const mode = preferencesStore.pnlDisplayMode();
     const eq = account().equity || 0.0;
-    if (mode === 'stealth_mask') return '***.**';
-    if (mode === 'r_multiple') {
-      const pnl = floatingProfit();
-      const oneR = positionsStore.oneRCash();
-      const rVal = oneR > 0 ? pnl / oneR : 0;
-      return `${rVal > 0 ? '+' : ''}${rVal.toFixed(2)} R`;
-    }
+    if (mode === 'stealth_mask' || mode === 'r_multiple') return '••••••';
     return formatCurrency(eq);
   });
 
@@ -155,10 +149,16 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
   // Structured Strategy summary tags
 
   const expVal = createMemo(() => tradeStats().expectancy_r ?? 0);
-  const expectancyTag = createMemo(() => `Exp: ${expVal() >= 0 ? '+' : ''}${expVal().toFixed(2)}R`);
+  const expectancyTag = createMemo(() => {
+    if (preferencesStore.pnlDisplayMode() === 'stealth_mask') return 'Exp: ••••••';
+    return `Exp: ${expVal() >= 0 ? '+' : ''}${expVal().toFixed(2)}R`;
+  });
 
   const monthlyRVal = createMemo(() => tradeStats().monthly_r ?? 0);
-  const monthlyRTag = createMemo(() => `${monthlyRVal() >= 0 ? '+' : ''}${monthlyRVal().toFixed(1)}R/mo`);
+  const monthlyRTag = createMemo(() => {
+    if (preferencesStore.pnlDisplayMode() === 'stealth_mask') return '••••••/mo';
+    return `${monthlyRVal() >= 0 ? '+' : ''}${monthlyRVal().toFixed(1)}R/mo`;
+  });
 
   const monthlyTargetVal = () => preferencesStore.monthlyIncomeTarget();
   const monthlyPnlVal = () => tradeStats().monthly_pnl ?? 0;
@@ -242,9 +242,11 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
                 class="metric-mini-val font-mono"
                 classList={{ 'wc-highlight': preferencesStore.isWorkingCapitalCustom() }}
               >
-                {preferencesStore.isWorkingCapitalCustom()
-                  ? formatCurrency(preferencesStore.workingCapital())
-                  : formatCurrency(account().balance || 0.0)}
+                {preferencesStore.pnlDisplayMode() !== 'currency'
+                  ? '••••••'
+                  : preferencesStore.isWorkingCapitalCustom()
+                    ? formatCurrency(preferencesStore.workingCapital())
+                    : formatCurrency(account().balance || 0.0)}
               </span>
               <Show when={preferencesStore.isWorkingCapitalCustom()}>
                 <span class="wc-badge-dot" title="Custom Working Capital Active">●</span>
@@ -265,7 +267,10 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
               </span>
             </div>
 
-            <div class="metric-mini-group" title="Net Real-Time Equity">
+            <div
+              class="metric-mini-group"
+              title={`Net Real-Time Equity: ${formatCurrency(account().equity || 0.0)}`}
+            >
               <span class="metric-mini-label">EQ</span>
               <span class="metric-mini-val font-mono">{formattedHeaderEquity()}</span>
             </div>
@@ -276,7 +281,11 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
                 title={`Account Free Margin: ${formatCurrency(account().free_margin || 0.0)} · Margin Level: ${(account().margin_level || 0.0).toFixed(0)}%`}
               >
                 <span class="metric-mini-label">FREE</span>
-                <span class="metric-mini-val font-mono">{formatCurrency(account().free_margin || 0.0)}</span>
+                <span class="metric-mini-val font-mono">
+                  {preferencesStore.pnlDisplayMode() !== 'currency'
+                    ? '••••••'
+                    : formatCurrency(account().free_margin || 0.0)}
+                </span>
               </div>
             </Show>
 
@@ -286,7 +295,7 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
                 onClick={() => preferencesStore.setActiveView('positions')}
                 title={
                   preferencesStore.pnlDisplayMode() === 'stealth_mask'
-                    ? `Portfolio Heat: ***.** (${positionsStore.portfolioHeat().heatPct.toFixed(1)}% of WC) · ${positionsStore.portfolioHeat().unprotectedCount > 0 ? `⚠️ ${positionsStore.portfolioHeat().unprotectedCount} trade(s) have NO Stop Loss!` : 'All positions shielded.'} · Click to manage in Blotter`
+                    ? `Portfolio Heat: •••••• (${positionsStore.portfolioHeat().heatPct.toFixed(1)}% of WC) · ${positionsStore.portfolioHeat().unprotectedCount > 0 ? `⚠️ ${positionsStore.portfolioHeat().unprotectedCount} trade(s) have NO Stop Loss!` : 'All positions shielded.'} · Click to manage in Blotter`
                     : preferencesStore.pnlDisplayMode() === 'r_multiple'
                     ? `Portfolio Heat: ${positionsStore.portfolioHeatR().toFixed(2)} R (${positionsStore.portfolioHeat().heatPct.toFixed(1)}% of WC) · ${positionsStore.portfolioHeat().unprotectedCount > 0 ? `⚠️ ${positionsStore.portfolioHeat().unprotectedCount} trade(s) have NO Stop Loss!` : 'All positions shielded.'} · Click to manage in Blotter`
                     : `Portfolio Heat: $${positionsStore.portfolioHeat().totalHeatAmount.toFixed(2)} (${positionsStore.portfolioHeat().heatPct.toFixed(1)}% of WC) · ${positionsStore.portfolioHeat().unprotectedCount > 0 ? `⚠️ ${positionsStore.portfolioHeat().unprotectedCount} trade(s) have NO Stop Loss!` : 'All positions shielded.'} · Click to manage in Blotter`
@@ -394,7 +403,9 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
                         'text-loss': monthlyProgressPct() <= 0,
                       }}
                     >
-                      {monthlyProgressPct().toFixed(0)}% Achieved
+                      {preferencesStore.pnlDisplayMode() === 'stealth_mask'
+                        ? '••••••'
+                        : `${monthlyProgressPct().toFixed(0)}% Achieved`}
                     </span>
                   </div>
                   <div class="monthly-goal-sub">
@@ -405,10 +416,18 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
                         'text-loss': monthlyPnlVal() < 0,
                       }}
                     >
-                      MTD: {monthlyPnlVal() >= 0 ? '+' : '-'}{formatCurrency(Math.abs(monthlyPnlVal()))} ({monthlyRTag()})
+                      {preferencesStore.pnlDisplayMode() === 'r_multiple'
+                        ? `MTD: ${monthlyRVal() >= 0 ? '+' : ''}${monthlyRVal().toFixed(1)} R`
+                        : preferencesStore.pnlDisplayMode() === 'stealth_mask'
+                        ? 'MTD: ••••••'
+                        : `MTD: ${monthlyPnlVal() >= 0 ? '+' : '-'}${formatCurrency(Math.abs(monthlyPnlVal()))} (${monthlyRTag()})`}
                     </span>
                     <span class="font-mono text-neutral" style={{ 'font-size': '11px' }}>
-                      Target: {formatCurrency(preferencesStore.monthlyIncomeTarget())}
+                      {preferencesStore.pnlDisplayMode() === 'r_multiple'
+                        ? `Target: ${(positionsStore.oneRCash() > 0 ? (preferencesStore.monthlyIncomeTarget() / positionsStore.oneRCash()).toFixed(0) : 10)} R`
+                        : preferencesStore.pnlDisplayMode() === 'stealth_mask'
+                        ? 'Target: ••••••'
+                        : `Target: ${formatCurrency(preferencesStore.monthlyIncomeTarget())}`}
                     </span>
                   </div>
                   <div class="monthly-progress-track">
@@ -416,9 +435,14 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
                       class="monthly-progress-fill"
                       classList={{
                         'progress-complete': monthlyProgressPct() >= 100,
+                        'progress-drawdown': monthlyProgressPct() < 0,
                       }}
                       style={{
-                        width: `${Math.min(100, Math.max(0, monthlyProgressPct()))}%`,
+                        width: `${
+                          monthlyProgressPct() < 0
+                            ? Math.min(100, Math.max(3, Math.abs(monthlyProgressPct())))
+                            : Math.min(100, Math.max(0, monthlyProgressPct()))
+                        }%`,
                       }}
                     />
                   </div>
@@ -648,7 +672,7 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
                   <span class="acc-popover-label">Portfolio Heat</span>
                   <span class="acc-popover-val font-mono">
                     {preferencesStore.pnlDisplayMode() === 'stealth_mask'
-                      ? `***.** (${positionsStore.portfolioHeat().heatPct.toFixed(1)}%)`
+                      ? `•••••• (${positionsStore.portfolioHeat().heatPct.toFixed(1)}%)`
                       : preferencesStore.pnlDisplayMode() === 'r_multiple'
                       ? `${positionsStore.portfolioHeatR().toFixed(2)} R (${positionsStore.portfolioHeat().heatPct.toFixed(1)}%)`
                       : `${formatCurrency(positionsStore.portfolioHeat().totalHeatAmount)} (${positionsStore.portfolioHeat().heatPct.toFixed(1)}%)`}

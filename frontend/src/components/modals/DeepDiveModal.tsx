@@ -1,5 +1,7 @@
 import { Component, Show } from 'solid-js';
 import { CalculatedSymbolResult } from '../../types';
+import { preferencesStore } from '../../stores/preferencesStore';
+import { formatCurrency } from '../../utils/formatters';
 
 interface Props {
   item: CalculatedSymbolResult | null;
@@ -58,15 +60,29 @@ export const DeepDiveModal: Component<Props> = (props) => {
                   <div class="card-subtitle">ACTIVE POSITION SIZING FORMULA</div>
                   <div class="spec-row">
                     <span class="spec-label">Working Capital:</span>
-                    <span class="spec-val">${item().calc.working_capital.toFixed(2)}</span>
+                    <span class="spec-val">
+                      {preferencesStore.pnlDisplayMode() !== 'currency'
+                        ? '••••••'
+                        : formatCurrency(item().calc.working_capital)}
+                    </span>
                   </div>
                   <div class="spec-row">
                     <span class="spec-label">Selected Risk Model:</span>
                     <span class="spec-val text-accent">{item().calc.risk_method}</span>
                   </div>
                   <div class="spec-row">
-                    <span class="spec-label">Target Risk (% / $):</span>
-                    <span class="spec-val">{item().calc.target_risk_pct.toFixed(2)}% (${item().calc.target_risk_amount.toFixed(2)})</span>
+                    <span class="spec-label">
+                      {preferencesStore.pnlDisplayMode() === 'r_multiple'
+                        ? 'Target Risk (% / R):'
+                        : 'Target Risk (% / $):'}
+                    </span>
+                    <span class="spec-val">
+                      {preferencesStore.pnlDisplayMode() === 'r_multiple'
+                        ? `${item().calc.target_risk_pct.toFixed(2)}% (1.00 R)`
+                        : preferencesStore.pnlDisplayMode() === 'stealth_mask'
+                          ? `${item().calc.target_risk_pct.toFixed(2)}% (••••••)`
+                          : `${item().calc.target_risk_pct.toFixed(2)}% (${formatCurrency(item().calc.target_risk_amount)})`}
+                    </span>
                   </div>
                   <div class="spec-row">
                     <span class="spec-label">Stop Loss:</span>
@@ -81,12 +97,26 @@ export const DeepDiveModal: Component<Props> = (props) => {
                     <strong class="spec-val text-accent font-mono">{item().calc.lot_display}</strong>
                   </div>
                   <div class="spec-row">
-                    <span class="spec-label">Effective Risk (% / $):</span>
-                    <span class="spec-val">{item().calc.risk_display}</span>
+                    <span class="spec-label">
+                      {preferencesStore.pnlDisplayMode() === 'r_multiple'
+                        ? 'Effective Risk (% / R):'
+                        : 'Effective Risk (% / $):'}
+                    </span>
+                    <span class="spec-val">
+                      {preferencesStore.pnlDisplayMode() === 'r_multiple'
+                        ? `${item().calc.effective_risk_pct.toFixed(2)}% (${(item().calc.target_risk_amount > 0 ? (item().calc.effective_risk_amount / item().calc.target_risk_amount).toFixed(2) : '1.00')} R)`
+                        : preferencesStore.pnlDisplayMode() === 'stealth_mask'
+                          ? `${item().calc.effective_risk_pct.toFixed(2)}% (••••••)`
+                          : item().calc.risk_display}
+                    </span>
                   </div>
                   <div class="spec-row">
                     <span class="spec-label">Required Margin:</span>
-                    <span class="spec-val">${item().calc.required_margin_display} ({item().calc.margin_utilization_display}%)</span>
+                    <span class="spec-val">
+                      {preferencesStore.pnlDisplayMode() === 'r_multiple'
+                        ? `${item().calc.margin_utilization_display}% of Deposit`
+                        : `${formatCurrency(item().calc.required_margin)} (${item().calc.margin_utilization_display}%)`}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -99,7 +129,7 @@ export const DeepDiveModal: Component<Props> = (props) => {
                       <th>Sizing Strategy</th>
                       <th>Target Risk</th>
                       <th>Executable Lot</th>
-                      <th>Dollar Risk</th>
+                      <th>{preferencesStore.pnlDisplayMode() === 'r_multiple' ? 'Risk (R)' : 'Dollar Risk'}</th>
                       <th>Required Margin</th>
                     </tr>
                   </thead>
@@ -108,15 +138,35 @@ export const DeepDiveModal: Component<Props> = (props) => {
                       <td><strong>Fixed Fractional (1.0%)</strong></td>
                       <td>1.0%</td>
                       <td>{item().comparison.fractional_1pct.lot} Lot</td>
-                      <td>${item().comparison.fractional_1pct.risk_amount.toFixed(2)}</td>
-                      <td>${item().comparison.fractional_1pct.margin.toFixed(2)}</td>
+                      <td>
+                        {preferencesStore.pnlDisplayMode() === 'r_multiple'
+                          ? item().calc.target_risk_amount > 0
+                            ? `${(item().comparison.fractional_1pct.risk_amount / item().calc.target_risk_amount).toFixed(2)} R`
+                            : '1.00 R'
+                          : formatCurrency(item().comparison.fractional_1pct.risk_amount)}
+                      </td>
+                      <td>
+                        {preferencesStore.pnlDisplayMode() === 'r_multiple' && item().calc.working_capital > 0
+                          ? `${((item().comparison.fractional_1pct.margin / item().calc.working_capital) * 100).toFixed(1)}%`
+                          : formatCurrency(item().comparison.fractional_1pct.margin)}
+                      </td>
                     </tr>
                     <tr>
                       <td><strong>Dynamic Half-Kelly (Bounded)</strong></td>
                       <td>{item().comparison.half_kelly.risk_pct.toFixed(2)}%</td>
                       <td>{item().comparison.half_kelly.lot} Lot</td>
-                      <td>${item().comparison.half_kelly.risk_amount.toFixed(2)}</td>
-                      <td>${item().comparison.half_kelly.margin.toFixed(2)}</td>
+                      <td>
+                        {preferencesStore.pnlDisplayMode() === 'r_multiple'
+                          ? item().calc.target_risk_amount > 0
+                            ? `${(item().comparison.half_kelly.risk_amount / item().calc.target_risk_amount).toFixed(2)} R`
+                            : `${(item().comparison.half_kelly.risk_pct / (item().calc.target_risk_pct || 1.0)).toFixed(2)} R`
+                          : formatCurrency(item().comparison.half_kelly.risk_amount)}
+                      </td>
+                      <td>
+                        {preferencesStore.pnlDisplayMode() === 'r_multiple' && item().calc.working_capital > 0
+                          ? `${((item().comparison.half_kelly.margin / item().calc.working_capital) * 100).toFixed(1)}%`
+                          : formatCurrency(item().comparison.half_kelly.margin)}
+                      </td>
                     </tr>
                   </tbody>
                 </table>

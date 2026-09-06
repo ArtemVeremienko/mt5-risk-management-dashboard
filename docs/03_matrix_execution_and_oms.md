@@ -382,6 +382,123 @@ Total USD Exposure: -$337,900 USD (Severe unhedged Short Dollar exposure)
 ```
 The OMS must compute a real-time **Currency Delta Vector** ($\vec{D}_{\text{curr}}$) summing net currency exposure in base currency units across all active positions, preventing inadvertent multi-pair correlated blow-ups.
 
+### 3.6 Multi-Dimensional Order Management Window & SL/TP Synchronization Architecture
+
+When managing active positions or staging pre-trade brackets, professional order management dialogs must seamlessly handle four interdependent dimensions of risk and reward:
+1. **Absolute Price** ($P_{\text{SL}}$ / $P_{\text{TP}}$): Raw broker quotation level.
+2. **Distance in Pips / Points** ($\Delta_{\text{pips}}$): Structural market distance.
+3. **Cash Risk / Gain** ($C_{\USD}$): Direct fiat monetary outcome.
+4. **Percentage of Capital** ($\%_{\text{risk}}$ / $\%_{\text{gain}}$): Account risk budgeting metric.
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Modify SL/TP · EURUSD (#982341)                            [ Esc / ✕ ]  │
+├────────────────────────────────────┬────────────────────────────────────┤
+│ 🛡️ STOP LOSS (Risk Ceiling)         │ 🎯 TAKE PROFIT (Profit Objective)  │
+│                                    │                                    │
+│ ┌──────────────┬─────────────────┐ │ ┌──────────────┬─────────────────┐ │
+│ │ Price (Quote)│ Distance (Pips) │ │ │ Price (Quote)│ Distance (Pips) │ │
+│ │ [−] 1.08250[+]│ [−]  25.0 p [+]│ │ │ [−] 1.09000[+]│ [−]  50.0 p [+]│ │
+│ ├──────────────┼─────────────────┤ │ ├──────────────┼─────────────────┤ │
+│ │ Cash Loss ($)│ Capital Risk (%)│ │ │ Profit ($)   │ Capital Gain (%)│ │
+│ │ [−] -$125.00[+]│ [−]  1.00% [+]│ │ │ [−]+$250.00[+]│ [−]  2.00% [+]│ │
+│ └──────────────┴─────────────────┘ │ └──────────────┴─────────────────┘ │
+│ Presets: [🛡️ Entry/BE] [1/4 ADR] [1/2]│ Presets: [1:1.5 RR] [1:2 RR] [1:3 RR]  │
+├────────────────────────────────────┴────────────────────────────────────┤
+│ [ Cancel (Esc) ]                              [ 💾 Apply Changes (Enter) ]│
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 1. Mathematical Interconversion Matrix
+Given:
+- $P_{\text{open}}$: Position entry fill price
+- $V$: Executed position volume in standard lots
+- $S_{\text{pip}}$: Pip size ($0.0001$ for 4/5-digit FX, $0.01$ for JPY / Gold)
+- $V_{\text{pip}}$: Value of 1 pip for 1.0 standard lot in account currency
+- $W$: Active Working Capital (or live Balance/Equity)
+- $\text{Dir}$: Directional multiplier ($+1$ for BUY, $-1$ for SELL)
+
+$$\begin{aligned}
+\text{From Price } (P_{\text{SL}}): \quad & \Delta_{\text{pips}} = \frac{\text{Dir} \cdot (P_{\text{open}} - P_{\text{SL}})}{S_{\text{pip}}} \\
+& C_{\USD} = -\Delta_{\text{pips}} \cdot V \cdot V_{\text{pip}} \\
+& \%_{\text{risk}} = \frac{|C_{\USD}|}{W} \times 100\% \\[10pt]
+\text{From Pips } (\Delta_{\text{pips}}): \quad & P_{\text{SL}} = P_{\text{open}} - \text{Dir} \cdot (\Delta_{\text{pips}} \cdot S_{\text{pip}}) \\
+& C_{\USD} = -\Delta_{\text{pips}} \cdot V \cdot V_{\text{pip}} \\
+& \%_{\text{risk}} = \frac{|C_{\USD}|}{W} \times 100\% \\[10pt]
+\text{From Cash } (C_{\USD}): \quad & \Delta_{\text{pips}} = \frac{|C_{\USD}|}{V \cdot V_{\text{pip}}} \\
+& P_{\text{SL}} = P_{\text{open}} - \text{Dir} \cdot (\Delta_{\text{pips}} \cdot S_{\text{pip}}) \\
+& \%_{\text{risk}} = \frac{|C_{\USD}|}{W} \times 100\% \\[10pt]
+\text{From Percent } (\%_{\text{risk}}): \quad & |C_{\USD}| = W \times \left(\frac{\%_{\text{risk}}}{100}\right) \\
+& \Delta_{\text{pips}} = \frac{|C_{\USD}|}{V \cdot V_{\text{pip}}} \\
+& P_{\text{SL}} = P_{\text{open}} - \text{Dir} \cdot (\Delta_{\text{pips}} \cdot S_{\text{pip}})
+\end{aligned}$$
+
+*(Take Profit equations substitute positive gain cash $C_{\USD} = +\Delta_{\text{pips}} \cdot V \cdot V_{\text{pip}}$ and invert directional offset).*
+
+#### 2. Layout Ergonomics: Why the 2x2 Grid Outperforms Alternatives
+- **Horizontal Quad-Cell Grid (1 row $\times$ 4 columns)**: Requires $> 520\text{px}$ per wing ($> 1040\text{px}$ total modal width). Induces excessive saccadic eye fatigue and squishes numeric stepper buttons.
+- **Segmented Tabs (Price \| Pips \| Cash \| %)**: Anti-pattern for high-speed trading. Hiding three dimensions behind tab clicks forces operators to switch contexts just to confirm dollar impact.
+- **Primary Input + Read-Only Badges**: Restricts the operator from directly typing into secondary units (e.g. typing directly *"I want to risk 1.25%"*).
+- **The 2x2 Matrix Grid (Recommended)**:
+  - **Top Row (Market Structure)**: Price & Distance in Pips. Directly correlates with chart technical analysis (support/resistance levels, swing highs, ADR targets).
+  - **Bottom Row (Portfolio Impact)**: Cash Risk/Gain & Capital Percentage. Directly correlates with risk management and prop-firm compliance.
+  - Operators can click and type directly into *any* of the 4 inputs, instantly updating the other 3 without mode switching.
+
+#### 3. Reactive State Synchronization (Zero Feedback Loops & Cursor Jitter)
+A notorious failure in multi-way reactive data binding is the **infinite circular recalculation loop** and **cursor jump bug** (e.g., typing `1.085` in the Price input triggers a Pips calculation, which recalculates Price and re-formats it to `1.08500`, forcing the user's cursor to the end of the input).
+
+```
+                      [ User Edits Field X ]
+                                │
+                                ▼
+               ┌─────────────────────────────────┐
+               │ 1. Set Active Focus Lock:       │
+               │    `focusedField = 'X'`         │
+               └────────────────┬────────────────┘
+                                │
+                                ▼
+               ┌─────────────────────────────────┐
+               │ 2. Update Local Raw String:     │
+               │    `rawInput = e.target.value`  │
+               │    (NO premature formatting!)   │
+               └────────────────┬────────────────┘
+                                │
+                                ▼
+               ┌─────────────────────────────────┐
+               │ 3. Parse Float & Validate:      │
+               │    `val = parseFloat(rawInput)` │
+               └────────────────┬────────────────┘
+                                │
+               ┌────────────────┴────────────────┐
+          Invalid                                Valid
+               │                                 │
+               ▼                                 ▼
+      [ Suppress Sync ]               ┌─────────────────────────────────┐
+                                      │ 4. Unidirectional Quant Engine: │
+                                      │    Compute pure numbers for     │
+                                      │    all 3 other fields.          │
+                                      └────────────────┬────────────────┘
+                                                       │
+                                                       ▼
+                                      ┌─────────────────────────────────┐
+                                      │ 5. Epsilon Threshold Check:     │
+                                      │    |new - old| > 1e-5           │
+                                      │    Push to other 3 signals.     │
+                                      └────────────────┬────────────────┘
+                                                       │
+                                    On Input Blur      ▼
+                                      ┌─────────────────────────────────┐
+                                      │ 6. Format canonical string for  │
+                                      │    Field X: `toFixed(digits)`   │
+                                      │    Release `focusedField = null`│
+                                      └─────────────────────────────────┘
+```
+
+#### Defenses Implemented in Production:
+1. **Focus Lock Shield**: While `focusedField === 'price'`, external updates to the Price input are blocked, preserving caret position and user keystrokes.
+2. **Epsilon Quantization**: All recalculations enforce an epsilon threshold ($\epsilon = 10^{-5}$) before emitting state modifications, preventing infinitesimal floating-point oscillations.
+3. **Step Snapping**: Numeric steppers (`[+]` / `[-]`) increment by broker-compliant ticks for Price (`1 * tick_size`), `0.1` or `1.0` for Pips, `$5.00` or `$10.00` for Cash, and `0.10%` for Capital Risk.
+
 ---
 
 ## 4. Cross-References

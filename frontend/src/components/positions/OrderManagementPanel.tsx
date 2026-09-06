@@ -117,7 +117,7 @@ export const OrderManagementPanel: Component = () => {
             >
               Floating P&L:{' '}
               {preferencesStore.pnlDisplayMode() === 'stealth_mask'
-                ? '***.**'
+                ? '••••••'
                 : preferencesStore.pnlDisplayMode() === 'r_multiple'
                 ? `${positionsStore.totalFloatingR() > 0 ? '+' : ''}${positionsStore.totalFloatingR().toFixed(2)} R`
                 : totalPnl() > 0
@@ -136,7 +136,7 @@ export const OrderManagementPanel: Component = () => {
             >
               🔥 Heat:{' '}
               {preferencesStore.pnlDisplayMode() === 'stealth_mask'
-                ? `***.** (${positionsStore.portfolioHeat().heatPct.toFixed(1)}%)`
+                ? `•••••• (${positionsStore.portfolioHeat().heatPct.toFixed(1)}%)`
                 : preferencesStore.pnlDisplayMode() === 'r_multiple'
                 ? `${positionsStore.portfolioHeatR().toFixed(2)} R (${positionsStore.portfolioHeat().heatPct.toFixed(1)}%)`
                 : `$${positionsStore.portfolioHeat().totalHeatAmount.toFixed(2)} (${positionsStore.portfolioHeat().heatPct.toFixed(1)}%)`}

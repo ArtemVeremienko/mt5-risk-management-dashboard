@@ -3,6 +3,7 @@ import { CalculatedSymbolResult } from '../../types';
 import { marketStore } from '../../stores/marketStore';
 import { preferencesStore } from '../../stores/preferencesStore';
 import { accountStore } from '../../stores/accountStore';
+import { positionsStore } from '../../stores/positionsStore';
 import { computeDefaultSlPips } from '../../utils/lotCalculator';
 import { RISK_CONSTANTS } from '../../config/constants';
 import { MicroSparkline } from './MicroSparkline';
@@ -24,6 +25,7 @@ export const SymbolRow: Component<Props> = (props) => {
   const isDragging = () => marketStore.draggedSymbol() === props.symbol;
   const isDragOver = () => marketStore.dragOverSymbol() === props.symbol;
   const [isRowHovered, setIsRowHovered] = createSignal(false);
+  const [isAdrHovered, setIsAdrHovered] = createSignal(false);
 
   const defaultSL = createMemo<number>(() => {
     const d = item();
@@ -108,6 +110,54 @@ export const SymbolRow: Component<Props> = (props) => {
     if (free === undefined || free === null || free <= 0) return false;
     const req = d.calc.required_margin || 0;
     return req > free * RISK_CONSTANTS.MAX_MARGIN_UTILIZATION;
+  });
+
+  // Dynamic risk & margin display respecting PnL display mode (Currency vs. R-Multiple vs. Stealth Mask)
+  const effectiveRiskDisplay = createMemo(() => {
+    const d = item();
+    if (!d) return '';
+    const mode = preferencesStore.pnlDisplayMode();
+    const riskAmount = d.calc.effective_risk_amount || 0;
+    const riskPct = d.calc.effective_risk_pct || 0;
+    const riskPctDisplay = d.calc.effective_risk_pct_display || riskPct.toFixed(2);
+
+    if (mode === 'stealth_mask') {
+      return `•••••• (${riskPctDisplay}%)`;
+    }
+    if (mode === 'r_multiple') {
+      const oneR = positionsStore.oneRCash();
+      const riskR = oneR > 0 ? riskAmount / oneR : (riskPct / (preferencesStore.customRiskPct() || 1.0));
+      return `${riskR.toFixed(2)} R (${riskPctDisplay}%)`;
+    }
+    return d.calc.risk_display || `$${riskAmount.toFixed(2)} (${riskPctDisplay}%)`;
+  });
+
+  const marginDisplay = createMemo(() => {
+    const d = item();
+    if (!d) return '';
+    const mode = preferencesStore.pnlDisplayMode();
+    const reqMargin = d.calc.required_margin || 0;
+    const reqMarginDisplay = d.calc.required_margin_display || reqMargin.toFixed(2);
+    const marginUtilPct = d.calc.margin_utilization_pct || 0;
+
+    if (mode === 'stealth_mask') {
+      return 'Margin: ••••••';
+    }
+    if (mode === 'r_multiple') {
+      return `Margin: ${marginUtilPct.toFixed(1)}%`;
+    }
+    return `Margin: $${reqMarginDisplay}`;
+  });
+
+  const riskCellTooltip = createMemo(() => {
+    const d = item();
+    if (!d) return 'Click to view deep dive analysis';
+    const riskAmount = (d.calc.effective_risk_amount || 0).toFixed(2);
+    const reqMargin = d.calc.required_margin_display || '0.00';
+    const oneR = positionsStore.oneRCash();
+    const riskR = oneR > 0 ? ((d.calc.effective_risk_amount || 0) / oneR).toFixed(2) : '1.00';
+    const marginUtilPct = (d.calc.margin_utilization_pct || 0).toFixed(1);
+    return `Click to view deep dive analysis · Risk: $${riskAmount} (${riskR} R) · Margin: $${reqMargin} (${marginUtilPct}% of deposit)`;
   });
 
   // 5-State Execution Button Engine & Dual-Arm Safety State Machine
@@ -317,37 +367,139 @@ export const SymbolRow: Component<Props> = (props) => {
           {/* Col 3: 14D ADR & Session Exhaustion Micro-Gauge */}
           <td class="text-right">
             <div
-              class="adr-cell-stacked"
-              title={
-                data().spec.today_range_pips !== undefined
-                  ? `Session Range: ${data().spec.today_range_pips}p (${data().spec.adr_used_pct || 0}% of ADR)\nRoom: ↑${data().spec.room_up_pips || 0}p · ↓${data().spec.room_down_pips || 0}p`
-                  : `14D ADR: ${data().spec.adr_display} p`
-              }
+              class="adr-cell-wrapper"
+              onMouseEnter={() => setIsAdrHovered(true)}
+              onMouseLeave={() => setIsAdrHovered(false)}
             >
-              <div class="adr-top-row">
-                <span class="adr-val tabular-num">{data().spec.adr_display}p</span>
+              <div class="adr-cell-stacked">
+                <div class="adr-top-row">
+                  <span class="adr-val tabular-num">{data().spec.adr_display}p</span>
+                  <Show when={data().spec.adr_used_pct !== undefined}>
+                    <span
+                      class="adr-pct-badge tabular-num"
+                      classList={{
+                        'adr-warning': (data().spec.adr_used_pct || 0) >= 90,
+                        'adr-caution': (data().spec.adr_used_pct || 0) >= 70 && (data().spec.adr_used_pct || 0) < 90,
+                      }}
+                    >
+                      {(data().spec.adr_used_pct || 0) >= 90 ? '⚠️ ' : ''}{Math.round(data().spec.adr_used_pct || 0)}%
+                    </span>
+                  </Show>
+                </div>
                 <Show when={data().spec.adr_used_pct !== undefined}>
-                  <span
-                    class="adr-pct-badge tabular-num"
-                    classList={{
-                      'adr-warning': (data().spec.adr_used_pct || 0) >= 90,
-                      'adr-caution': (data().spec.adr_used_pct || 0) >= 70 && (data().spec.adr_used_pct || 0) < 90,
-                    }}
-                  >
-                    {(data().spec.adr_used_pct || 0) >= 90 ? '⚠️ ' : ''}{Math.round(data().spec.adr_used_pct || 0)}%
-                  </span>
+                  <div class="adr-gauge-bar">
+                    <div
+                      class="adr-gauge-fill"
+                      classList={{
+                        'gauge-danger': (data().spec.adr_used_pct || 0) >= 90,
+                        'gauge-caution': (data().spec.adr_used_pct || 0) >= 70 && (data().spec.adr_used_pct || 0) < 90,
+                      }}
+                      style={{ width: `${Math.min(100, Math.max(2, data().spec.adr_used_pct || 0))}%` }}
+                    />
+                  </div>
                 </Show>
               </div>
-              <Show when={data().spec.adr_used_pct !== undefined}>
-                <div class="adr-gauge-bar">
-                  <div
-                    class="adr-gauge-fill"
-                    classList={{
-                      'gauge-danger': (data().spec.adr_used_pct || 0) >= 90,
-                      'gauge-caution': (data().spec.adr_used_pct || 0) >= 70 && (data().spec.adr_used_pct || 0) < 90,
-                    }}
-                    style={{ width: `${Math.min(100, Math.max(2, data().spec.adr_used_pct || 0))}%` }}
-                  />
+
+              {/* Rich Institutional ADR & Session Range Micro-Popover */}
+              <Show when={isAdrHovered()}>
+                <div class="adr-telemetry-popover">
+                  <div class="adr-popover-header">
+                    <div class="adr-popover-title-group">
+                      <span class="adr-popover-icon">📐</span>
+                      <span class="adr-popover-title">SESSION RANGE & ADR</span>
+                    </div>
+                    <span
+                      class="adr-popover-status-badge"
+                      classList={{
+                        'status-exhausted': (data().spec.adr_used_pct || 0) >= 90,
+                        'status-caution': (data().spec.adr_used_pct || 0) >= 70 && (data().spec.adr_used_pct || 0) < 90,
+                        'status-normal': (data().spec.adr_used_pct || 0) < 70,
+                      }}
+                    >
+                      {(data().spec.adr_used_pct || 0) >= 90
+                        ? '⚠️ EXHAUSTED'
+                        : (data().spec.adr_used_pct || 0) >= 70
+                        ? 'HIGH EXPANSION'
+                        : 'NORMAL RANGE'}
+                    </span>
+                  </div>
+
+                  {/* Visual Session Range vs ADR Progress Bar */}
+                  <div class="adr-popover-progress-box">
+                    <div class="adr-progress-labels">
+                      <span class="adr-progress-left font-mono">
+                        Session: <strong>{data().spec.today_range_pips ?? data().spec.adr_display}p</strong>
+                      </span>
+                      <span class="adr-progress-right font-mono">
+                        14D ADR: <strong>{data().spec.adr_display}p</strong>
+                      </span>
+                    </div>
+                    <div class="adr-popover-track">
+                      <div
+                        class="adr-popover-fill"
+                        classList={{
+                          'fill-danger': (data().spec.adr_used_pct || 0) >= 90,
+                          'fill-caution': (data().spec.adr_used_pct || 0) >= 70 && (data().spec.adr_used_pct || 0) < 90,
+                          'fill-normal': (data().spec.adr_used_pct || 0) < 70,
+                        }}
+                        style={{
+                          width: `${Math.min(100, Math.max(2, data().spec.adr_used_pct || 0))}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* 2x2 Telemetry Quant Grid */}
+                  <div class="adr-popover-grid">
+                    <div class="adr-popover-item">
+                      <span class="adr-item-label">Used of Daily ADR</span>
+                      <span
+                        class="adr-item-val font-mono font-bold"
+                        classList={{
+                          'text-loss': (data().spec.adr_used_pct || 0) >= 90,
+                          'text-warning': (data().spec.adr_used_pct || 0) >= 70 && (data().spec.adr_used_pct || 0) < 90,
+                          'text-profit': (data().spec.adr_used_pct || 0) < 70,
+                        }}
+                      >
+                        {data().spec.adr_used_pct !== undefined ? `${Math.round(data().spec.adr_used_pct)}%` : '—'}
+                      </span>
+                    </div>
+
+                    <div class="adr-popover-item">
+                      <span class="adr-item-label">14D Volatility (ATR)</span>
+                      <span class="adr-item-val font-mono">{data().spec.atr_display ?? data().spec.adr_display}p</span>
+                    </div>
+
+                    <div class="adr-popover-item">
+                      <span class="adr-item-label">Remaining Room ↑ Long</span>
+                      <span
+                        class="adr-item-val font-mono"
+                        classList={{
+                          'text-profit': (data().spec.room_up_pips || 0) > 0,
+                          'text-neutral': (data().spec.room_up_pips || 0) <= 0,
+                        }}
+                      >
+                        {data().spec.room_up_pips !== undefined
+                          ? `↑ +${data().spec.room_up_pips.toFixed(1)}p`
+                          : '—'}
+                      </span>
+                    </div>
+
+                    <div class="adr-popover-item">
+                      <span class="adr-item-label">Remaining Room ↓ Short</span>
+                      <span
+                        class="adr-item-val font-mono"
+                        classList={{
+                          'text-loss': (data().spec.room_down_pips || 0) > 0,
+                          'text-neutral': (data().spec.room_down_pips || 0) <= 0,
+                        }}
+                      >
+                        {data().spec.room_down_pips !== undefined
+                          ? `↓ -${data().spec.room_down_pips.toFixed(1)}p`
+                          : '—'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </Show>
             </div>
@@ -418,7 +570,7 @@ export const SymbolRow: Component<Props> = (props) => {
               <Show when={isRiskDeviated()}>
                 <span
                   class="risk-alert-icon"
-                  title={`Risk deviation warning: Min/Max broker lot clamp caused effective risk to deviate (${data().calc.risk_display})`}
+                  title={`Risk deviation warning: Min/Max broker lot clamp caused effective risk to deviate (${effectiveRiskDisplay()})`}
                 >
                   ⚠️
                 </span>
@@ -439,7 +591,7 @@ export const SymbolRow: Component<Props> = (props) => {
             <div
               class="risk-stacked-cell"
               onClick={() => props.onOpenDeepDive(data())}
-              title="Click to view deep dive analysis"
+              title={riskCellTooltip()}
             >
               <div class="risk-main-row">
                 <span
@@ -448,11 +600,11 @@ export const SymbolRow: Component<Props> = (props) => {
                     'risk-elevated': isRiskDeviated() || isMaxRiskExceeded(),
                   }}
                 >
-                  {data().calc.risk_display}
+                  {effectiveRiskDisplay()}
                 </span>
               </div>
               <div class="margin-sub-row">
-                <span class="margin-sub-text">Margin: ${data().calc.required_margin_display}</span>
+                <span class="margin-sub-text">{marginDisplay()}</span>
               </div>
             </div>
           </td>

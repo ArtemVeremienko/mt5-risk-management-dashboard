@@ -369,3 +369,113 @@
 2. **Viewport Eye Drift Containment**:
    * All primary screener grid wrappers (`.matrix-section`) must be constrained with `max-width: 1440px; margin: 0 auto; width: 100%;` to eliminate horizontal eye strain and excessive saccadic motion on $2560\text{px}$ or $3840\text{px}$ ultra-wide monitors.
 
+---
+
+## 13. Cognitive De-Biasing, Van Tharp R-Normalization & Popover Ergonomics
+
+### System & Architectural Insights
+* **The "Collateral vs Downside Risk" Categorical Error (Margin in R is an Anti-Pattern)**:
+  * *Insight*: Downside risk (Stop Loss distance $\times$ lot size $\times$ pip value) and collateral requirement (Required Margin) belong to fundamentally separate financial domains.
+  * *Trap*: Attempting to express Required Margin in $R$-multiples (e.g. `Margin: 2330.0 R` on Bitcoin or low-leverage crypto) breaks quantitative intuition. Margin is temporary locked equity returned upon trade closure; Stop Loss is unrecoverable capital destruction. Displaying margin in $R$ induces severe operator panic and cognitive distortion.
+  * *Architectural Rule*: Downside Risk is strictly normalized in **Van Tharp $R$-multiples** ($R_{\text{loss}} = \frac{\text{Loss}}{\text{1R Cash}}$), whereas Margin Collateral is strictly rendered as **$\%$ of Deposited Account Equity** (`Margin: 0.4%`).
+
+* **Two-Line Tabular Telemetry Invariant for Screener & Blotter Cells**:
+  * *Insight*: Financial operators require simultaneous awareness of technical chart geometry (price levels) and risk magnitude without visual clutter.
+  * *Pattern*: In both the Risk Screener and Positions Blotter, dedicate cell rows to a strict 2-line visual hierarchy:
+    * **Line 1 (Geometry)**: Absolute broker price level (`1.08450`), formatted strictly to instrument digits.
+    * **Line 2 (Telemetry)**: Single contextual metric driven by active display mode:
+      * `currency`: `-$83.05` / `+$166.10`
+      * `r_multiple`: `-0.97 R` / `+1.94 R`
+      * `stealth_mask`: technical distance `-25.0 p` / `+50.0 p` (zero dollar anchor)
+    * **Hover Tooltip**: Complete 3D inspection breakdown on demand (`Stop Loss: 1.08450 | -25.0 p | -$83.05 (-0.97 R)`).
+
+### Gotchas, Traps & Framework Quirks
+* **Global Hotkey Double-Dispatch via Redundant Window Listeners**:
+  * *Trap*: Registering keydown listeners in both the root application shell (`App.tsx`) and an embedded layout component (`HeaderMetricsBar.tsx`) without coordinating handlers causes identical events (`'h'` / `'H'`) to fire twice synchronously on a single physical keystroke.
+  * *Symptom*: Cycling state machines (e.g., `currency` $\rightarrow$ `r_multiple` $\rightarrow$ `stealth_mask` $\rightarrow$ `currency`) advance two steps per keypress, effectively making `r_multiple` completely unreachable when toggled via keyboard.
+  * *Fix*: Consolidate UI mode hotkeys strictly into the owning component (`HeaderMetricsBar.tsx`), checking `activeElement` against editable inputs (`INPUT`, `TEXTAREA`, `contentEditable`), and remove redundant listeners from `App.tsx`.
+
+* **Copy-Paste Telemetry Logic in Reactive Signals**:
+  * *Trap*: When generating a memoized header metric (e.g. `formattedHeaderEquity`), copying floating P&L logic resulted in `EQ` displaying `+0.54 R` instead of the account's actual net equity. In a $10,000 account with -$50 floating P&L, seeing `P&L: -0.50 R | EQ: -0.50 R` was confusing and mathematically wrong.
+  * *Fix*: In de-biased modes (`r_multiple` and `stealth_mask`), mask both `BAL`, `FREE`, and `EQ` consistently with uniform bullet characters (`••••••`), backed by a 300ms hover-to-reveal tooltip displaying the live dollar equity for operator verification.
+
+* **Grid Label Clipping on High-DPI Windows Sub-Pixel Typography**:
+  * *Trap*: Fixed grid template columns (`grid-template-columns: 58px 1fr;`) for stacked form tiers inside popovers (e.g. `SltpEditHub.tsx`) clipped labels with longer suffixes (e.g., `LOSS (-0.97` or `PROFIT (R)`). On Windows with ClearType or 125% DPI scaling, font glyphs expand by 1.1–1.3x.
+  * *Fix*: Allocate minimum `72px 1fr` for tier label columns, pairing with `text-transform: uppercase; white-space: nowrap;` to guarantee zero truncation and zero unexpected line wraps.
+
+### Domain & API Nuances
+* **Van Tharp 1R Baseline Resolution Order**:
+  * The dollar value of $1R$ is resolved reactively via `positionsStore.oneRCash()`:
+    $$1R_{\text{cash}} = \text{Working Capital} \times \frac{\text{Target Risk \%}}{100}$$
+  * If Working Capital is zero or uninitialized during initial connection boots, fallback strictly to `$100.00` (or `1.0`) to avoid `NaN`, `Infinity`, or zero-division crashes across client-side mathematical calculations.
+
+* **Bidirectional 4-Way Order Management Synchronization**:
+  * In `SltpEditHub.tsx`, modifying any one parameter must immediately update the other three without cyclical feedback jitter:
+    $$\text{Price} \longleftrightarrow \text{Pips} \longleftrightarrow \text{Cash (\$)} \longleftrightarrow \text{R-Multiple (R)}$$
+  * When editing in `r_multiple` mode, the user types directly in $R$-units (`-1.00 R`, `+2.00 R`). The calculation chain is:
+    $$\text{Cash Loss} = -|R| \times 1R_{\text{cash}} \quad \longrightarrow \quad \Delta\text{Pips} = \frac{|\text{Cash Loss}|}{\text{Volume} \times \text{PipValue}} \quad \longrightarrow \quad \text{Price} = \text{OpenPrice} \pm (\Delta\text{Pips} \times \text{PipSize})$$
+  * Always pass the instrument's exact `digits` to `toFixed(digits)` to prevent broker reject code `10015 (Invalid Price)`.
+
+### Negative Knowledge (What NOT to Do)
+1. **DO NOT retain raw fiat dollar amounts in deep-dive summary cards or pre-trade modals during de-biased sessions**:
+   - *Why*: Showing masked or normalized units on the main grid while displaying raw dollars (`Target Risk: $85.51`) inside deep-dive modals completely breaks the psychological de-biasing shield and re-triggers loss aversion anchors.
+2. **DO NOT mix disparate masking glyphs across the terminal**:
+   - *Why*: Mixing `$••••••` on balances with `***.**` on equity and `***` on pills creates visual noise and looks like a rendering bug. Standardize on clean Unicode bullets (`••••••`) across all masked fields without currency prefixes.
+3. **DO NOT use `1/2 ADR` as a primary intraday Stop Loss preset**:
+   - *Why*: For high-volatility intraday trading (FX, Gold, Crypto), $0.5 \times \text{ADR}$ is excessively wide ($40\text{--}80\text{ pips}$), reducing volume capacity and forcing massive dollar commitments. Replace with a 1-click snap to `🎯 1.0 R` baseline risk.
+
+### Reusable Conventions & Rules
+1. **Uniform Stealth Standard (Option A)**:
+   - When `pnlDisplayMode === 'stealth_mask'`, all financial magnitudes (BAL, WC, FREE, EQ, P&L, Heat) must render as invariant Unicode bullet sequences (`••••••`), with points/pips displayed as `(•••• p)`.
+   - Never prefix masked bullets with currency symbols (`$••••••` $\rightarrow$ `••••••`).
+2. **300ms Native Tooltip Inspection Contract**:
+   - Any metric masked for de-biasing or stealth privacy must provide an unmasked native `title` attribute, enabling quick, intentional hover-to-reveal without persisting visual anchors on screen or in recordings.
+3. **1-Click Baseline Snap Chip**:
+   - All SL/TP editing surfaces must include an explicit `🎯 1.0 R` preset chip that automatically pins the stop loss distance to the account's configured mathematical unit of risk ($1.00 R$).
+
+---
+
+## 14. Rich Telemetry Hover Cards, Table Cell Overflow Stacking, and Zero-Flicker Micro-Popovers
+
+### System & Architectural Insights
+* **Replacing Native Browser Tooltips with Reactive Zero-Delay Micro-Popovers**:
+  * *Insight*: Native browser `title="..."` tooltips are unstyled, delayed by 500ms–1000ms, and cannot present structured data hierarchies or colored progress gauges.
+  * *Pattern*: In table cells ([SymbolRow.tsx](file:///d:/projects/mt5-risk-management-dashboard/frontend/src/components/matrix/SymbolRow.tsx)), wrap the cell content in a relative container (`.adr-cell-wrapper`) and trigger a floating micro-popover card (`.adr-telemetry-popover`) via local fine-grained Solid.js signals (`isAdrHovered`).
+  * *Architecture*: Calculate session exhaustion baselines directly from streamed tick specifications (`data().spec.today_range_pips`, `data().spec.adr_used_pct`, `data().spec.room_up_pips`, `data().spec.room_down_pips`) without dispatching extra network roundtrips.
+
+### Gotchas, Traps & Framework Quirks
+* **Table Cell Hover Flickering caused by Child Popover Hit-Testing**:
+  * *Trap*: When hovering over a parent element (`.adr-cell-wrapper`), rendering a popover directly below or adjacent to the cursor can transfer pointer hit-testing to the popover itself. If the mouse leaves or moves across the child card boundaries, the parent receives spurious `mouseleave` / `mouseenter` events, producing rapid visual flickering.
+  * *Root Cause*: CSS pointer events default to `auto` on absolute child elements inside relative table cell containers.
+  * *Fix*: Set `pointer-events: none;` on informational floating micro-popover cards (`.adr-telemetry-popover`). The mouse interaction remains solely on the underlying cell trigger, guaranteeing stable, flicker-free rendering.
+
+* **Windows Command-Line CP1251 UnicodeEncodeError in Test Scripts**:
+  * *Trap*: When printing extracted DOM text containing emojis or mathematical symbols (such as `📐`, `⚠️`, `↑`, `↓`) in test scripts running under Python on Windows, `print(text)` crashes with:
+    `UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f4d0' in position 0: character maps to <undefined>`.
+  * *Root Cause*: Windows standard output defaults to legacy OEM/ANSI code pages (e.g. `cp1251`, `cp1252`, `cp437`) instead of UTF-8.
+  * *Fix*: In automated test and scratch scripts on Windows, configure `sys.stdout.reconfigure(encoding='utf-8', errors='replace')` or avoid raw `print(unicode_dom_text)` directly to stdout.
+
+* **Table Stacking Contexts and Overflow Clipping (`overflow: hidden`)**:
+  * *Trap*: Tables with scroll wrappers or fixed column clipping can truncate or hide elements positioned with `position: absolute; top: calc(100% + 6px);`.
+  * *Fix*: Ensure the popover's z-index is set high (`z-index: 1050`) and verify that parent `<td>` elements do not have `overflow: hidden` applied when hosting interactive floating telemetry cards.
+
+### Domain & API Nuances
+* **Daily ADR vs ATR Exhaustion Metrics**:
+  * *Baseline*: 14D ADR (Average Daily Range) is computed over closed daily D1 bars ($High - Low$).
+  * *Exhaustion State Machine*:
+    * `adr_used_pct < 70%`: `NORMAL RANGE` (Emerald green `#089981`). Favorable for trend continuation.
+    * `70% <= adr_used_pct < 90%`: `HIGH EXPANSION` (Amber `#f59e0b`). Caution for intraday breakout pullbacks.
+    * `adr_used_pct >= 90%`: `⚠️ EXHAUSTED` (Crimson `#f23645`). High mean-reversion probability; long breakouts at the top of ADR have statistically negative expected value.
+  * *Fallbacks*: When market is closed or at the start of a session where `today_range_pips` is not yet established, `adr_used_pct` can be `undefined`. Components must gracefully render baseline `adr_display` without breaking layout or displaying `NaN%`.
+
+### Negative Knowledge (What NOT to Do)
+1. **DO NOT rely on native browser `title` attributes for multi-dimensional telemetry**:
+   - *Why*: Native tooltips cannot be styled, cannot render CSS progress bars or color-coded status badges, and induce unacceptable latency during rapid pre-trade scanning.
+2. **DO NOT allow hover cards to block clicks on underlying table rows or adjacent execute buttons**:
+   - *Why*: Floating cards with `pointer-events: auto` that overlap adjacent table rows or BUY/SELL execution buttons can inadvertently intercept emergency order clicks or double-click row expansions. Always use `pointer-events: none` on hover telemetry cards.
+
+### Reusable Conventions & Rules
+1. **Zero-Latency Telemetry Popover Pattern**:
+   - High-density table cells requiring secondary telemetry must use the `<div class="*-cell-wrapper" onMouseEnter={...} onMouseLeave={...}>` pattern paired with `pointer-events: none` and `animation: popoverFadeIn 0.15s ease`.
+2. **Exhaustion Color Palette Semantics**:
+   - In all volatility and ADR telemetry, adhere strictly to the 3-state token mapping: `< 70%` $\rightarrow$ `--sys-color-profit`, `70%–89%` $\rightarrow$ `--sys-color-warning`, and `≥ 90%` $\rightarrow$ `--sys-color-loss`.

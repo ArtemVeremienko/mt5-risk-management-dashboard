@@ -450,7 +450,7 @@ export const RiskConfigModal: Component<Props> = (props) => {
               >
                 <option value="price">Price Level (e.g. 1.15945)</option>
                 <option value="pips">Pip Distance (e.g. 25.0 pips)</option>
-                <option value="cash">Profit / Loss $ (e.g. -$50.00)</option>
+                <option value="cash">Profit / Loss ($ / R) (e.g. -$50.00 / -1.00 R)</option>
               </select>
               <span class="form-help-text">
                 Field automatically focused and selected when opening the in-place SL/TP editor.
@@ -500,7 +500,7 @@ export const RiskConfigModal: Component<Props> = (props) => {
               >
                 <option value="currency">💵 Currency Mode (Raw Dollars: +$14.20 / -$28.86)</option>
                 <option value="r_multiple">📐 Normalized R-Multiple (+1.42 R / -0.61 R)</option>
-                <option value="stealth_mask">🕶️ Stealth Mode (Masked: ***.**)</option>
+                <option value="stealth_mask">🕶️ Stealth Mode (Masked: ••••••)</option>
               </select>
               <span class="form-help-text">
                 Suppresses acute threat response and loss aversion (λ ≈ 2.25) during active sessions.

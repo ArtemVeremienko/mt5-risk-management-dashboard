@@ -44,7 +44,7 @@ docs/
   * **Cumulative Prospect Theory & Loss Aversion** (Kahneman & Tversky, 1979; 1992: $\lambda \approx 2.25$): How pulsating red losses accelerate the Disposition Effect and trigger panic revenge-trading martingale cascades in the convex loss domain.
   * **Visual Finance Empirical Evidence** (Bazley, Cronqvist, & Mormann, 2021): Proof of color distorting subjective risk appraisal and CVD control group verification.
   * **Feature Integration Theory** (Anne Treisman): How 15–20 rows of glowing neon buttons collapse preattentive $O(1)$ parallel pop-out into degraded $O(N)$ serial search, causing saccadic misdirection and motor fat-finger errors.
-  * **De-biasing UI Specifications**: Stealth PnL modes, Van Tharp $R$-multiple normalization, and spatial separation over chromatic encoding.
+  * **De-biasing UI Specifications**: Stealth PnL modes, Van Tharp $R$-multiple normalization ($1R_{\text{trade}}$ vs $1R_{\text{target}}$), 3-tier progressive balance concealment (Fiat $\to$ Normalized R $\to$ Stealth Mask), hover-to-reveal dwell ergonomics, dimensionless telemetry (Margin Level %, Daily Drawdown traffic-light pill), and cross-terminal benchmarks (cTrader, TradingView, Quantower, NinjaTrader, Bloomberg, Binance).
 
 ### 4. [03. Matrix Execution, Pre-Trade Risk & OMS Architecture](./03_matrix_execution_and_oms.md)
 * **Execution Matrix & Ergonomics**:
@@ -62,6 +62,7 @@ docs/
   * Universal **Cost-Absorbing Break-Even Automation** (absorbing commissions, swaps, exit spread, and broker stop levels).
   * Partial position close edge cases ($V_{\text{current}} = \text{volume\_min}$).
   * Aggregate portfolio exposure vectors and currency heatmaps.
+  * **Multi-Dimensional Order Management Window**: Bidirectional 4-field SL/TP synchronization (Price, Pips, Dollars, Capital Risk %), 2x2 matrix ergonomics, focus-lock state machine, and floating-point anti-jitter quantization.
 
 ### 5. [04. High-Performance MetaTrader 5 Python Architecture](./04_metatrader5_python_best_practices.md)
 * **Process & Concurrency Architecture**:

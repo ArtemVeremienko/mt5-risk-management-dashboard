@@ -4,15 +4,18 @@ import { api } from '../../services/api';
 import { toastStore } from '../../stores/toastStore';
 import { marketStore } from '../../stores/marketStore';
 import { preferencesStore } from '../../stores/preferencesStore';
+import { positionsStore } from '../../stores/positionsStore';
 import { getAssetStepRule, stepPrice } from '../../utils/stepperEngine';
 import { autofocus } from '../../directives/autofocus';
 import {
   slPriceToPipsCash,
   slPipsToPriceCash,
   slCashToPricePips,
+  slRToPricePipsCash,
   tpPriceToPipsCash,
   tpPipsToPriceCash,
   tpCashToPricePips,
+  tpRToPricePipsCash,
 } from '../../utils/positionMath';
 
 // Reference directive for compiler JSX recognition
@@ -31,10 +34,12 @@ export const SltpEditHub: Component<SltpEditHubProps> = (props) => {
   const [slPrice, setSlPrice] = createSignal<string>('');
   const [slPips, setSlPips] = createSignal<string>('');
   const [slCash, setSlCash] = createSignal<string>('');
+  const [slR, setSlR] = createSignal<string>('');
 
   const [tpPrice, setTpPrice] = createSignal<string>('');
   const [tpPips, setTpPips] = createSignal<string>('');
   const [tpCash, setTpCash] = createSignal<string>('');
+  const [tpR, setTpR] = createSignal<string>('');
 
   const [isSubmitting, setIsSubmitting] = createSignal<boolean>(false);
   const [editingSide] = createSignal<'SL' | 'TP'>(props.initialSide || 'SL');
@@ -49,6 +54,28 @@ export const SltpEditHub: Component<SltpEditHubProps> = (props) => {
     return calcResult?.calc?.pip_value_per_lot || 10.0;
   });
 
+  const slRMultipleText = createMemo(() => {
+    const val = parseFloat(slCash());
+    if (isNaN(val) || val === 0) return '';
+    const oneR = positionsStore.oneRCash();
+    return oneR > 0 ? `${(val / oneR).toFixed(2)} R` : '';
+  });
+
+  const tpRMultipleText = createMemo(() => {
+    const val = parseFloat(tpCash());
+    if (isNaN(val) || val === 0) return '';
+    const oneR = positionsStore.oneRCash();
+    return oneR > 0 ? `${(val / oneR).toFixed(2)} R` : '';
+  });
+
+  // Helper to compute R from cash
+  const calcRFromCash = (cashVal: string | number) => {
+    const val = typeof cashVal === 'string' ? parseFloat(cashVal) : cashVal;
+    if (isNaN(val) || val === 0) return '';
+    const oneR = positionsStore.oneRCash();
+    return oneR > 0 ? (val / oneR).toFixed(2) : '';
+  };
+
   // Initialize signals from current position values
   createEffect(() => {
     const p = props.position;
@@ -61,10 +88,12 @@ export const SltpEditHub: Component<SltpEditHubProps> = (props) => {
       setSlPrice(res.price);
       setSlPips(res.pips);
       setSlCash(res.cash);
+      setSlR(calcRFromCash(res.cash));
     } else {
       setSlPrice('');
       setSlPips('');
       setSlCash('');
+      setSlR('');
     }
 
     if (p.tp && p.tp > 0) {
@@ -72,10 +101,12 @@ export const SltpEditHub: Component<SltpEditHubProps> = (props) => {
       setTpPrice(res.price);
       setTpPips(res.pips);
       setTpCash(res.cash);
+      setTpR(calcRFromCash(res.cash));
     } else {
       setTpPrice('');
       setTpPips('');
       setTpCash('');
+      setTpR('');
     }
   });
 
@@ -86,6 +117,7 @@ export const SltpEditHub: Component<SltpEditHubProps> = (props) => {
     setSlPrice(res.price);
     setSlPips(res.pips);
     setSlCash(res.cash);
+    setSlR(calcRFromCash(res.cash));
   };
 
   const updateSlFromPips = (val: string | number) => {
@@ -94,6 +126,7 @@ export const SltpEditHub: Component<SltpEditHubProps> = (props) => {
     setSlPrice(res.price);
     setSlPips(res.pips);
     setSlCash(res.cash);
+    setSlR(calcRFromCash(res.cash));
   };
 
   const updateSlFromCash = (val: string | number) => {
@@ -102,6 +135,17 @@ export const SltpEditHub: Component<SltpEditHubProps> = (props) => {
     setSlPrice(res.price);
     setSlPips(res.pips);
     setSlCash(res.cash);
+    setSlR(calcRFromCash(res.cash));
+  };
+
+  const updateSlFromR = (val: string | number) => {
+    const p = props.position;
+    const oneR = positionsStore.oneRCash();
+    const res = slRToPricePipsCash(val, p.price_open, p.type === 'BUY', p.volume, stepRule().pipSize, pipValPerLot(), p.digits, oneR);
+    setSlPrice(res.price);
+    setSlPips(res.pips);
+    setSlCash(res.cash);
+    setSlR(res.r || '');
   };
 
   // TP update handlers
@@ -111,6 +155,7 @@ export const SltpEditHub: Component<SltpEditHubProps> = (props) => {
     setTpPrice(res.price);
     setTpPips(res.pips);
     setTpCash(res.cash);
+    setTpR(calcRFromCash(res.cash));
   };
 
   const updateTpFromPips = (val: string | number) => {
@@ -119,6 +164,7 @@ export const SltpEditHub: Component<SltpEditHubProps> = (props) => {
     setTpPrice(res.price);
     setTpPips(res.pips);
     setTpCash(res.cash);
+    setTpR(calcRFromCash(res.cash));
   };
 
   const updateTpFromCash = (val: string | number) => {
@@ -127,6 +173,17 @@ export const SltpEditHub: Component<SltpEditHubProps> = (props) => {
     setTpPrice(res.price);
     setTpPips(res.pips);
     setTpCash(res.cash);
+    setTpR(calcRFromCash(res.cash));
+  };
+
+  const updateTpFromR = (val: string | number) => {
+    const p = props.position;
+    const oneR = positionsStore.oneRCash();
+    const res = tpRToPricePipsCash(val, p.price_open, p.type === 'BUY', p.volume, stepRule().pipSize, pipValPerLot(), p.digits, oneR);
+    setTpPrice(res.price);
+    setTpPips(res.pips);
+    setTpCash(res.cash);
+    setTpR(res.r || '');
   };
 
   // Steppers for SL
@@ -160,6 +217,17 @@ export const SltpEditHub: Component<SltpEditHubProps> = (props) => {
     updateSlFromCash(-next);
   };
 
+  const stepSlRHandler = (direction: 'UP' | 'DOWN', e?: KeyboardEvent | MouseEvent) => {
+    const current = slR().trim() ? Math.abs(parseFloat(slR())) : 1.0;
+    let step = 0.1;
+    if (e) {
+      if (e.shiftKey) step = 0.5;
+      else if (e.altKey) step = 0.01;
+    }
+    const next = direction === 'UP' ? current + step : Math.max(0.05, current - step);
+    updateSlFromR(-next);
+  };
+
   // Steppers for TP
   const stepTpPriceHandler = (direction: 'UP' | 'DOWN', e?: KeyboardEvent | MouseEvent) => {
     const p = props.position;
@@ -191,6 +259,17 @@ export const SltpEditHub: Component<SltpEditHubProps> = (props) => {
     updateTpFromCash(next);
   };
 
+  const stepTpRHandler = (direction: 'UP' | 'DOWN', e?: KeyboardEvent | MouseEvent) => {
+    const current = tpR().trim() ? Math.abs(parseFloat(tpR())) : 1.5;
+    let step = 0.1;
+    if (e) {
+      if (e.shiftKey) step = 0.5;
+      else if (e.altKey) step = 0.01;
+    }
+    const next = direction === 'UP' ? current + step : Math.max(0.05, current - step);
+    updateTpFromR(next);
+  };
+
   // Preset Handlers
   const applyBreakEvenSnap = () => {
     const calcResult = marketStore.getCalculatedResult(props.position.symbol);
@@ -204,6 +283,10 @@ export const SltpEditHub: Component<SltpEditHubProps> = (props) => {
     const adrPips = calcResult?.spec?.adr_14_pips || 0;
     const slDistPips = adrPips > 0 ? adrPips * fraction : 15.0;
     updateSlFromPips(slDistPips);
+  };
+
+  const applyOneRPreset = () => {
+    updateSlFromR(-1.0);
   };
 
   const applyRrSnap = (ratio: number) => {
@@ -396,47 +479,98 @@ export const SltpEditHub: Component<SltpEditHubProps> = (props) => {
               </div>
             </div>
 
-            {/* Tier 3: Cash Loss $ */}
+            {/* Tier 3: Risk (R) or Cash Loss $ */}
             <div class="sltp-tier-row">
-              <span class="sltp-tier-label">Loss $</span>
+              <span class="sltp-tier-label">
+                {preferencesStore.pnlDisplayMode() === 'r_multiple' ? 'Risk (R)' : 'Loss $'}
+              </span>
               <div class="sltp-stepper-box">
                 <button
                   type="button"
                   class="btn-stepper-touch"
-                  onClick={(e) => stepSlCashHandler('DOWN', e)}
-                  title="-$10.00 (Shift: -$50, Alt: -$1)"
+                  onClick={(e) => {
+                    if (preferencesStore.pnlDisplayMode() === 'r_multiple') {
+                      stepSlRHandler('DOWN', e);
+                    } else {
+                      stepSlCashHandler('DOWN', e);
+                    }
+                  }}
+                  title={
+                    preferencesStore.pnlDisplayMode() === 'r_multiple'
+                      ? '-0.10 R (Shift: -0.50 R, Alt: -0.01 R)'
+                      : '-$10.00 (Shift: -$50, Alt: -$1)'
+                  }
                   tabindex="-1"
                 >
                   −
                 </button>
-                <input
-                  use:autofocus={editingSide() === 'SL' && preferencesStore.defaultSltpFocusField() === 'cash'}
-                  type="number"
-                  class="sltp-input-main text-risk tabular-num"
-                  placeholder="-$ Loss"
-                  step="1"
-                  value={slCash()}
-                  onFocus={(e) => e.currentTarget.select()}
-                  onBlur={() => {
-                    const num = parseFloat(slCash());
-                    if (!isNaN(num) && num !== 0) setSlCash((-Math.abs(num)).toFixed(2));
-                  }}
-                  onInput={(e) => updateSlFromCash(e.currentTarget.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'ArrowUp') {
-                      e.preventDefault();
-                      stepSlCashHandler('UP', e);
-                    } else if (e.key === 'ArrowDown') {
-                      e.preventDefault();
-                      stepSlCashHandler('DOWN', e);
-                    }
-                  }}
-                />
+                <Show
+                  when={preferencesStore.pnlDisplayMode() === 'r_multiple'}
+                  fallback={
+                    <input
+                      use:autofocus={editingSide() === 'SL' && preferencesStore.defaultSltpFocusField() === 'cash'}
+                      type="number"
+                      class="sltp-input-main text-risk tabular-num"
+                      placeholder="-$ Loss"
+                      step="1"
+                      value={slCash()}
+                      onFocus={(e) => e.currentTarget.select()}
+                      onBlur={() => {
+                        const num = parseFloat(slCash());
+                        if (!isNaN(num) && num !== 0) setSlCash((-Math.abs(num)).toFixed(2));
+                      }}
+                      onInput={(e) => updateSlFromCash(e.currentTarget.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'ArrowUp') {
+                          e.preventDefault();
+                          stepSlCashHandler('UP', e);
+                        } else if (e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          stepSlCashHandler('DOWN', e);
+                        }
+                      }}
+                    />
+                  }
+                >
+                  <input
+                    use:autofocus={editingSide() === 'SL' && preferencesStore.defaultSltpFocusField() === 'cash'}
+                    type="number"
+                    class="sltp-input-main text-risk tabular-num"
+                    placeholder="-1.00 R"
+                    step="0.1"
+                    value={slR()}
+                    onFocus={(e) => e.currentTarget.select()}
+                    onBlur={() => {
+                      const num = parseFloat(slR());
+                      if (!isNaN(num) && num !== 0) setSlR((-Math.abs(num)).toFixed(2));
+                    }}
+                    onInput={(e) => updateSlFromR(e.currentTarget.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        stepSlRHandler('UP', e);
+                      } else if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        stepSlRHandler('DOWN', e);
+                      }
+                    }}
+                  />
+                </Show>
                 <button
                   type="button"
                   class="btn-stepper-touch"
-                  onClick={(e) => stepSlCashHandler('UP', e)}
-                  title="+$10.00 (Shift: +$50, Alt: +$1)"
+                  onClick={(e) => {
+                    if (preferencesStore.pnlDisplayMode() === 'r_multiple') {
+                      stepSlRHandler('UP', e);
+                    } else {
+                      stepSlCashHandler('UP', e);
+                    }
+                  }}
+                  title={
+                    preferencesStore.pnlDisplayMode() === 'r_multiple'
+                      ? '+0.10 R (Shift: +0.50 R, Alt: +0.01 R)'
+                      : '+$10.00 (Shift: +$50, Alt: +$1)'
+                  }
                   tabindex="-1"
                 >
                   +
@@ -469,11 +603,11 @@ export const SltpEditHub: Component<SltpEditHubProps> = (props) => {
               <button
                 type="button"
                 class="btn-preset-chip"
-                onClick={() => applyAdrSlSnap(0.5)}
-                title="Snap SL to 1/2 ADR distance"
+                onClick={applyOneRPreset}
+                title="Snap SL to exactly -1.0 R Initial Risk"
                 tabindex="-1"
               >
-                📐 1/2 ADR
+                🎯 1.0 R
               </button>
             </div>
           </div>
@@ -585,47 +719,98 @@ export const SltpEditHub: Component<SltpEditHubProps> = (props) => {
               </div>
             </div>
 
-            {/* Tier 3: Cash Gain $ */}
+            {/* Tier 3: Profit (R) or Cash Gain $ */}
             <div class="sltp-tier-row">
-              <span class="sltp-tier-label">Profit $</span>
+              <span class="sltp-tier-label">
+                {preferencesStore.pnlDisplayMode() === 'r_multiple' ? 'Profit (R)' : 'Profit $'}
+              </span>
               <div class="sltp-stepper-box">
                 <button
                   type="button"
                   class="btn-stepper-touch"
-                  onClick={(e) => stepTpCashHandler('DOWN', e)}
-                  title="-$10.00 (Shift: -$50, Alt: -$1)"
+                  onClick={(e) => {
+                    if (preferencesStore.pnlDisplayMode() === 'r_multiple') {
+                      stepTpRHandler('DOWN', e);
+                    } else {
+                      stepTpCashHandler('DOWN', e);
+                    }
+                  }}
+                  title={
+                    preferencesStore.pnlDisplayMode() === 'r_multiple'
+                      ? '-0.10 R (Shift: -0.50 R, Alt: -0.01 R)'
+                      : '-$10.00 (Shift: -$50, Alt: -$1)'
+                  }
                   tabindex="-1"
                 >
                   −
                 </button>
-                <input
-                  use:autofocus={editingSide() === 'TP' && preferencesStore.defaultSltpFocusField() === 'cash'}
-                  type="number"
-                  class="sltp-input-main text-profit tabular-num"
-                  placeholder="+$ Profit"
-                  step="1"
-                  value={tpCash()}
-                  onFocus={(e) => e.currentTarget.select()}
-                  onBlur={() => {
-                    const num = parseFloat(tpCash());
-                    if (!isNaN(num) && num !== 0) setTpCash((+Math.abs(num)).toFixed(2));
-                  }}
-                  onInput={(e) => updateTpFromCash(e.currentTarget.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'ArrowUp') {
-                      e.preventDefault();
-                      stepTpCashHandler('UP', e);
-                    } else if (e.key === 'ArrowDown') {
-                      e.preventDefault();
-                      stepTpCashHandler('DOWN', e);
-                    }
-                  }}
-                />
+                <Show
+                  when={preferencesStore.pnlDisplayMode() === 'r_multiple'}
+                  fallback={
+                    <input
+                      use:autofocus={editingSide() === 'TP' && preferencesStore.defaultSltpFocusField() === 'cash'}
+                      type="number"
+                      class="sltp-input-main text-profit tabular-num"
+                      placeholder="+$ Profit"
+                      step="1"
+                      value={tpCash()}
+                      onFocus={(e) => e.currentTarget.select()}
+                      onBlur={() => {
+                        const num = parseFloat(tpCash());
+                        if (!isNaN(num) && num !== 0) setTpCash((+Math.abs(num)).toFixed(2));
+                      }}
+                      onInput={(e) => updateTpFromCash(e.currentTarget.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'ArrowUp') {
+                          e.preventDefault();
+                          stepTpCashHandler('UP', e);
+                        } else if (e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          stepTpCashHandler('DOWN', e);
+                        }
+                      }}
+                    />
+                  }
+                >
+                  <input
+                    use:autofocus={editingSide() === 'TP' && preferencesStore.defaultSltpFocusField() === 'cash'}
+                    type="number"
+                    class="sltp-input-main text-profit tabular-num"
+                    placeholder="+1.50 R"
+                    step="0.1"
+                    value={tpR()}
+                    onFocus={(e) => e.currentTarget.select()}
+                    onBlur={() => {
+                      const num = parseFloat(tpR());
+                      if (!isNaN(num) && num !== 0) setTpR((+Math.abs(num)).toFixed(2));
+                    }}
+                    onInput={(e) => updateTpFromR(e.currentTarget.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        stepTpRHandler('UP', e);
+                      } else if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        stepTpRHandler('DOWN', e);
+                      }
+                    }}
+                  />
+                </Show>
                 <button
                   type="button"
                   class="btn-stepper-touch"
-                  onClick={(e) => stepTpCashHandler('UP', e)}
-                  title="+$10.00 (Shift: +$50, Alt: +$1)"
+                  onClick={(e) => {
+                    if (preferencesStore.pnlDisplayMode() === 'r_multiple') {
+                      stepTpRHandler('UP', e);
+                    } else {
+                      stepTpCashHandler('UP', e);
+                    }
+                  }}
+                  title={
+                    preferencesStore.pnlDisplayMode() === 'r_multiple'
+                      ? '+0.10 R (Shift: +0.50 R, Alt: +0.01 R)'
+                      : '+$10.00 (Shift: +$50, Alt: +$1)'
+                  }
                   tabindex="-1"
                 >
                   +

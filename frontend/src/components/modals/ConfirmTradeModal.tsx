@@ -1,6 +1,7 @@
 import { Component, Show, createSignal } from 'solid-js';
 import { CalculatedSymbolResult } from '../../types';
 import { preferencesStore } from '../../stores/preferencesStore';
+import { positionsStore } from '../../stores/positionsStore';
 import { toastStore } from '../../stores/toastStore';
 import { formatRrRatio } from '../../utils/formatters';
 
@@ -83,11 +84,23 @@ export const ConfirmTradeModal: Component<Props> = (props) => {
                   </div>
                   <div class="confirm-detail-row">
                     <span>Effective Risk:</span>
-                    <strong class="text-accent">{trade().item.calc.risk_display}</strong>
+                    <strong class="text-accent">
+                      {preferencesStore.pnlDisplayMode() === 'r_multiple'
+                        ? `${((trade().item.calc.effective_risk_amount || 0) / positionsStore.oneRCash()).toFixed(2)} R (${trade().item.calc.effective_risk_pct_display}%)`
+                        : preferencesStore.pnlDisplayMode() === 'stealth_mask'
+                        ? `•••••• (${trade().item.calc.effective_risk_pct_display}%)`
+                        : trade().item.calc.risk_display}
+                    </strong>
                   </div>
                   <div class="confirm-detail-row">
                     <span>Required Margin:</span>
-                    <span>${trade().item.calc.required_margin_display}</span>
+                    <span>
+                      {preferencesStore.pnlDisplayMode() === 'r_multiple'
+                        ? `${(trade().item.calc.margin_utilization_pct || 0).toFixed(1)}% of Deposit`
+                        : preferencesStore.pnlDisplayMode() === 'stealth_mask'
+                        ? '••••••'
+                        : `$${trade().item.calc.required_margin_display}`}
+                    </span>
                   </div>
                 </div>
               </div>

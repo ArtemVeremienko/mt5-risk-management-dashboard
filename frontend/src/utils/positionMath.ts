@@ -8,12 +8,15 @@ export interface PricePipsCashState {
   price: string;
   pips: string;
   cash: string;
+  r?: string;
 }
 
 export interface SlRowDisplayInfo {
   price: string;
   pipText: string;
   dollarText: string;
+  rText: string;
+  rMultiple: number;
   isRisk: boolean;
   isBeOrProfit: boolean;
 }
@@ -22,6 +25,8 @@ export interface TpRowDisplayInfo {
   price: string;
   pipText: string;
   dollarText: string;
+  rText: string;
+  rMultiple: number;
   isGain: boolean;
 }
 
@@ -238,6 +243,70 @@ export function tpCashToPricePips(
 }
 
 /**
+ * Calculates SL price, pips distance, and cash loss from target R-multiple.
+ */
+export function slRToPricePipsCash(
+  rVal: string | number,
+  openPrice: number,
+  isBuy: boolean,
+  volume: number,
+  pipSize: number,
+  pipValPerLot: number,
+  digits: number,
+  oneRCash: number
+): PricePipsCashState {
+  const num = typeof rVal === 'string' ? parseFloat(rVal) : rVal;
+  if (isNaN(num) || num === 0) {
+    return {
+      price: '',
+      pips: '',
+      cash: '',
+      r: typeof rVal === 'string' ? rVal : '',
+    };
+  }
+
+  const safe1R = oneRCash > 0 ? oneRCash : 100.0;
+  const cashRisk = -Math.abs(num) * safe1R;
+  const res = slCashToPricePips(cashRisk, openPrice, isBuy, volume, pipSize, pipValPerLot, digits);
+  return {
+    ...res,
+    r: typeof rVal === 'string' ? rVal : (-Math.abs(num)).toFixed(2),
+  };
+}
+
+/**
+ * Calculates TP price, pips distance, and cash gain from target R-multiple.
+ */
+export function tpRToPricePipsCash(
+  rVal: string | number,
+  openPrice: number,
+  isBuy: boolean,
+  volume: number,
+  pipSize: number,
+  pipValPerLot: number,
+  digits: number,
+  oneRCash: number
+): PricePipsCashState {
+  const num = typeof rVal === 'string' ? parseFloat(rVal) : rVal;
+  if (isNaN(num) || num === 0) {
+    return {
+      price: '',
+      pips: '',
+      cash: '',
+      r: typeof rVal === 'string' ? rVal : '',
+    };
+  }
+
+  const safe1R = oneRCash > 0 ? oneRCash : 100.0;
+  const cashGain = Math.abs(num) * safe1R;
+  const res = tpCashToPricePips(cashGain, openPrice, isBuy, volume, pipSize, pipValPerLot, digits);
+  return {
+    ...res,
+    r: typeof rVal === 'string' ? rVal : (+Math.abs(num)).toFixed(2),
+  };
+}
+
+/**
  * Computes cost-covering Break-Even target price including spread & buffer.
  */
 export function calculateBreakEvenPrice(
@@ -265,7 +334,8 @@ export function calculateSlRowInfo(
   pipSize: number,
   pipValPerLot: number,
   digits: number,
-  unitLabel: string = 'p'
+  unitLabel: string = 'p',
+  oneRCash: number = 100.0
 ): SlRowDisplayInfo | null {
   if (!sl || sl <= 0) return null;
   const safePipSize = pipSize > 0 ? pipSize : 0.0001;
@@ -276,11 +346,17 @@ export function calculateSlRowInfo(
   const isBeOrProfit = pips <= 0;
   const absPips = Math.abs(pips);
   const dollarAmount = absPips * volume * safePipVal;
+  const safe1R = oneRCash > 0 ? oneRCash : 100.0;
+  const rVal = (isRisk ? -dollarAmount : dollarAmount) / safe1R;
+  const absR = Math.abs(rVal);
+  const rSign = absR < 0.005 ? '' : (isRisk ? '-' : '+');
 
   return {
     price: sl.toFixed(digits),
     pipText: `${isRisk ? '-' : '+'}${absPips.toFixed(1)} ${unitLabel}`,
     dollarText: `${isRisk ? '-$' : '+$'}${dollarAmount.toFixed(2)}`,
+    rText: `${rSign}${absR.toFixed(2)} R`,
+    rMultiple: rVal,
     isRisk,
     isBeOrProfit,
   };
@@ -297,7 +373,8 @@ export function calculateTpRowInfo(
   pipSize: number,
   pipValPerLot: number,
   digits: number,
-  unitLabel: string = 'p'
+  unitLabel: string = 'p',
+  oneRCash: number = 100.0
 ): TpRowDisplayInfo | null {
   if (!tp || tp <= 0) return null;
   const safePipSize = pipSize > 0 ? pipSize : 0.0001;
@@ -307,11 +384,17 @@ export function calculateTpRowInfo(
   const isGain = diff >= 0;
   const absPips = Math.abs(pips);
   const dollarAmount = absPips * volume * safePipVal;
+  const safe1R = oneRCash > 0 ? oneRCash : 100.0;
+  const rVal = (isGain ? dollarAmount : -dollarAmount) / safe1R;
+  const absR = Math.abs(rVal);
+  const rSign = absR < 0.005 ? '' : (isGain ? '+' : '-');
 
   return {
     price: tp.toFixed(digits),
     pipText: `${isGain ? '+' : '-'}${absPips.toFixed(1)} ${unitLabel}`,
     dollarText: `${isGain ? '+$' : '-$'}${dollarAmount.toFixed(2)}`,
+    rText: `${rSign}${absR.toFixed(2)} R`,
+    rMultiple: rVal,
     isGain,
   };
 }

@@ -325,31 +325,131 @@ Continuous Chromatic Noise              Zero Chromatic Flashes on Static Data
 
 ## 8. Stealth PnL & Normalized Risk Framing: The $R$-Multiple Architecture
 
-The single most toxic driver of retail and institutional execution failure is the **real-time tick-by-tick unhedged currency display** ($\$-\Delta$).
+The single most toxic driver of retail and institutional execution failure is the **real-time tick-by-tick unhedged currency display** ($\$-\Delta$). Translating every 50-millisecond market vibration into fiat currency anchors the trader's cognitive attention to real-world purchasing power equivalents (rent, groceries, debts), triggering acute visceral panic or euphoria that overrules predefined statistical risk plans.
 
-### 8.1 The $R$-Multiple Mathematical Transformation
+---
 
-Van Tharp’s $R$-multiple framework normalizes all market dynamics relative to a trade's ex-ante defined initial risk unit:
+### 8.1 Van Tharp $R$-Multiple Mathematical Formulations
 
-$$R = \frac{P_{\text{current}} - P_{\text{entry}}}{|P_{\text{entry}} - P_{\text{stop}}|}$$
+Van Tharp formalized the concept of $R$ (initial planned risk unit). In quantitative trading desks, performance, floating drawdowns, and distribution of returns are evaluated in dimensionless units of risk rather than volatile fiat dollars.
+
+#### 1. Baseline Risk ($1R$) Definitions:
+There are two distinct definitions required across execution systems:
+- **Trade-Centric $1R_{\text{trade}}$**: The exact dollar loss incurred if the specific order reaches its initial Stop Loss price:
+  $$1R_{\text{trade}} = \frac{|P_{\text{entry}} - P_{\text{SL}}|}{\text{PipSize}} \times \text{PipValuePerLot} \times \text{Volume}$$
+- **Account-Centric $1R_{\text{target}}$**: The planned target risk budget for a single trade based on Working Capital and target Risk %:
+  $$1R_{\text{target}} = \text{WorkingCapital} \times \left(\frac{\text{TargetRiskPct}}{100}\right)$$
+
+*Cockpit Standard*: The blotter maintains **$1R_{\text{trade}}$** for position-level tracking (where initial SL was explicitly set), with automatic fallback to **$1R_{\text{target}}$** if an order was entered without a Stop Loss.
+
+#### 2. Floating $R$-Multiple Dynamics:
+$$\text{Floating } R = \frac{\text{Floating P\&L (\USD)}}{1R}$$
 
 | Price Dynamic | Raw Currency UI Display | Cognitive Impact | De-Biased $R$-Multiple Display | Cognitive Impact |
 | :--- | :--- | :--- | :--- | :--- |
 | **Normal Retracement** | $-\$4,200.00$ (Flashing Red) | Triggers acute threat; insula activation; impulse to close or move stop. | $-0.42 R$ (Neutral) | Perceived as within normal statistical variance ($< 1.0R$). |
+| **Initial Stop Level** | $-\$10,000.00$ (Deep Red) | Panic, urge to widen stop or average down into drawdown. | $-1.00 R$ (Bound) | Accepted as predetermined, bounded maximum business expense. |
+| **Cost Break-Even** | $+\$15.00$ (Faint Green) | Meaningless dollar noise; confusing accounting. | $+0.00 R$ (Safe) | Instant recognition that downside risk is eradicated ($0.00R$). |
 | **Standard Momentum** | $+\$7,500.00$ (Glowing Green) | Triggers greed/fear of loss; urge to close trade before target. | $+0.75 R$ (Neutral) | Recognized as incomplete trade progression relative to a $2.5R$ target. |
+| **Profit Milestone** | $+\$25,000.00$ (Euphoric) | Euphoria; premature exit before target or reckless position add. | $+2.50 R$ (Objective) | Objective validation of statistical risk-reward objective. |
 
-### 8.2 The Stealth Execution Mode Architecture
+#### 3. Execution Lifecycle Transformations in $R$:
+- **Break-Even Snap**: When Stop Loss is ratcheted to entry price $+$ cost offset, the trade's active downside risk drops to $0.00\,R$. The position converts into a synthetic "risk-free asset", releasing portfolio risk budget.
+- **Partial Exits (Scale-Outs / TP1)**:
+  When a position is partially closed (e.g., 50% volume at $+2.0\,R$), realized profit locks in $+1.0\,R$. The residual position maintains an active risk baseline of $0.5\,R$. The cumulative trade expectancy remains mathematically coherent:
+  $$R_{\text{total}} = \sum_{i=1}^{k} \left( \frac{\text{Volume}_i}{\text{Volume}_{\text{total}}} \times R_i \right)$$
+- **Expectancy Framing Over Win-Rate**:
+  $$\mathbb{E}[R] = (P_{\text{win}} \times \bar{R}_{\text{win}}) - (P_{\text{loss}} \times \bar{R}_{\text{loss}})$$
+  Traders evaluating performance in $R$ focus entirely on keeping $\bar{R}_{\text{loss}} \le 1.0\,R$ and allowing winners to reach $\bar{R}_{\text{win}} \ge 1.8\text{–}2.5\,R$, insulating themselves from the retail fallacy of optimizing for an unsustainable $80\%$ win-rate.
 
-A de-biased professional execution cockpit should feature a structural toggle: **"Stealth / Blind PnL Mode"**:
-1. **Suppression of Open Dollar PnL:**  
-   During active execution, real-time unrealized dollar PnL is hidden from the primary display.
-2. **Structural Execution Metrics:**  
-   The interface presents only:
-   - Position execution status relative to predefined structural invalidation levels ($P_{\text{stop}}$) and take-profit milestones ($P_{\text{target}}$).
-   - Position progress displayed as a normalized geometric bar from $0 \to 1.0R \to 2.0R$.
-   - Real-time market volatility metrics (ATR, realized spread, bid-ask imbalance).
-3. **Delayed Settlement Accounting:**  
-   Portfolio-level aggregate PnL is batched and rendered only during pre-session planning and post-market review windows, preventing intraday reference-point resetting and revenge cycles.
+---
+
+### 8.2 Deposit & Balance Concealment: The 3-Tier Privacy Model
+
+A central architectural debate in execution terminal design: **Should deposit, balance, and equity be hidden across all screens?**
+
+#### The Flaw of Full Blind Concealment:
+Completely hiding all capital metrics across the entire interface is dangerous. An operator cannot verify whether free margin is sufficient before submitting an order, nor assess portfolio leverage stress during high-volatility sessions.
+
+#### The Recommended Institutional Hybrid: The 3-Tier Mode
+Rather than binary visibility, the execution terminal implements a **3-tier progressive de-biasing state machine**:
+
+```
+[ Tier 0: Fiat Currency Mode ] ──(HotKey: H)──► [ Tier 1: Normalized R-Mode ] ──(HotKey: H)──► [ Tier 2: Stealth Mask Mode ]
+  • Balance: $10,450.00                          • Balance: 100.0 R (100%)                       • Balance: $••••••
+  • Equity:  $10,685.00                          • Equity:  102.2 R (102.2%)                     • Equity:  $••••••
+  • PnL:    +$235.00                             • PnL:    +2.24 R                               • PnL:     +••••••
+```
+
+1. **Tier 0 (Full Fiat Transparency)**:
+   - Traditional broker presentation displaying exact currency figures (`$10,450.00`). Used during session setup, funding verification, and reconciliation.
+2. **Tier 1 (Normalized De-Biased Mode — Recommended Session Default)**:
+   - Account metrics are framed as **units of target risk** ($R$) or **relative percentage of working capital** ($100.0\%$).
+   - Floating P&L displays purely as `+1.45 R` or `+1.45%`.
+   - Completely suppresses fiat dollar triggers while maintaining full mathematical context for risk management.
+3. **Tier 2 (Stealth Mask Mode)**:
+   - Numeric values are replaced with uniform dot glyphs (`$••••••` or `***.**`) or CSS backdrop blur (`filter: blur(5px)`).
+   - **Hover-to-Reveal Interaction**: Hovering the pointer over a masked value reveals the underlying metric after a deliberate **300ms dwell delay** (preventing accidental glance reveals during normal cursor movement). Values re-mask instantly upon mouse leave.
+
+---
+
+### 8.3 Communicating Risk Warnings in Stealth Mode
+
+When account balances and floating dollars are masked, the system must remain 100% capable of warning the operator against margin calls or prop-firm maximum daily drawdown limits. This is accomplished using **dimensionless relative telemetry**:
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ [🎯 Screener (17)] [💼 Positions (2)] │ ⚙️ 1.0% Fixed │ 📊 Base Setup │ [🕶️ Mode: R (H)]│
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│ MT5 LIVE: IC Markets (Demo 10000001)                                                   │
+│ Balance: $•••••• │ Equity: $•••••• │ Margin Level: 2,410% [🟢 Safe]                     │
+│ Floating P&L: +1.45 R │ Open Heat: 1.00 R (1.0%) │ 🛡️ Active Prot: 2/2 Positions       │
+│ Daily DD Limit: [████████░░░░░░░░░░░░] 38% / 100% ($•••••• remaining)                 │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+1. **Dimensionless Margin Level**:
+   Margin Level is inherently normalized:
+   $$\text{Margin Level} = \frac{\text{Equity}}{\text{Margin}} \times 100\%$$
+   The terminal displays `Margin Level: 2,410%` with a color-coded state:
+   - Green: $> 1,000\%$ (Safe)
+   - Amber: $300\% - 1,000\%$ (Caution)
+   - Flashing Red: $< 300\%$ (Urgent Margin Stress)
+2. **Daily Drawdown Traffic-Light Pill**:
+   For prop-firm evaluation accounts, drawdown is monitored relative to the hard daily liquidation threshold:
+   $$\text{DD Utilization} = \frac{\text{Loss}_{\text{realized}} + \min(0, \text{PnL}_{\text{floating}})}{\text{DailyLossLimit}} \times 100\%$$
+   Displays a progress gauge (`38% / 100%`) without exposing exact dollar figures.
+3. **Portfolio Heat Vector in $R$**:
+   Total committed open risk is rendered in $R$:
+   $$\text{Portfolio Heat} = \sum_{j=1}^{M} R_{\text{trade}, j}$$
+   Displays `Open Heat: 1.00 R (1.0%) / Max 3.00 R`.
+
+---
+
+### 8.4 Platform Benchmarking Analysis
+
+A comparative synthesis of how leading retail, institutional, and prop platforms architect privacy and de-biasing controls:
+
+| Platform | PnL Display Modes | Privacy / Stealth Toggle | Anti-Tilt & Ergonomic Guardrails |
+| :--- | :--- | :--- | :--- |
+| **cTrader** (Spotware) | Cash ($), Pips, % of Balance | Dedicated "Privacy Settings" (hides account number, balance, and equity from header). | Built-in R:R chart ruler; quick toggle between pips and currency. |
+| **TradingView** | Cash, Ticks/Points, Percent (%) | Partial: Option to hide execution tags and PnL on chart; no master global stealth hotkey. | Paper trading resets; bracket orders enforced at ticket entry. |
+| **Quantower** | Currency, Ticks, Points, % | Column context menu switches units; DOM ladder unit masking. | Multi-unit ladder to suppress fiat anchors; fast order staging without dollar focus. |
+| **NinjaTrader** | Currency, Percent, Points, Pips, Ticks | Left-click PnL box to cycle units instantly; properties panel masking. | Ecosystem plugins for R-multiples (`RiskRewardPlus`); strict bracket execution. |
+| **Bloomberg Terminal** (AIM/OMS) | Normalized basis points (`bps`), local FX, Base USD | Workstation screen lock / masked sub-portfolio tabs. | Pre-trade compliance allocations strictly decoupled from live execution noise. |
+| **Binance / Bybit** | Crypto asset, USD, PnL %, Hidden Mask (`***`) | Global Eye toggle (`👁️` / `👁️‍🗨️`); masked `••••••` across all balances. | Liquidation price warnings remain prominently visible even when balance is hidden. |
+
+---
+
+### 8.5 UI Interaction & Keyboard Ergonomics
+
+1. **Master Toggle Shortcut (`H`)**:
+   Pressing `H` (or `Shift + H`) cycles through the 3-tier sequence:
+   $$\text{Currency } (\$) \longrightarrow \text{Normalized } (R) \longrightarrow \text{Stealth Mask } (***)$$
+2. **Zero Layout Shift via Monospace Fonts**:
+   Masked glyphs are rendered with `font-variant-numeric: tabular-nums` and fixed-width monospace font (`var(--ref-font-mono)`). This ensures toggling between `$12,450.00` and `$••••••` produces **zero layout shift or jitter** in tabular grids.
+3. **Delayed Settlement Accounting**:
+   In strict de-biased mode, closed trade settlement logs are suppressed during market hours and summarized only during the post-market review window, preventing intraday reference-point resetting and revenge cycles.
 
 ---
 
