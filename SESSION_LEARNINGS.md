@@ -652,8 +652,13 @@
   * *Nuance*: MT5 brokers employ wildly inconsistent symbol naming conventions for non-FX assets: Bitcoin may be named `"BITCOIN"`, `"BTCUSD"`, `"BTCUSDm"`, or `"BTCUSD.raw"`; Gold may be `"GOLD"`, `"XAUUSD"`, or `"GOLD365"`; Nasdaq may be `"USTECH"`, `"NAS100"`, `"NDX365"`, or `"US100"`.
   * *Fix*: Implement fuzzy canonical fallback maps in provider volatility engines so that if historical bar extraction encounters broker gaps, synthetic volatility fallbacks resolve correctly rather than defaulting to Forex pip sizing ($0.0001$).
 * **Pip Size vs Point Size in Multi-Asset Math**:
-  * *Nuance*: For Forex, 1 pip = 10 points ($0.0001$ on EURUSD, $0.01$ on USDJPY). For Bitcoin ($79,600$), brokers often set `point = 0.01` and `pip_size = 0.01` (1 point = 1 pip). For Indices ($20,000$), `point = 0.1` and `pip_size = 0.1`.
-  * *Rule*: Never hardcode point-to-pip multipliers ($10\times$). Always query broker `SymbolInfo.point` and dynamically compute `pip_size = 10 * point` for standard Forex, or `pip_size = point` for Crypto and Indices where digits $\le 2$.
+  * *Nuance*: In MetaTrader 5, `point` (`SymbolInfo.point`) is the broker's atomic quote tick resolution ($10^{-\text{digits}}$). For modern 5-digit Forex pairs (e.g. EURUSD at `1.16124`) and 3-digit JPY pairs (e.g. USDJPY at `153.452`), the last decimal place is a **fractional pip (pipette)**. Standard institutional pips sit at the 4th decimal place for EURUSD ($0.0001$) and the 2nd decimal place for JPY ($0.01$). Thus, for 5-digit and 3-digit Forex, $1\text{ pip} = 10 \times \text{point}$. Conversely, for Crypto (e.g. BTCUSD at `digits = 2, point = 0.01`) and Indices (e.g. US100 at `digits = 1, point = 0.1`), 1 point is already 1 full index/crypto unit ($1\text{ pip} = 1 \times \text{point}$).
+  * *Rule*: Dynamically resolve pip multiplier using `digits in (3, 5)`:
+    ```python
+    pip_multiplier = 10.0 if digits in (3, 5) else 1.0
+    pip_size = point * pip_multiplier if point > 0 else 0.0001
+    ```
+    This ensures standard Forex displays in conventional pips ($1.16124 \to 1.16146$ is $2.2\text{ pips}$, not $22\text{ points}$), while Crypto and Indices retain 1:1 points ($1\text{ point} = 1\text{ pip}$).
 
 ### 🚫 4. Negative Knowledge (What NOT to Do)
 1. **DO NOT rely exclusively on asynchronous background cron tasks for critical market data caches**:
