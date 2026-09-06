@@ -12,6 +12,12 @@
   padding: 0;
 }
 
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
   background-color: var(--sys-color-surface);
   color: var(--sys-color-on-surface);
@@ -19,12 +25,13 @@ body {
   font-size: 13px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
 }
 
 /* Layout */
 .dashboard-container {
-  min-height: 100vh;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
@@ -42,6 +49,7 @@ body {
   gap: 8px;
   flex-wrap: nowrap;
   user-select: none;
+  flex-shrink: 0;
 }
 
 /* Left Zone: Compact Brand Glyph & Segmented Workspace Switcher */
@@ -791,6 +799,28 @@ body {
   flex-direction: column;
   gap: 12px;
   flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sys-color-outline) transparent;
+}
+
+.dashboard-main::-webkit-scrollbar {
+  width: 8px;
+}
+
+.dashboard-main::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dashboard-main::-webkit-scrollbar-thumb {
+  background: var(--sys-color-outline);
+  border-radius: var(--sys-radius-full);
+}
+
+.dashboard-main::-webkit-scrollbar-thumb:hover {
+  background: var(--sys-color-outline-focus);
 }
 
 .control-label-row {
