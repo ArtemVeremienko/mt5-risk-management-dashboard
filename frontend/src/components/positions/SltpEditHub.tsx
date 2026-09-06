@@ -251,10 +251,8 @@ export const SltpEditHub: Component<SltpEditHubProps> = (props) => {
     updateSlFromR(-Math.abs(rMultiple));
   };
 
-  const applyRrSnap = (ratio: number) => {
-    const currentSlPip = slPips().trim() ? parseFloat(slPips()) : 15.0;
-    const tpDist = currentSlPip * ratio;
-    updateTpFromPips(tpDist);
+  const applyTpRPreset = (rMultiple: number) => {
+    updateTpFromR(Math.abs(rMultiple));
   };
 
   // Save changes via API
@@ -787,8 +785,8 @@ export const SltpEditHub: Component<SltpEditHubProps> = (props) => {
               <button
                 type="button"
                 class="btn-preset-chip"
-                onClick={() => applyRrSnap(1.0)}
-                title="Set TP to 1:1 Risk-Reward Ratio (1 R)"
+                onClick={() => applyTpRPreset(1.0)}
+                title="Set TP to +1 R Target Profit"
                 tabindex="-1"
               >
                 🎯 1 R
@@ -796,8 +794,8 @@ export const SltpEditHub: Component<SltpEditHubProps> = (props) => {
               <button
                 type="button"
                 class="btn-preset-chip"
-                onClick={() => applyRrSnap(1.5)}
-                title="Set TP to 1:1.5 Risk-Reward Ratio (1.5 R)"
+                onClick={() => applyTpRPreset(1.5)}
+                title="Set TP to +1.5 R Target Profit"
                 tabindex="-1"
               >
                 🎯 1.5 R
@@ -805,8 +803,8 @@ export const SltpEditHub: Component<SltpEditHubProps> = (props) => {
               <button
                 type="button"
                 class="btn-preset-chip"
-                onClick={() => applyRrSnap(2.0)}
-                title="Set TP to 1:2 Risk-Reward Ratio (2 R)"
+                onClick={() => applyTpRPreset(2.0)}
+                title="Set TP to +2 R Target Profit"
                 tabindex="-1"
               >
                 🎯 2 R
@@ -814,8 +812,8 @@ export const SltpEditHub: Component<SltpEditHubProps> = (props) => {
               <button
                 type="button"
                 class="btn-preset-chip"
-                onClick={() => applyRrSnap(3.0)}
-                title="Set TP to 1:3 Risk-Reward Ratio (3 R)"
+                onClick={() => applyTpRPreset(3.0)}
+                title="Set TP to +3 R Target Profit"
                 tabindex="-1"
               >
                 🎯 3 R
