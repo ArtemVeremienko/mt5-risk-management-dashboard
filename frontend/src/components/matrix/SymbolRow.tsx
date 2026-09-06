@@ -282,8 +282,8 @@ export const SymbolRow: Component<Props> = (props) => {
                 width={60}
                 height={20}
               />
-              <div class="price-stacked">
-                <div class="price-bid-row">
+              <div class="price-quotes-cluster">
+                <div class="quotes-stacked">
                   <span
                     class="price-bid tabular-num"
                     classList={{
@@ -293,23 +293,21 @@ export const SymbolRow: Component<Props> = (props) => {
                   >
                     {data().spec.bid_display}
                   </span>
-                  <span
-                    class="spread-pill-mini"
-                    classList={{
-                      'spread-pill-surge': isSpreadSurge(),
-                    }}
-                    title={
-                      isSpreadSurge()
-                        ? `⚠️ Spread Surge: ${data().spec.spread_display}p exceeds 2.0x median (${data().spec.median_spread_pips?.toFixed(1)}p)`
-                        : undefined
-                    }
-                  >
-                    {isSpreadSurge() ? '⚠️ ' : ''}{data().spec.spread_display}p
-                  </span>
-                </div>
-                <div class="price-ask-row">
                   <span class="price-ask tabular-num">{data().spec.ask_display}</span>
                 </div>
+                <span
+                  class="spread-pill-mini"
+                  classList={{
+                    'spread-pill-surge': isSpreadSurge(),
+                  }}
+                  title={
+                    isSpreadSurge()
+                      ? `⚠️ Spread Surge: ${data().spec.spread_display}p exceeds 2.0x median (${data().spec.median_spread_pips?.toFixed(1)}p)`
+                      : undefined
+                  }
+                >
+                  {isSpreadSurge() ? '⚠️ ' : ''}{data().spec.spread_display}p
+                </span>
               </div>
             </div>
           </td>

@@ -440,18 +440,18 @@ tr.drag-over {
   display: block;
 }
 
-/* Stacked Market Price & Spread */
-.price-stacked {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-}
-
-.price-bid-row {
+/* Stacked Market Price & Spread Cluster */
+.price-quotes-cluster {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.quotes-stacked {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
 }
 
 .price-bid {
@@ -462,6 +462,7 @@ tr.drag-over {
   border-radius: var(--sys-radius-sm);
   padding: 1px 4px;
   display: inline-block;
+  line-height: 1.2;
 }
 
 /* GPU-Composited Hardware Isolated Pseudo-Element (docs/01 §5.3) */
@@ -489,6 +490,13 @@ tr.drag-over {
   transition: none; /* Instant attack: 0ms */
 }
 
+.price-ask {
+  color: #a2a8b8;
+  font-weight: 500;
+  font-size: 11px;
+  padding: 0 4px;
+  line-height: 1.2;
+}
 
 .spread-pill-mini {
   font-size: 9.5px;
@@ -502,15 +510,6 @@ tr.drag-over {
   border: 1px solid rgba(148, 163, 184, 0.20);
   line-height: 1.2;
   white-space: nowrap;
-}
-
-.price-ask-row {
-  font-size: 11px;
-}
-
-.price-ask {
-  color: #a2a8b8;
-  font-weight: 500;
 }
 
 .adr-cell-stacked {
