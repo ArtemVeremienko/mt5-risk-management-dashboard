@@ -127,9 +127,9 @@
 }
 
 .btn-emergency-close-compact {
-  background: rgba(242, 54, 69, 0.15);
-  border: 1px solid var(--sys-color-sell);
-  color: var(--sys-color-loss);
+  background: var(--sys-color-critical-container);
+  border: 1px solid var(--sys-color-critical);
+  color: var(--sys-color-critical);
   padding: 4px 10px;
   border-radius: var(--sys-radius-sm);
   font-weight: 700;
@@ -140,9 +140,9 @@
 }
 
 .btn-emergency-close-compact:hover:not(:disabled) {
-  background: var(--sys-color-sell);
+  background: var(--sys-color-critical);
   color: #ffffff;
-  box-shadow: 0 0 8px rgba(242, 54, 69, 0.4);
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
 }
 
 .btn-emergency-close-compact:disabled {
@@ -151,11 +151,11 @@
 }
 
 .btn-emergency-close-compact.btn-armed-critical {
-  background: #f23645 !important;
+  background: var(--sys-color-critical) !important;
   color: #ffffff !important;
-  border-color: #ff4757 !important;
+  border-color: #ffffff !important;
   animation: pulseArmed 0.8s infinite alternate;
-  box-shadow: 0 0 14px rgba(242, 54, 69, 0.8) !important;
+  box-shadow: 0 0 14px var(--sys-color-critical) !important;
 }
 
 @keyframes pulseArmed {
@@ -196,9 +196,17 @@
   color: var(--sys-color-profit);
 }
 
+:root[data-colorway="cvd"] .pos-type-badge.badge-buy {
+  background: rgba(0, 180, 216, 0.2);
+}
+
 .pos-type-badge.badge-sell {
   background: rgba(242, 54, 69, 0.2);
   color: var(--sys-color-loss);
+}
+
+:root[data-colorway="cvd"] .pos-type-badge.badge-sell {
+  background: rgba(255, 140, 0, 0.2);
 }
 
 .adr-exhaustion-chip {
@@ -213,6 +221,11 @@
   white-space: nowrap;
   line-height: 1.1;
   cursor: help;
+}
+
+:root[data-colorway="cvd"] .adr-exhaustion-chip {
+  background: rgba(255, 140, 0, 0.15);
+  border-color: rgba(255, 140, 0, 0.35);
 }
 
 .pos-volume {
@@ -374,27 +387,32 @@
 }
 
 .sl-price-val {
-  color: #ff7b72;
+  color: var(--sys-color-loss);
 }
 
 .sl-price-locked {
-  color: #38bdf8;
+  color: var(--sys-color-buy);
 }
 
 .sl-shield-micro-badge {
   font-size: var(--sys-font-size-header);
   font-weight: 700;
-  color: #34d399;
-  background: rgba(16, 185, 129, 0.15);
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: var(--sys-color-profit);
+  background: rgba(8, 153, 129, 0.15);
+  border: 1px solid rgba(8, 153, 129, 0.3);
   padding: 1px 4px;
   border-radius: 3px;
   line-height: 1.1;
   white-space: nowrap;
 }
 
+:root[data-colorway="cvd"] .sl-shield-micro-badge {
+  background: rgba(0, 180, 216, 0.15);
+  border-color: rgba(0, 180, 216, 0.3);
+}
+
 .tp-price-val {
-  color: #3fb950;
+  color: var(--sys-color-profit);
 }
 
 .sltp-sub-telemetry {
@@ -404,7 +422,7 @@
 }
 
 .sltp-sub-telemetry.text-risk {
-  color: #ff7b72;
+  color: var(--sys-color-loss);
   opacity: 0.9;
 }
 
@@ -533,11 +551,11 @@
 }
 
 .sltp-field-label.sl-label {
-  color: #ff7b72;
+  color: var(--sys-color-loss);
 }
 
 .sltp-field-label.tp-label {
-  color: #3fb950;
+  color: var(--sys-color-profit);
 }
 
 .sltp-sub-hint {
@@ -699,8 +717,8 @@
 }
 
 .btn-sltp-apply-main {
-  background: #089981;
-  border: 1px solid #0aa88f;
+  background: var(--sys-color-buy);
+  border: 1px solid var(--sys-color-buy-hover);
   color: #ffffff;
   font-size: 11px;
   font-weight: 800;
@@ -708,12 +726,12 @@
   border-radius: var(--sys-radius-sm);
   cursor: pointer;
   transition: all 0.15s ease;
-  box-shadow: 0 2px 8px rgba(8, 153, 129, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .btn-sltp-apply-main:hover:not(:disabled) {
-  background: #0ba98f;
-  box-shadow: 0 0 12px rgba(8, 153, 129, 0.5);
+  background: var(--sys-color-buy-hover);
+  box-shadow: 0 0 12px var(--sys-color-buy);
 }
 
 .btn-sltp-apply-main:disabled {
@@ -785,16 +803,16 @@
 }
 
 .btn-pos-close {
-  background: rgba(242, 54, 69, 0.16);
-  border-color: rgba(242, 54, 69, 0.35);
-  color: #ff7b72;
+  background: var(--sys-color-critical-container);
+  border-color: var(--sys-color-critical-outline);
+  color: var(--sys-color-critical);
 }
 
 .btn-pos-close:hover:not(:disabled) {
-  background: var(--sys-color-sell);
+  background: var(--sys-color-critical);
   color: #ffffff;
-  border-color: var(--sys-color-loss);
-  box-shadow: 0 0 8px rgba(242, 54, 69, 0.4);
+  border-color: var(--sys-color-critical);
+  box-shadow: 0 0 8px var(--sys-color-critical-outline);
 }
 
 .btn-pos-action:disabled {
@@ -912,10 +930,20 @@
   border-color: rgba(8, 153, 129, 0.25);
 }
 
+:root[data-colorway="cvd"] .currency-exposure-chip.exposure-long {
+  background: rgba(0, 180, 216, 0.12);
+  border-color: rgba(0, 180, 216, 0.25);
+}
+
 .currency-exposure-chip.exposure-short {
   color: var(--sys-color-loss);
   background: rgba(242, 54, 69, 0.12);
   border-color: rgba(242, 54, 69, 0.25);
+}
+
+:root[data-colorway="cvd"] .currency-exposure-chip.exposure-short {
+  background: rgba(255, 140, 0, 0.12);
+  border-color: rgba(255, 140, 0, 0.25);
 }
 
 .bulk-toolbar-actions {
@@ -970,43 +998,43 @@
 }
 
 .btn-bulk-close-all {
-  background: rgba(242, 54, 69, 0.16);
-  border-color: rgba(242, 54, 69, 0.35);
-  color: #ff7b72;
+  background: var(--sys-color-critical-container);
+  border-color: var(--sys-color-critical-outline);
+  color: var(--sys-color-critical);
 }
 
 .btn-bulk-close-all:hover:not(:disabled) {
-  background: var(--sys-color-sell);
+  background: var(--sys-color-critical);
   color: #ffffff;
-  border-color: var(--sys-color-loss);
+  border-color: var(--sys-color-critical);
 }
 
 .btn-bulk-close-all.btn-armed-critical {
-  background: var(--sys-color-sell);
+  background: var(--sys-color-critical);
   color: #ffffff;
-  border-color: #ff7b72;
-  box-shadow: 0 0 12px rgba(242, 54, 69, 0.6);
+  border-color: #ffffff;
+  box-shadow: 0 0 12px var(--sys-color-critical);
   animation: pulseArmed 1.2s infinite;
 }
 
 .btn-bulk-flatten {
-  background: rgba(220, 38, 38, 0.2);
-  border-color: rgba(248, 113, 113, 0.45);
-  color: #fca5a5;
+  background: var(--sys-color-critical-container);
+  border-color: var(--sys-color-critical-outline);
+  color: var(--sys-color-critical);
 }
 
 .btn-bulk-flatten:hover:not(:disabled) {
-  background: #dc2626;
+  background: var(--sys-color-critical);
   color: #ffffff;
-  border-color: #ef4444;
-  box-shadow: 0 0 12px rgba(220, 38, 38, 0.6);
+  border-color: var(--sys-color-critical);
+  box-shadow: 0 0 12px var(--sys-color-critical);
 }
 
 .btn-bulk-flatten.btn-armed-critical {
-  background: #b91c1c !important;
+  background: var(--sys-color-critical) !important;
   color: #ffffff !important;
-  border-color: #f87171 !important;
-  box-shadow: 0 0 16px rgba(220, 38, 38, 0.8) !important;
+  border-color: #ffffff !important;
+  box-shadow: 0 0 16px var(--sys-color-critical) !important;
   animation: pulseArmed 0.9s infinite alternate;
 }
 

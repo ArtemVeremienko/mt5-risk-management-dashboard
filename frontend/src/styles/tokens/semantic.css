@@ -75,6 +75,9 @@
   --sys-color-sell-hover: var(--ref-color-coral-600);
   --sys-color-loss: var(--ref-color-coral-500);
   --sys-color-error: var(--ref-color-coral-500);
+  --sys-color-critical: var(--ref-color-coral-500);
+  --sys-color-critical-container: rgba(242, 54, 69, 0.16);
+  --sys-color-critical-outline: rgba(242, 54, 69, 0.4);
 
   /* Pre-Trade Warnings & Alerts (#ff9800 Amber) */
   --sys-color-warning: var(--ref-color-amber-500);
@@ -151,6 +154,9 @@ body[data-colorway="cvd"] {
   --sys-color-sell-hover: #e07a00;
   --sys-color-loss: #ff8c00;
   --sys-color-error: #ff8c00;
+  --sys-color-critical: #ff8c00;
+  --sys-color-critical-container: rgba(255, 140, 0, 0.16);
+  --sys-color-critical-outline: rgba(255, 140, 0, 0.4);
 
   /* Alert / Warning remains warm gold */
   --sys-color-warning: #ffd166;
