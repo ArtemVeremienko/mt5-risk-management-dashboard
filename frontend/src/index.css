@@ -15,6 +15,18 @@
 @import './styles/views/positions.css';
 
 /* ----------------------------------------------------------------------------
+ * Button, Input, Form Controls Font Normalization (Ensures Inter is inherited)
+ * ---------------------------------------------------------------------------- */
+button,
+input,
+optgroup,
+select,
+textarea {
+  font-family: inherit;
+}
+
+
+/* ----------------------------------------------------------------------------
  * Universal Typography & Tabular Alignment Utilities
  * ---------------------------------------------------------------------------- */
 .tabular-numeric,

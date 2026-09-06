@@ -52,30 +52,12 @@ body {
   flex-shrink: 0;
 }
 
-/* Left Zone: Compact Brand Glyph & Segmented Workspace Switcher */
+/* Left Zone: Segmented Workspace Switcher */
 .header-left-zone {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
-}
-
-.brand-logo-compact {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--sys-radius-sm);
-  background: rgba(41, 98, 255, 0.12);
-  border: 1px solid rgba(41, 98, 255, 0.3);
-}
-
-.logo-icon-compact {
-  font-size: 15px;
-  background: linear-gradient(135deg, #00f2fe, #4facfe);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
 }
 
 .header-workspace-switcher {
@@ -96,6 +78,7 @@ body {
   border: 1px solid transparent;
   background: transparent;
   color: var(--sys-color-on-surface-variant);
+  font-family: var(--sys-font-sans);
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
@@ -1439,6 +1422,7 @@ body {
   border: none;
   padding: 8px 16px;
   border-radius: var(--sys-radius-md);
+  font-family: var(--sys-font-sans);
   font-weight: 700;
   font-size: 13px;
   cursor: pointer;
@@ -1454,6 +1438,7 @@ body {
   color: var(--sys-color-on-surface-variant);
   padding: 8px 16px;
   border-radius: var(--sys-radius-md);
+  font-family: var(--sys-font-sans);
   font-weight: 600;
   font-size: 13px;
   cursor: pointer;

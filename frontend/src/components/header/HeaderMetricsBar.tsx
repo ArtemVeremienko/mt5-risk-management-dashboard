@@ -184,12 +184,8 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
 
   return (
     <header class="dashboard-header">
-      {/* Left Zone: Brand Glyph & Workspace Switcher */}
+      {/* Left Zone: Workspace Switcher */}
       <div class="header-left-zone">
-        <div class="brand-logo-compact" title="MetaTrader 5 Institutional Risk Engine">
-          <span class="logo-icon-compact">⚡</span>
-        </div>
-
         <div class="header-workspace-switcher">
           <button
             class="header-nav-btn"

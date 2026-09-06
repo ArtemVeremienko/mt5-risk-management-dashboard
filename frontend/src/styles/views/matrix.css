@@ -960,6 +960,7 @@ tr.drag-over {
   height: 30px;
   padding: 0;
   border-radius: var(--sys-radius-sm);
+  font-family: var(--sys-font-sans);
   font-weight: 700;
   font-size: var(--sys-font-size-body);
   letter-spacing: 0.5px;
