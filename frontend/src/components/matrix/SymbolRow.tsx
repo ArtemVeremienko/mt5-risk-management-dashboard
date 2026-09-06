@@ -251,7 +251,7 @@ export const SymbolRow: Component<Props> = (props) => {
           }}
         >
           {/* Col 1: Symbol (with drag handle, pin) */}
-          <td>
+          <td class="col-symbol-cell">
             <div class="symbol-cell">
               <span class="drag-handle" title="Drag to reorder symbol">
                 ⠿
