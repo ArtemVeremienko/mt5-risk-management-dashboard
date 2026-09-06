@@ -84,6 +84,18 @@
   --sys-color-warning-container: rgba(255, 152, 0, 0.15);
   --sys-color-warning-outline: rgba(255, 152, 0, 0.3);
 
+  /* Scale-Out / Partial Take-Profit (50% TP1 scale) */
+  --sys-color-scale: var(--ref-color-amber-400);
+  --sys-color-scale-hover: var(--ref-color-amber-500);
+  --sys-color-scale-container: rgba(245, 158, 11, 0.16);
+  --sys-color-scale-outline: rgba(245, 158, 11, 0.35);
+
+  /* Emergency Zero-Delta Liquidation (Flatten All) */
+  --sys-color-flatten: var(--ref-color-coral-600);
+  --sys-color-flatten-hover: var(--ref-color-coral-500);
+  --sys-color-flatten-container: rgba(208, 39, 53, 0.2);
+  --sys-color-flatten-outline: rgba(208, 39, 53, 0.5);
+
   /* --------------------------------------------------------------------------
    * 6. Structural Shapes & Elevation Roles
    * -------------------------------------------------------------------------- */
@@ -160,5 +172,17 @@ body[data-colorway="cvd"] {
 
   /* Alert / Warning remains warm gold */
   --sys-color-warning: #ffd166;
+
+  /* CVD Scale-Out / Partial Take-Profit (Cool Indigo/Violet #818cf8 - uncoupled from Amber) */
+  --sys-color-scale: #a5b4fc;
+  --sys-color-scale-hover: #818cf8;
+  --sys-color-scale-container: rgba(129, 140, 248, 0.16);
+  --sys-color-scale-outline: rgba(129, 140, 248, 0.4);
+
+  /* CVD Emergency Zero-Delta Liquidation (Electric Magenta #d946ef - 100% distinct from Cyan & Amber) */
+  --sys-color-flatten: #f472b6;
+  --sys-color-flatten-hover: #e879f9;
+  --sys-color-flatten-container: rgba(217, 70, 239, 0.2);
+  --sys-color-flatten-outline: rgba(217, 70, 239, 0.5);
 }
 

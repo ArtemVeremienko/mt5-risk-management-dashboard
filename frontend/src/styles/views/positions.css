@@ -789,17 +789,17 @@
 }
 
 .btn-pos-half {
-  background: rgba(245, 158, 11, 0.16);
-  border-color: rgba(245, 158, 11, 0.35);
-  color: #fbbf24;
+  background: var(--sys-color-scale-container);
+  border-color: var(--sys-color-scale-outline);
+  color: var(--sys-color-scale);
 }
 
 .btn-pos-half:hover:not(:disabled) {
-  background: #f59e0b;
+  background: var(--sys-color-scale-hover);
   color: #111827;
   font-weight: 800;
-  border-color: #f59e0b;
-  box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
+  border-color: var(--sys-color-scale-hover);
+  box-shadow: 0 0 8px var(--sys-color-scale-outline);
 }
 
 .btn-pos-close {
@@ -985,16 +985,16 @@
 }
 
 .btn-bulk-half {
-  background: rgba(245, 158, 11, 0.16);
-  border-color: rgba(245, 158, 11, 0.35);
-  color: #fbbf24;
+  background: var(--sys-color-scale-container);
+  border-color: var(--sys-color-scale-outline);
+  color: var(--sys-color-scale);
 }
 
 .btn-bulk-half:hover:not(:disabled) {
-  background: #f59e0b;
+  background: var(--sys-color-scale-hover);
   color: #111827;
   font-weight: 800;
-  border-color: #f59e0b;
+  border-color: var(--sys-color-scale-hover);
 }
 
 .btn-bulk-close-all {
@@ -1018,23 +1018,23 @@
 }
 
 .btn-bulk-flatten {
-  background: var(--sys-color-critical-container);
-  border-color: var(--sys-color-critical-outline);
-  color: var(--sys-color-critical);
+  background: var(--sys-color-flatten-container);
+  border-color: var(--sys-color-flatten-outline);
+  color: var(--sys-color-flatten);
 }
 
 .btn-bulk-flatten:hover:not(:disabled) {
-  background: var(--sys-color-critical);
+  background: var(--sys-color-flatten);
   color: #ffffff;
-  border-color: var(--sys-color-critical);
-  box-shadow: 0 0 12px var(--sys-color-critical);
+  border-color: var(--sys-color-flatten);
+  box-shadow: 0 0 12px var(--sys-color-flatten);
 }
 
 .btn-bulk-flatten.btn-armed-critical {
-  background: var(--sys-color-critical) !important;
+  background: var(--sys-color-flatten) !important;
   color: #ffffff !important;
   border-color: #ffffff !important;
-  box-shadow: 0 0 16px var(--sys-color-critical) !important;
+  box-shadow: 0 0 16px var(--sys-color-flatten) !important;
   animation: pulseArmed 0.9s infinite alternate;
 }
 
