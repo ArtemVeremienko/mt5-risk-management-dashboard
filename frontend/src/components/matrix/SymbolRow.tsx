@@ -279,8 +279,8 @@ export const SymbolRow: Component<Props> = (props) => {
                 price={data().spec.bid}
                 isPinned={isPinned()}
                 isHovered={isRowHovered()}
-                width={46}
-                height={18}
+                width={60}
+                height={20}
               />
               <div class="price-stacked">
                 <div class="price-bid-row">

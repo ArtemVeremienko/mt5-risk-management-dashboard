@@ -13,6 +13,9 @@
   gap: 8px;
   flex: 1;
   min-height: calc(100vh - 76px);
+  max-width: 1440px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 .table-card {
@@ -419,10 +422,10 @@ tr.drag-over {
 .price-cell-with-sparkline {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   width: 100%;
   min-width: 0;
-  gap: 8px;
+  gap: 10px;
 }
 
 .micro-sparkline-container {

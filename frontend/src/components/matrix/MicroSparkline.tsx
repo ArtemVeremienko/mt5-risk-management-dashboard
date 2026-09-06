@@ -12,8 +12,8 @@ interface Props {
 
 export const MicroSparkline: Component<Props> = (props) => {
   let canvasRef: HTMLCanvasElement | undefined;
-  const width = () => props.width ?? 48;
-  const height = () => props.height ?? 18;
+  const width = () => props.width ?? 60;
+  const height = () => props.height ?? 20;
 
   const metrics = { min: 0, max: 0, first: 0, last: 0 };
 
@@ -24,20 +24,35 @@ export const MicroSparkline: Component<Props> = (props) => {
 
     const w = width();
     const h = height();
-    const buffer = getSymbolPriceBuffer(props.symbol);
+    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
 
+    // Retina High-DPI Backing Store Calibration
+    const targetW = Math.round(w * dpr);
+    const targetH = Math.round(h * dpr);
+    if (canvasRef.width !== targetW || canvasRef.height !== targetH) {
+      canvasRef.width = targetW;
+      canvasRef.height = targetH;
+      canvasRef.style.width = `${w}px`;
+      canvasRef.style.height = `${h}px`;
+    }
+
+    ctx.save();
+    ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, w, h);
+
+    const buffer = getSymbolPriceBuffer(props.symbol);
 
     if (!buffer.isReady()) {
       // Dormant placeholder baseline
       ctx.beginPath();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.10)';
       ctx.lineWidth = 1;
       ctx.setLineDash([2, 2]);
       ctx.moveTo(0, h / 2);
       ctx.lineTo(w, h / 2);
       ctx.stroke();
       ctx.setLineDash([]);
+      ctx.restore();
       return;
     }
 
@@ -61,11 +76,11 @@ export const MicroSparkline: Component<Props> = (props) => {
       ? profitToken
       : isDown
       ? lossToken
-      : 'rgba(255, 255, 255, 0.35)';
+      : 'rgba(255, 255, 255, 0.40)';
 
     // Draw sparkline path
     ctx.beginPath();
-    ctx.lineWidth = 1.25;
+    ctx.lineWidth = 1.35;
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
     ctx.strokeStyle = strokeColor;
@@ -96,9 +111,11 @@ export const MicroSparkline: Component<Props> = (props) => {
 
     // Pulsing live edge tick dot on newest point
     ctx.beginPath();
-    ctx.arc(lastX, lastY, 1.75, 0, Math.PI * 2);
+    ctx.arc(lastX, lastY, 2.0, 0, Math.PI * 2);
     ctx.fillStyle = strokeColor;
     ctx.fill();
+
+    ctx.restore();
   };
 
   // Push incoming tick price into circular buffer

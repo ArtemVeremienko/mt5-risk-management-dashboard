@@ -80,7 +80,7 @@ export const RiskMatrixTable: Component<Props> = (props) => {
             <thead>
               <tr>
                 {/* AG-Grid Style Symbol Header with Filter Funnel Trigger & Popover */}
-                <th class="col-symbol-header" style={{ width: '175px' }}>
+                <th class="col-symbol-header" style={{ width: '165px' }}>
                   <div class="col-header-inner">
                     <span
                       class="col-header-title cursor-pointer"
@@ -203,22 +203,22 @@ export const RiskMatrixTable: Component<Props> = (props) => {
                   </div>
                 </th>
 
-                <th onClick={() => marketStore.toggleSort('bid')} class="cursor-pointer text-right" style={{ width: '175px' }}>
+                <th onClick={() => marketStore.toggleSort('bid')} class="cursor-pointer text-right" style={{ width: '190px' }}>
                   Market Price (Spread) <span class="sort-icon">{marketStore.sortIcon('bid')}</span>
                 </th>
-                <th onClick={() => marketStore.toggleSort('adr')} class="cursor-pointer text-right" style={{ width: '100px' }}>
+                <th onClick={() => marketStore.toggleSort('adr')} class="cursor-pointer text-right" style={{ width: '110px' }}>
                   14D ADR <span class="sort-icon">{marketStore.sortIcon('adr')}</span>
                 </th>
-                <th class="text-center" style={{ width: '130px' }}>
+                <th class="text-center" style={{ width: '120px' }}>
                   Stop Loss
                 </th>
-                <th onClick={() => marketStore.toggleSort('lot')} class="cursor-pointer text-right" style={{ width: '120px' }}>
+                <th onClick={() => marketStore.toggleSort('lot')} class="cursor-pointer text-right" style={{ width: '115px' }}>
                   Lot Size <span class="sort-icon">{marketStore.sortIcon('lot')}</span>
                 </th>
-                <th onClick={() => marketStore.toggleSort('risk_pct')} class="cursor-pointer text-right" style={{ width: '160px' }}>
+                <th onClick={() => marketStore.toggleSort('risk_pct')} class="cursor-pointer text-right" style={{ width: '170px' }}>
                   Effective Risk (Margin) <span class="sort-icon">{marketStore.sortIcon('risk_pct')}</span>
                 </th>
-                <th class="text-center" style={{ width: '140px' }}>
+                <th class="text-center" style={{ width: '170px' }}>
                   Execute
                 </th>
               </tr>
