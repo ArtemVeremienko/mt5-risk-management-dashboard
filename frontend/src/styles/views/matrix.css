@@ -318,7 +318,13 @@ th.cursor-pointer:hover {
   overflow-x: auto;
 }
 
-.risk-matrix-table,
+.risk-matrix-table {
+  width: 100%;
+  min-width: 1055px;
+  border-collapse: collapse;
+  text-align: left;
+}
+
 .positions-table {
   width: 100%;
   border-collapse: collapse;
