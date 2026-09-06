@@ -1,216 +1,107 @@
-# MT5 Risk Management Dashboard — Focused Roadmap & Architecture Plan
+# 🎯 MT5 Risk Management Dashboard — Project Roadmap & Next Steps
 
-> 📚 **Backend Architecture & Systems Guide**: See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the Hexagonal Architecture blueprint, interface specifications (`IMarketDataProvider`, `IExecutionProvider`), and [`SESSION_LEARNINGS.md`](./SESSION_LEARNINGS.md) for historical refactoring milestones and retrospectives.
-
----
-
-## 🚀 Phase 1: Core Performance & Order Management (P0 Priority)
-
-### 1. ⚡ Turbo Mode with ADR/ATR In-Memory TTL Caching & Zero-HTTP Streaming
-- [x] **Decouple Daily Volatility from Ticks**:
-  - Implement a 15-minute in-memory TTL cache for 14-day D1 ADR/ATR calculations.
-  - Sub-second tick polling will only query fast `mt5.symbol_info_tick(symbol)` (< 0.05ms per symbol), dropping IPC latency from ~300ms to < 5ms.
-- [x] **Async Thread Offloading**:
-  - Offload synchronous MT5 C-extension calls via `asyncio.to_thread` to prevent blocking the FastAPI event loop.
-- [x] **Turbo Mode Switch**:
-  - Header toggle (`⚡ Turbo Mode [ 500ms ]`) with `localStorage` persistence.
-  - Fast 500ms interval for active trading sessions; 2.0s standard interval for background monitoring.
-- [x] **Pure WebSocket Streaming & Local Lot Math (Zero-HTTP Turbo Stream)**:
-  - Eliminate the `POST /api/calculate` network round-trip on 500ms ticks by consuming live tick streams directly.
-  - Pre-format table strings in JS state (`bid_display`, `lot_display`, `risk_display`) to eliminate 1,000+ runtime DOM string evaluations.
-  - Local client-side calculation engine for instant 0ms recalculation on Working Capital, Risk Model, and SL adjustments.
-
-### 2. 📊 Order Management Panel (Live Positions & Execution)
-- [x] **Live Open Positions Table**:
-  - Dedicated 10-column layout: `Ticket #`, `Symbol / Type`, `Volume`, `Open Price`, `Current Price`, `Stop Loss`, `Take Profit`, `Floating P&L ($ / pips)`, `R-Multiple`, `Actions`.
-  - Fixed table layout preventing numerical layout shifts and column jumping.
-- [x] **High-Speed Position Controls**:
-  - ❌ **Instant Market Close**: One-click position liquidation (`POST /api/position/close`).
-  - 🛡️ **Move to Break-Even (BE)**: Snaps SL to entry price with spread buffer (`POST /api/position/modify`).
-  - ✂️ **Partial Close (50%)**: Instant half-position profit taking.
-  - 🛑 **Emergency Close All**: Parallelized liquidation across all open positions with 2-step armed safety confirmation.
-- [x] **Smart Flatten ($0.00 Net Delta Guarantee)**:
-  - Unified institutional emergency liquidation control per `docs/01_institutional_terminal_design.md`.
-  - Replaced redundant segmented toggle switches with a single streamlined **`🚨 Flatten All (${count})`** button.
-  - Concurrently closes 100% of open market positions AND sweeps all active resting pending orders, guaranteeing true $0.00 net exposure.
-  - Governed by a two-phase 4-second safety arming interlock (`⚠️ Confirm FLATTEN ALL`) with instant `Escape` / outside-click disarming.
-- [x] **cTrader/TradingView Stacked SL/TP Popover**:
-  - 3-tier stacked inputs: **Price**, **Pips**, **Loss $/Profit $** with instant bidirectional calculations.
-  - Stepper touch controls (`-` / `+`) with modifier accelerators (Shift = 10x, Alt = 0.1x).
-  - Quick-preset snap chips: `🛡️ Entry / BE`, `📐 1/4 ADR`, `📐 1/2 ADR`, `🎯 1:1.5 RR`, `🎯 1:2.0 RR`, `🎯 1:3.0 RR`.
-  - Configurable default autofocus preference (`price`, `pips`, `cash`) via Solid.js `use:autofocus` custom directive.
-  - Raw unformatted typing preservation with canonical `onBlur` formatting.
+> 📚 **System Guides & Architecture**:
+> - **Hexagonal Concurrency & Streaming Blueprint**: [`ARCHITECTURE.md`](./ARCHITECTURE.md)
+> - **Developer Rules & Design Tokens**: [`AGENTS.md`](./AGENTS.md)
+> - **Historical Refactoring & Deep Retrospective**: [`SESSION_LEARNINGS.md`](./SESSION_LEARNINGS.md)
+> - **Socket Push Protocol Specifications**: [`STREAMING_PLAN.md`](./STREAMING_PLAN.md)
 
 ---
 
-## ⚡ Next Architectural Milestone: Solid.js + Vite + TypeScript Enterprise Migration
-- [x] **Modular Component Architecture**:
-  - `<HeaderMetricsBar />`: Balance, Equity, Floating P&L, Status, and Workspace Switcher (`📡 Screener` / `💼 Positions`).
-  - `<RiskControlsBar />`: Working Capital, Risk Sizing Selector (Fixed %, Dynamic Half-Kelly), Global SL Mode, RR Ratio.
-  - `<StrategyStatsBanner />`: Collapsible sample size tier and Kelly Criterion metrics (Ralph Vince Optimal $f$ deprecated/dropped).
-  - `<RiskMatrixTable />`: Fine-grained Signal-bound table rows with drag & drop reordering and symbol pinning.
-  - `<OrderManagementPanel />`: Live position management table with one-click actions.
-- [x] **Fine-Grained Reactive Pipeline**:
-  - Pure Solid Signals (`createSignal`, `createMemo`) with zero Virtual DOM overhead.
-  - Microsecond direct Text/Attr bindings (`node.data = newPrice`) for deterministic sub-millisecond 60fps streaming.
-- [x] **Client Math, Tooling & Type Safety**:
-  - Strict TypeScript types for MT5 payloads, broker specs, and lot calculation models.
-  - ESLint v10 flat config (`eslint.config.js`) + TypeScript `typecheck` scripts (`npm run lint`, `npm run typecheck`).
-  - Colocated `frontend/` workspace with Vite production build to `static/dist/`.
+## 📊 Roadmap Status Overview
+
+| Phase | Milestone / Domain | Status | Key Deliverable |
+| :---: | :--- | :---: | :--- |
+| **Phases 1–5** | **Core Terminal, Ergonomics & OMS Engine** | **Completed** | Full Hexagonal backend, Solid.js UI, dual-arm safety, session ADR micro-gauges, Smart Flatten ($0\Delta$). |
+| **Math Tests** | **Frontend Quantitative Math Test Suites** | **Completed** | 75 Vitest unit tests covering lot sizing, 4-way position math, sparkline buffer, and portfolio heat. |
+| **Phase 6** | **Native MQL5 TCP Socket Push Bridge** | **Next Up (P0)** | Sub-ms NDJSON streaming via `RiskBridgeEA.mq5` and FastAPI `asyncio.start_server`. |
+| **Phase 7** | **Pre-Trade Safety Ceiling & OMS Interlocks** | **Planned (P1)** | Configurable hard risk ceiling (`mt5_max_risk_ceiling`), broker clamp alerts, and spread surge settings. |
+| **Phase 8** | **Live Terminal Integration & E2E Validation** | **Planned (P2)** | Live broker demo testing, fast tick streaming verification, and automated E2E test runs. |
 
 ---
 
-## 🔒 Phase 2: Institutional Execution Safety & Dual-Arm Engine (P0 Priority)
-> 📚 **Reference Standards**: See [`docs/01_institutional_terminal_design.md`](./docs/01_institutional_terminal_design.md) & [`docs/03_matrix_execution_and_oms.md`](./docs/03_matrix_execution_and_oms.md)
+## 🚀 Active & Upcoming Milestones
 
-### 3. 🔒 Dual-Arm Safety State Machine
-- [x] **Decaying Auto-Disarm Safety Gate**:
-  - Eliminate raw hair-trigger 1-click execution and quote-obsoleting blocking confirmation modals.
-  - First click on BUY or SELL transitions the symbol row into an explicit `ARMED` state with a 5.0-second auto-decay window.
-  - A visual decaying progress bar/ring renders beneath the button group indicating remaining armed dwell time.
-  - A second click while `ARMED` atomically claims execution and dispatches the order to the MT5 pre-trade risk engine.
-  - Orders auto-disarm immediately upon dispatch, on 5.0s timeout expiration, or when `Escape` is pressed.
-- [x] **Anti-Double-Click & Debounce Interlock**:
-  - Atomic test-and-set claim token (`verify_and_claim_execution()`) in UI and backend preventing duplicate rapid-fire order dispatches during network jitter.
-- [x] **Hotkey Focus Trapping & Safety Interlocks**:
-  - Suppress execution hotkeys whenever any input field (`.sl-input`, search bar, popover) has DOM focus.
+### ⚡ Phase 6: Native MQL5 TCP Socket Push & RPC Bridge (`RiskBridgeEA.mq5`)
+> 📚 **Reference Specification**: See [`STREAMING_PLAN.md`](./STREAMING_PLAN.md) for wire protocol, NDJSON frames, and MT5 socket architectures.
 
-### 4. 🔘 5-State Institutional Execution Button Engine
-- [x] **Canonical 5-State Button Lifecycle**:
-  - **State 1: Resting (Ghost / Outline)**: Subtle alpha-tinted border (`rgba(8, 153, 129, 0.15)` / `rgba(242, 54, 69, 0.15)`), preserving the 90-7-3 chromatic budget.
-  - **State 2: Armed**: High-contrast active outline with decaying countdown timer line.
-  - **State 3: Depressed**: Tactile mechanical feedback (`active` state, 1px translation).
-  - **State 4: In-Flight**: Immediate lock (`pointer-events: none`) with inline micro-spinner / shimmer while the IPC order packet routes through MT5.
-  - **State 5: Fill Flash**: 350–450ms hardware-accelerated pulse (`#34D399` on fill / `#F87171` on reject) decaying smoothly back to Resting.
-
----
-
-## 🧠 Phase 3: Cognitive Ergonomics, Psychological De-Biasing & CVD (P1 Priority)
-> 📚 **Reference Standards**: See [`docs/01_institutional_terminal_design.md`](./docs/01_institutional_terminal_design.md) & [`docs/02_trading_psychology_and_ergonomics.md`](./docs/02_trading_psychology_and_ergonomics.md)
-
-### 5. 👁️ Emotional De-Biasing & Stealth PnL Mode
-- [x] **Stealth PnL & Normalized $R$-Multiple HUD**:
-  - Saturated flashing raw dollar drawdowns trigger sympathetic nervous system (SNS) hyper-arousal and loss aversion ($\lambda \approx 2.25$).
-  - Add a Stealth PnL toggle button (`👁️` / `🕶️`) in the header metrics bar and global hotkey (`H`).
-  - Modes: **Standard Currency** (`-$28.86`), **Normalized R** (`-0.61 R`), and **Stealth Mask** (`***`).
-  - Persist stealth preference in `localStorage`.
-- [x] **Tick Flash-Decay Micro-Animations**:
-  - Replace static DOM price replacements with 350ms GPU-accelerated tick flash-decay animations (`.price-flash-up`, `.price-flash-down`) utilizing composited layers (`opacity`, `transform`) without layout thrashing per `docs/01 §5.3`.
-- [x] **Universal CVD Cyan/Amber Colorway**:
-  - Add Color Vision Deficiency (CVD) toggle in Settings:
-    - **Standard**: Pine Emerald (`#089981` / `#34D399`) & Crimson Coral (`#F23645` / `#F87171`).
-    - **Institutional CVD**: Electric Cyan (`#00F2FE` / `#00B4D8`) & Warm Amber (`#FF8C00`).
-  - Update all semantic CSS variables (`--sys-color-buy`, `--sys-color-sell`, `--sys-color-profit`, `--sys-color-loss`).
-- [x] **Input Floating-Point Precision & Form a11y Cleanup**:
-  - Enforce strict `.toFixed(1)` step precision across SL/TP calculation models to eliminate IEEE 754 floating-point leaks in the accessibility tree (e.g. `12.300000190734863` $\to$ `12.3`).
-  - Assign semantic `id` and `name` attributes to all form controls to eliminate Chromium accessibility warnings.
+- [ ] **Native Zero-DLL Socket Push EA (`RiskBridgeEA.mq5`)**:
+  - Non-blocking client sockets (`SocketCreate`, `SocketConnect`, `SocketSend`) implemented natively in MQL5 without external Win32 DLLs.
+  - Stream sub-millisecond price ticks on `OnTick()` to TCP port `:9090` using NDJSON framing.
+  - Stream transaction and fill events on `OnTradeTransaction()` for real-time blotter synchronization without polling delays.
+- [ ] **Bidirectional RPC Execution Channel (`:9091`)**:
+  - Implement a dedicated TCP RPC socket server on port `:9091` for instantaneous order placement, SL/TP modifications, and batch liquidations.
+  - Sub-millisecond execution response avoiding python C-extension mutex contention.
+- [ ] **FastAPI TCP Ingestion Layer & Broadcaster Integration**:
+  - Background `asyncio.start_server` listener in FastAPI consuming incoming NDJSON tick packets directly into [`BroadcastHub`](./application/broadcaster.py).
+  - Eliminate all IPC thread hops for market tick updates when EA is active.
+- [ ] **Dynamic Provider Promotion & Transparent Fallback Hierarchy**:
+  - Auto-promote `MQL5SocketPushProvider` to active market provider when `RiskBridgeEA.mq5` connects.
+  - Seamless zero-downtime automatic fallback to [`MT5NativeProvider`](./infrastructure/providers/mt5_provider.py) (polling over Win32 IPC) if the EA drops or disconnects.
+  - Maintain [`MockDataProvider`](./infrastructure/providers/mock_provider.py) for offline development and CI environments.
+- [ ] **UI Driver Telemetry Badge**:
+  - Header badge in Solid.js terminal displaying live driver state: `⚡ Push: Active (<1ms)` vs `🔄 IPC Polling (500ms)`.
 
 ---
 
-## 🛡️ Phase 4: Pre-Trade Risk Interlocks & Smart Liquidation (P1 Priority)
+### 🛡️ Phase 7: Institutional Pre-Trade Safety Hard Ceiling & Configurable Controls
+> 📚 **Reference Standards**: See [`docs/03_matrix_execution_and_oms.md`](./docs/03_matrix_execution_and_oms.md) & [`AGENTS.md`](./AGENTS.md).
 
-### 6. 🚨 Pre-Trade Execution Safety Gatekeeper
-- [x] **Spread Blowout Visual Warning & Soft Guard**:
-  - Track 14-day rolling median spread per instrument.
-  - Subtle amber highlight ring on `.spread-pill-mini` if current spread exceeds $2.0\times$ median spread (`⚠️ Spread Surge`).
-  - Require explicit double-arm confirmation before routing orders if spread exceeds $2.5\times$ median (rollover / news spike guard).
-- [x] **Margin Health Pre-Flight Check**:
-  - Verify that `Required Margin <= Account Free Margin * 0.95` before allowing execution.
-  - Visually disable execution buttons with an explanatory tooltip if margin is insufficient.
-- [x] **Max Risk Per Trade Safety Ceiling (Optional Setting)**:
-  - Configurable hard ceiling in Settings (`mt5_max_risk_ceiling`, default 2.50%) preventing oversized manual orders.
-  - Visual alerts (`🛑 Risk Ceiling Exceeded`) on symbol rows when broker limits cause oversized allocation.
-
-### 7. 🚨 Smart Flatten vs. Close All (Configurable Liquidation Engine)
-- [x] **Smart Flatten Mode**:
-  - Global user preference in Settings: `Emergency Action Mode` (`Close Positions Only` vs `Smart Flatten: Positions + Cancel Pending Orders`).
-  - **Close All Mode**: Exclusively liquidates open market positions (`mt5.positions_get()`).
-  - **Smart Flatten Mode**: Concurrently closes 100% of open positions AND deletes all active pending orders (`mt5.orders_get()`), guaranteeing true $0.00$ net exposure.
-  - UI reflection: Toolbar button and tooltip adapt dynamically (`🛑 Close All (N)` vs `🚨 Flatten All (N Pos + M Orders)`).
+- [ ] **Max Risk Per Trade Hard Ceiling (`mt5_max_risk_ceiling`)**:
+  - Add configurable hard ceiling in [`RiskConfigModal.tsx`](./frontend/src/components/modals/RiskConfigModal.tsx) (default `2.50%` of Working Capital).
+  - Pre-flight rejection: visually block execution buttons with an alert badge (`🛑 Risk Ceiling Exceeded`) when broker minimum lot sizes would force dollar risk past the ceiling on small accounts.
+  - Intercept and reject in backend [`PreTradeGatekeeper`](./domain/safety/gatekeeper.py) if incoming order payload breaches configured ceiling.
+- [ ] **User-Configurable Spread Surge Multipliers**:
+  - Expose spread surge thresholds in Settings:
+    - Warning highlight threshold (default `2.0×` rolling median).
+    - Double-arm lock threshold (default `2.5×` rolling median).
+- [ ] **One-Click Quick Preset SL Customization**:
+  - Allow traders to define custom quick snap chips (e.g. `🎯 1.0 R`, `📐 20 p`, `📐 0.5 ADR`) within the Settings modal, persisted in `localStorage`.
 
 ---
 
-## 🌐 Phase 5: Portfolio Telemetry, Volatility & Layout Polish (P2 Priority)
-
-### 8. 📊 Real-Time Portfolio Heat & Exposure Telemetry
-- [x] **Total Portfolio Heat Gauge**:
-  - Real-time sum of total open stop-loss risk in currency and account equity percentage:
-    $$\text{Portfolio Heat} = \sum_{k} |\text{OpenPrice}_k - \text{SL}_k| \times \text{Volume}_k \times \text{PipValue}_k$$
-  - Prominent telemetry badge in Header Metrics Bar and Positions Blotter with unshielded trade warnings (`⚠️ N Unshielded`).
-- [x] **Net Currency Exposure Breakdown**:
-  - Computes net long/short dollar exposure aggregated across base/quote currencies (USD, EUR, GBP, JPY, AUD, CAD, CHF, NZD).
-  - Compact vector chips in the positions bulk toolbar (`+1.00 EUR`, `-0.30 USD`).
-- [x] **Account HUD Telemetry Expansion**:
-  - Display Free Margin, Margin Level %, and Portfolio Heat in the top HUD and Account Telemetry Popover.
-- [x] **Responsive Header Layout (Media Queries)**:
-  - Responsive rules for `<=1100px` and `<=1024px` viewports to collapse the strategy telemetry pill and secondary tags, preventing right-hand controls (`500ms`, `Settings`, `MT5 DEMO`) from being pushed off-screen.
-
-### 9. 🎨 Volatility & Interaction Micro-Polish
-- [x] **Quick-Preset SL Hover Bar (cTrader Pattern)**:
-  - On hovering a symbol's SL box, display micro-chips (`[¼]`, `[⅓]`, `[½]`, `[1D]`, `[ATR]`) for instant 1-click preset overrides without manual typing.
-- [x] **Sub-Minute Micro-Tick Sparkline Ribbon (Matrix Column 2 Integration)**:
-  - Embed an ultra-compact 60-second / 100-tick canvas sparkline ribbon within the Market Price & Spread cell.
-  - Zero-GC `Float32Array` circular ring buffer rendering live price trajectory, micro-momentum slope, and pulsing edge dot.
-  - Selective rendering budget strictly active for Pinned and Hovered symbols (zero idle CPU/GPU waste).
-- [x] **Session ADR Exhaustion & Volatility Micro-Gauge (Matrix Column 3 Upgrade)**:
-  - **Quantitative Engine (`MT5NativeProvider` & `MockDataProvider`)**:
-    - Query today's D1 bar (`mt5.copy_rates_from_pos(sym, TIMEFRAME_D1, 0, 1)`) to obtain real-time session extremes: $\text{Range}_{\text{today}} = \text{High}_{\text{today}} - \text{Low}_{\text{today}}$.
-    - Derive session metrics:
-      $$\text{Used \%} = \min\left(200\%, \frac{\text{Range}_{\text{today}}}{\text{ADR}_{14}} \times 100\%\right), \quad \text{Left}_{\text{pips}} = \max\left(0.0, \text{ADR}_{14} - \text{Range}_{\text{today}}\right)$$
-    - Compute directional projection limits:
-      - $\text{Room Up} = (\text{Low}_{\text{today}} + \text{ADR}_{14}) - \text{Current Price}$
-      - $\text{Room Down} = \text{Current Price} - (\text{High}_{\text{today}} - \text{ADR}_{14})$
-    - Stream `adr_left_pips`, `adr_used_pct`, `today_range_pips`, `room_up_pips`, and `room_down_pips` in 500ms WebSocket broadcasts.
-  - **Matrix Grid Micro-Gauge UI (`SymbolRow.tsx` & `matrix.css`)**:
-    - Transform Column 3 from a static string into a high-density stacked micro-gauge:
-      - **Top Line**: Tactile pips remaining with total ADR muted badge (`[68.4p]`).
-      - **Subtext Line**: Normalized session absorption badge (e.g. `38%` / `⚠️ 92%`).
-      - **Bottom Edge**: 3px hairline micro progress bar adhering to the 90-7-3 chromatic budget with 3 regime states:
-        - `0% – 70% Used`: Cool cyan (`--sys-color-secondary`) $\implies$ *Healthy Trend Expansion*.
-        - `70% – 90% Used`: Muted functional amber (`--sys-color-warning`) $\implies$ *Mature Trend / Decelerating Momentum*.
-        - `≥ 90% Used`: Warning coral (`--sys-color-loss`) with `⚠️` badge $\implies$ *Statistical Exhaustion / Mean-Reversion Trap Warning*.
-    - Fixed container height with strict `font-variant-numeric: tabular-nums` to eliminate layout shift.
-  - **Rich Telemetry Hover Tooltip**:
-    - Hovering the cell reveals session extremes (`Session Range: 54.2p (78% of ADR)`) and directional headroom (`Room: ↑18.2p · ↓8.4p`).
-  - **Positions Blotter Exhaustion Warning (`PositionRow.tsx` & `positions.css`)**:
-    - Display an amber/coral warning chip (`⚠️ ADR Cap`) next to open positions when their symbol exceeds $90\%$ ADR, alerting the operator that intraday Take-Profit targets have low statistical fulfillment probability without an overnight hold.
-- [x] **Risk Controls Capsule UX/UI**:
-  - Improve UX/UI for `'Click to configure Working Capital, Risk Model, SL Presets, and R:R Ratio'` capsule with micro-badge chips.
-  - Smart Working Capital display: If `Working Capital == Balance`, displays clean standard `BAL`; when overridden, replaces `BAL` with highlighted amber `WC` badge and detailed tooltip + modal jump.
-- [x] **Statistics Capsule UX/UI**:
-  - Improve UX/UI for the statistic capsule — optimized size, segmented pill layout, dynamic color coding, and neutral telemetry icon.
-- [x] **Universal Order Execution Alignment (cTrader / MetaTrader DOM)**:
-  - Position `[ SELL ]` on the Left (Red) and `[ BUY ]` on the Right (Green) across all symbols.
-- [x] **Stop Loss Input Expansion & Tabular Numbers (Quantower Pattern)**:
-  - Expanded SL input width (84px–100px) and removed internal browser spinner arrows (`-webkit-appearance: none`) to eliminate glyph clipping on large integers (`GOLD`, `#USSPX500`, `#Japan225`).
-  - Strict vertical decimal alignment via `font-variant-numeric: tabular-nums`.
+### 🧪 Phase 8: Live Demo Integration & End-to-End Broker Verification
+- [ ] **Live MetaTrader 5 Terminal Demo Verification**:
+  - Connect terminal to an active MetaTrader 5 demo account (Forex, Metals, Indices).
+  - Verify 500ms Turbo Mode streaming under high market activity with zero UI frame drops.
+  - Test dual-arm safety execution across all 5 states (Resting $\to$ Armed $\to$ Depressed $\to$ In-Flight $\to$ Fill Flash).
+- [ ] **Two-Phase Smart Flatten Live Verification**:
+  - Place live pending orders (Buy Limit, Sell Stop) alongside open positions.
+  - Trigger "Flatten All ($0\Delta$)" and verify atomic two-phase purge: 100% pending orders canceled, 100% market positions liquidated, leaving true $\$0.00$ Net Delta.
+- [ ] **Automated Headless Browser End-to-End Suite**:
+  - Expand [`browser_test.py`](./browser_test.py) to validate full interaction lifecycle: SL inline editing, modal parameter overrides, hotkey navigation (`1`, `2`, `/`, `H`, `Escape`).
 
 ---
 
-## ⚡ Future Architecture: Native MQL5 Event-Driven Push Bridge & Provider Abstraction
-> 📚 **Detailed Blueprint**: See [STREAMING_PLAN.md](./STREAMING_PLAN.md) for full protocol specs, benchmarks, and MQL5 EA blueprints.
+## 🏛️ Completed Milestones Archive (Phases 1–5 Summary)
 
-### 5. 🔌 Provider Abstraction Layer (Bridge Pattern & Safe Fallbacks)
-- [ ] **Decoupled Architecture (`providers/`)**:
-  - `IMarketDataProvider`: Standardized interface for ticks, symbol specifications, trade history, and account metrics.
-  - `IExecutionProvider`: Standardized interface for order execution, inline SL/TP modification, partial closes (50%), and emergency close all.
-- [ ] **Transparent Fallback Hierarchy**:
-  - Automatically promotes to `SocketPushProvider` when `RiskBridgeEA.mq5` connects.
-  - Falls back seamlessly to `MT5FallbackProvider` (`MetaTrader5` C-extension polling) if the EA is not attached or drops.
-  - Falls back to `MockDataProvider` for offline/cross-platform development.
+All core architecture, math, safety interlocks, and design systems have been fully implemented and verified across 64 backend pytest tests and 75 frontend Vitest tests. Full architectural details and retrospectives reside in [`SESSION_LEARNINGS.md §15`](./SESSION_LEARNINGS.md#L484-L525) and [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
-### 6. 🚀 Native MQL5 TCP Socket Push & RPC Bridge (`RiskBridgeEA.mq5`)
-- [ ] **Zero-DLL Socket Bridge**:
-  - Native MQL5 non-blocking sockets (`SocketCreate`, `SocketSend`) pushing sub-millisecond ticks on `OnTick()` and fills on `OnTradeTransaction()`.
-  - Dedicated bi-directional RPC channel (:9091) for $< 1\text{ms}$ position modifications and batch liquidations.
-- [ ] **FastAPI TCP Ingestion & UI Telemetry**:
-  - Background `asyncio.start_server` consuming NDJSON streams into FastAPI's WebSocket broadcaster.
-  - Live driver telemetry badge in Solid.js header (`⚡ Push: Active` vs `🔄 Polling Fallback`).
+### 1. ⚡ Core Performance, Streaming & Clean Hexagonal Architecture
+* [x] **Centralized Pub/Sub Broadcast Hub**: Single-producer multi-consumer [`BroadcastHub`](./application/broadcaster.py) eliminating per-client polling storms.
+* [x] **Single-Threaded Serial MT5 Worker**: [`MT5IPCWorker.call()`](./infrastructure/ipc/mt5_worker.py) pinning calls to a dedicated OS thread, preventing Win32 IPC handle corruption (`0xC0000005`) and startup mutex deadlocks.
+* [x] **Decoupled 15-Minute Volatility Cache**: Background TTL caching for 14-day D1 ADR/ATR calculations, keeping live quote streaming sub-millisecond.
+* [x] **Provider Abstraction Layer**: Standardized [`IMarketDataProvider`](./infrastructure/providers/base.py) and [`IExecutionProvider`](./infrastructure/providers/base.py) with [`MT5NativeProvider`](./infrastructure/providers/mt5_provider.py) and [`MockDataProvider`](./infrastructure/providers/mock_provider.py).
+* [x] **Domain Model Purity**: Immutable Pydantic v2 domain models with dot-notation attribute access; eliminated dict-emulation hacks.
 
----
+### 2. 🔒 Dual-Arm Execution Safety & Institutional Ergonomics
+* [x] **5-State Invariant Hitbox Execution Engine**: Execution buttons strictly locked to `64px` inside `136px` cluster within $170\text{px}$ column. State transitions conveyed via border glows, 2px hairline dwell countdown bar, and centered glyphs (`✓`/`✕`), preserving Fitts's Law.
+* [x] **Decaying Auto-Disarm Safety Gate**: 5.0-second decaying countdown with Instant Pivot execution contract (opposing direction remains interactive and disarms/arms in a single click).
+* [x] **Cognitive Asymmetry**: 400ms fill flash vs prolonged visual dwell for rejections to guarantee human acknowledgment.
+* [x] **Atomic Two-Phase Smart Flatten**: [`LiquidationService.flatten_all()`](./application/liquidation_service.py) canceling 100% of pending orders prior to market liquidation, guaranteeing $\$0.00$ Net Delta.
 
-> [!NOTE]
-> **Separation of Concerns**:
-> - **Trading Dashboard (This Project)**: Fast execution, dynamic position sizing math, high-frequency telemetry, and discretionary trade management.
-> - **24/7 Account & Trade Automation (MQL5 Layer)**: Any 24/7 automated trailing stops or account-level daily drawdown circuit breakers belong inside the native MQL5 EA layer (`RiskBridgeEA.mq5` / `ProtectionEA.mq5`), ensuring uninterrupted execution on VPS even when the web UI is closed.
-> - **Post-Trade Statistical Audit**: Historical trade analytics, Monte Carlo simulation, MAE/MFE, and calendar heatmaps are housed in the dedicated [`trade_performance_analytics`](../trade_performance_analytics/IMPLEMENTATION_PLAN.md) module.
+### 3. 🧠 Cognitive Ergonomics, Psychological De-Biasing & Design Tokens
+* [x] **Stealth PnL & Normalized $R$-Multiple HUD**: Multi-mode telemetry (`currency` $\to$ `r_multiple` $\to$ `stealth_mask`) toggleable via `H` hotkey.
+* [x] **Uniform Stealth Standard**: All masked figures render as invariant Unicode bullet sequences (`••••••`), backed by 300ms hover-to-reveal tooltips.
+* [x] **GPU-Composited Tick Flashers**: Composited pseudo-elements (`::before`) with 0ms attack and 350ms decay, eliminating DOM reflows.
+* [x] **3-Layer Design Token Architecture**: Primitives (`--ref-*`), Semantics (`--sys-*`), and Views (`main.css`, `matrix.css`, `positions.css`) with Universal CVD Cyan/Amber colorway.
+* [x] **Zero-Latency Telemetry Micro-Popovers**: `.adr-cell-wrapper` with `pointer-events: none` on floating cards to eliminate hover flickering and accidental order interception.
+
+### 4. 📊 Portfolio Telemetry, Volatility & Mathematical Parity
+* [x] **Session ADR Exhaustion Micro-Gauges**: Real-time session extremes ($\text{Range}_{\text{today}}$), session absorption %, and directional room (up/down) streamed in 500ms frames with 3-state chromatic tokens.
+* [x] **Class-Internal Dual-Buffer Sparklines**: [`CircularPriceBuffer`](./frontend/src/utils/sparklineBuffer.ts) managing pre-allocated `Float32Array(120)` ring and render buffers with zero heap allocations on incoming ticks.
+* [x] **Total Portfolio Heat Gauge**: Real-time aggregation of open stop-loss risk in dollars, account equity %, and $R$-multiples.
+* [x] **Net Currency Exposure Breakdown**: Directional base/quote exposure vectors (`+1.00 EUR`, `-0.50 USD`) with broker suffix stripping.
+* [x] **Conservative Volume Stepping Parity**: Enforces $\lfloor \frac{\text{Exact Lot}}{\text{Volume Step}} + 10^{-9} \rfloor \times \text{Volume Step}$ identically across TypeScript and Python, ensuring risk is a strict ceiling.
+* [x] **Frontend Quantitative Math Test Suites**: 75 passing Vitest unit tests covering lot calculations, 4-way position math, sparkline buffers, and portfolio heat.
+
