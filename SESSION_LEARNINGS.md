@@ -323,3 +323,49 @@
    - All mutation endpoints in `api.ts` must return `Promise<OrderActionResult>` with `{ success: boolean, message: string }`, catching underlying `ApiError` exceptions and translating them into user-facing failure records.
 3. **Automated Frontend Regression Testing**:
    - Every service or utility refactoring must be accompanied by Vitest unit tests in `src/services/*.test.ts` or `src/utils/*.test.ts`, verified via `npm test` and `npm run typecheck` before committing.
+
+---
+
+## 12. Micro-Sparkline Psychophysics, Retina DPI Calibration & Grid Ergonomics
+
+### System & Architectural Insights
+* **Slope Distortion Index in Financial Sparklines**:
+  * *Insight*: As formalized in quantitative terminal ergonomics (`docs/02 §3`), the visual slope $\theta$ of a sparkline series $P_t$ in a canvas of dimensions $(W, H)$ is:
+    $$\theta \propto \arctan\left(\frac{\Delta P / \sigma_P}{W / N}\right)$$
+  * *Problem*: In an excessively narrow sparkline ($46\text{px} \times 18\text{px}$ rendering a 120-point ring buffer), the horizontal pitch is only $0.38\text{px/tick}$. A standard 1–2 pip Brownian noise fluctuation in tight consolidation produces steep optical slopes exceeding $65^\circ$. This creates an artificial perception of explosive volatility ("slope distortion"), inducing premature trader panic, impulsive market orders, and cognitive fatigue.
+  * *Solution*: Expanding the aspect ratio to $3.0:1$ ($60\text{px} \times 20\text{px}$) with an effective window width increases horizontal pitch to $0.504\text{px/tick}$. This dampens micro-noise jitter below the perceptual panic threshold while clearly rendering genuine directional momentum and range breakout regimes.
+
+* **Gestalt Law of Proximity vs Elastic `space-between` Flex Layouts**:
+  * *Problem*: Positioning the sparkline ribbon on the left edge and market bid/ask prices on the right edge via `justify-content: space-between` inside a fixed $175\text{px}$ column caused an erratic floating whitespace gap ($30\text{px}$ to $180\text{px}$) across symbols with differing price digit counts (e.g., `BITCOIN 79764.44` vs `NAT.GAS 2.992`). The human eye had to jump across fluctuating voids to correlate the micro-trend with the current price, violating Gestalt visual grouping.
+  * *Solution*: Anchoring both the sparkline and price cluster to the right edge (`justify-content: flex-end; gap: 10px`) enforces an invariant spatial relationship. The sparkline ribbon and stacked bid/ask act as a single, coherent perceptual telemetry unit, with prices aligning neatly along their right decimal baseline.
+
+### Gotchas, Traps & Framework Quirks
+* **Canvas Sub-Pixel Blur on High-DPI / Retina Displays**:
+  * *Trap*: Setting `<canvas width={60} height={20} />` and rendering lines with `ctx.lineWidth = 1.2` creates blurry, washed-out anti-aliasing on modern $125\%$, $150\%$, and $200\%$ ($2\times$) screens. The physical canvas backing-store buffer remains $60 \times 20$ device-independent pixels stretched over $120 \times 40$ physical hardware pixels.
+  * *Fix*: Implement backing-store pixel ratio scaling inside the component mount lifecycle:
+    ```typescript
+    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+    ctx.scale(dpr, dpr);
+    ```
+    This guarantees 1:1 hardware pixel crispness for sparkline strokes and live edge pulse dots across all display densities.
+
+* **Fitts's Law Invariant vs CSS Grid Auto-Squeeze**:
+  * *Trap*: The execution button cluster consists of two invariant triggers: `[ BUY ]` ($64\text{px}$) + `gap: 8px` + `[ SELL ]` ($64\text{px}$) = $136\text{px}$ minimum width. In a standard table cell with $16\text{px}$ padding on each side ($32\text{px}$ total), the column requires at least $168\text{px}$ ($136 + 32$). Allocating only $140\text{px}$ caused CSS table layout engines to unpredictably squeeze or clip the cell on compact displays.
+  * *Fix*: Expand the `Execute` column to $170\text{px}$, providing full breathing room for the invariant buttons and hover glow halos.
+
+### Reusable Conventions & Rules
+1. **Harmonized 7-Column Screener Table Schedule ($1040\text{px}$ Baseline)**:
+   * Symbol: `165px`
+   * Market Price (Spread): `190px` (accommodates $60\text{px}$ sparkline + $10\text{px}$ gap + multi-digit price block)
+   * 14D ADR: `110px`
+   * Stop Loss: `120px` (accommodates $76\text{px}$ input + reset badge + labels)
+   * Lot Size: `115px`
+   * Effective Risk (Margin): `170px`
+   * Execute: `170px`
+2. **Viewport Eye Drift Containment**:
+   * All primary screener grid wrappers (`.matrix-section`) must be constrained with `max-width: 1440px; margin: 0 auto; width: 100%;` to eliminate horizontal eye strain and excessive saccadic motion on $2560\text{px}$ or $3840\text{px}$ ultra-wide monitors.
+
