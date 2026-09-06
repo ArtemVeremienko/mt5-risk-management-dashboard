@@ -10,6 +10,7 @@ import { RISK_CONSTANTS } from '../../config/constants';
 
 interface Props {
   onOpenRiskModal: () => void;
+  onOpenShortcutsModal?: () => void;
 }
 
 export const HeaderMetricsBar: Component<Props> = (props) => {
@@ -422,7 +423,7 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
                         ? 'MTD: ••••••'
                         : `MTD: ${monthlyPnlVal() >= 0 ? '+' : '-'}${formatCurrency(Math.abs(monthlyPnlVal()))} (${monthlyRTag()})`}
                     </span>
-                    <span class="font-mono text-neutral" style={{ 'font-size': '11px' }}>
+                    <span class="font-mono text-neutral text-telemetry">
                       {preferencesStore.pnlDisplayMode() === 'r_multiple'
                         ? `Target: ${(positionsStore.oneRCash() > 0 ? (preferencesStore.monthlyIncomeTarget() / positionsStore.oneRCash()).toFixed(0) : 10)} R`
                         : preferencesStore.pnlDisplayMode() === 'stealth_mask'
@@ -574,6 +575,40 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
           <span class="toggle-text">
             {preferencesStore.oneClickEnabled() ? '⚡ Settings' : '⚙️ Settings'}
           </span>
+        </button>
+
+        {/* Color Vision Deficiency (CVD Cyan/Amber) Colorway Toggle */}
+        <button
+          class="btn-toggle-compact btn-header-cvd"
+          classList={{ 'is-cvd': preferencesStore.colorway() === 'cvd' }}
+          onClick={() => {
+            const next = preferencesStore.toggleColorway();
+            toastStore.addToast(
+              'Colorway Switched',
+              next === 'cvd'
+                ? 'Color Vision Deficiency (CVD Cyan/Amber) palette active.'
+                : 'Standard Institutional (Emerald/Coral) palette active.',
+              'info'
+            );
+          }}
+          title={
+            preferencesStore.colorway() === 'cvd'
+              ? 'Colorway: CVD Accessible (Cyan/Amber) [Hotkey: C]'
+              : 'Colorway: Standard (Emerald/Coral) [Hotkey: C]'
+          }
+        >
+          <span class="toggle-text">
+            {preferencesStore.colorway() === 'cvd' ? '🎨 CVD' : '🎨 Standard'}
+          </span>
+        </button>
+
+        {/* Keyboard Shortcuts Cheat Sheet Button */}
+        <button
+          class="btn-toggle-compact btn-header-shortcuts"
+          onClick={() => props.onOpenShortcutsModal?.()}
+          title="Keyboard Shortcuts Cheat Sheet [Hotkey: ?]"
+        >
+          <span class="toggle-text">⌨️ ?</span>
         </button>
 
         {/* Connection Status Pill with Account Telemetry */}

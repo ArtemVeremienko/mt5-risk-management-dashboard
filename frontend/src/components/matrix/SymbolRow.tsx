@@ -246,18 +246,21 @@ export const SymbolRow: Component<Props> = (props) => {
     setButtonState('inflight');
 
     const clientOrderId = `order_${props.symbol}_${action}_${Date.now()}`;
+    let isSuccess = false;
     try {
       const res = await props.onTradeClick(d, action, clientOrderId);
-      const isSuccess = res && typeof res === 'object' && 'success' in res ? (res as any).success : true;
+      isSuccess = res && typeof res === 'object' && 'success' in res ? (res as any).success : true;
       setButtonState(isSuccess ? 'flash_success' : 'flash_error');
     } catch {
+      isSuccess = false;
       setButtonState('flash_error');
     } finally {
       if (flashTimer) clearTimeout(flashTimer);
+      const dwellMs = isSuccess ? 400 : 1500;
       flashTimer = setTimeout(() => {
         setButtonState('resting');
         setArmedAction(null);
-      }, 450);
+      }, dwellMs);
     }
   };
 

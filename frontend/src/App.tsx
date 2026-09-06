@@ -5,6 +5,7 @@ import { OrderManagementPanel } from './components/positions/OrderManagementPane
 import { RiskConfigModal } from './components/modals/RiskConfigModal';
 import { DeepDiveModal } from './components/modals/DeepDiveModal';
 import { ConfirmTradeModal } from './components/modals/ConfirmTradeModal';
+import { KeyboardShortcutsModal } from './components/modals/KeyboardShortcutsModal';
 import { ToastContainer } from './components/toasts/ToastContainer';
 import { api } from './services/api';
 import { wsService } from './services/websocket';
@@ -19,6 +20,7 @@ export const App: Component = () => {
   const [deepDiveItem, setDeepDiveItem] = createSignal<CalculatedSymbolResult | null>(null);
   const [pendingTrade, setPendingTrade] = createSignal<{ item: CalculatedSymbolResult; action: 'BUY' | 'SELL' } | null>(null);
   const [isRiskModalOpen, setIsRiskModalOpen] = createSignal<boolean>(false);
+  const [isShortcutsModalOpen, setIsShortcutsModalOpen] = createSignal<boolean>(false);
   const [isSubmittingOrder, setIsSubmittingOrder] = createSignal<boolean>(false);
 
   const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -32,6 +34,7 @@ export const App: Component = () => {
 
     if (e.key === 'Escape') {
       setIsRiskModalOpen(false);
+      setIsShortcutsModalOpen(false);
       setDeepDiveItem(null);
       setPendingTrade(null);
       return;
@@ -47,6 +50,18 @@ export const App: Component = () => {
       e.preventDefault();
       const searchInput = document.querySelector<HTMLInputElement>('.search-input');
       if (searchInput) searchInput.focus();
+    } else if (e.key === 'c' || e.key === 'C') {
+      const next = preferencesStore.toggleColorway();
+      toastStore.addToast(
+        'Colorway Switched',
+        next === 'cvd'
+          ? 'Color Vision Deficiency (CVD Cyan/Amber) palette active.'
+          : 'Standard Institutional (Emerald/Coral) palette active.',
+        'info'
+      );
+    } else if (e.key === '?') {
+      e.preventDefault();
+      setIsShortcutsModalOpen((prev) => !prev);
     }
   };
 
@@ -145,6 +160,7 @@ export const App: Component = () => {
     <div class="dashboard-container">
       <HeaderMetricsBar
         onOpenRiskModal={() => setIsRiskModalOpen(true)}
+        onOpenShortcutsModal={() => setIsShortcutsModalOpen(true)}
       />
 
       <main class="dashboard-main">
@@ -164,6 +180,12 @@ export const App: Component = () => {
       <RiskConfigModal
         isOpen={isRiskModalOpen()}
         onClose={() => setIsRiskModalOpen(false)}
+      />
+
+      {/* Keyboard Shortcuts Cheat Sheet Modal */}
+      <KeyboardShortcutsModal
+        isOpen={isShortcutsModalOpen()}
+        onClose={() => setIsShortcutsModalOpen(false)}
       />
 
       {/* Symbol Multi-Model Deep Dive Modal */}

@@ -94,10 +94,38 @@
   --sys-shadow-dropdown: var(--ref-shadow-dropdown);
 
   /* --------------------------------------------------------------------------
-   * 7. System Typography Stacks
+   * 7. System Typography Stacks & Modular Roles
    * -------------------------------------------------------------------------- */
   --sys-font-mono: var(--ref-font-mono);
   --sys-font-sans: var(--ref-font-sans);
+
+  /* Semantic Modular Font Sizes */
+  --sys-font-size-header: var(--ref-font-size-2xs);     /* 10px: Column titles, badges, micro-labels */
+  --sys-font-size-telemetry: var(--ref-font-size-sm);    /* 11px: Pip distances, ADR metrics, margin % */
+  --sys-font-size-body: var(--ref-font-size-base);       /* 12px: Standard table cells, descriptions */
+  --sys-font-size-control: var(--ref-font-size-md);      /* 13px: Interactive inputs, tickers, buttons */
+  --sys-font-size-price: var(--ref-font-size-lg);        /* 14px: Primary execution prices, calculated lots */
+  --sys-font-size-title: var(--ref-font-size-xl);        /* 16px: Section headings, modal titles */
+  --sys-font-size-hero-sm: var(--ref-font-size-2xl);     /* 20px: Sub-hero values, card totals */
+  --sys-font-size-hero: var(--ref-font-size-3xl);        /* 24px: High-luminance account balance, total PnL */
+
+  /* Semantic Font Weights */
+  --sys-font-weight-regular: var(--ref-font-weight-regular);   /* 400 */
+  --sys-font-weight-medium: var(--ref-font-weight-medium);     /* 500 */
+  --sys-font-weight-semibold: var(--ref-font-weight-semibold); /* 600 */
+  --sys-font-weight-bold: var(--ref-font-weight-bold);         /* 700 */
+
+  /* Semantic Line Heights */
+  --sys-line-height-tight: var(--ref-line-height-tight);       /* 14px */
+  --sys-line-height-body: var(--ref-line-height-base);         /* 16px */
+  --sys-line-height-control: var(--ref-line-height-control);   /* 18px */
+  --sys-line-height-title: var(--ref-line-height-title);       /* 22px */
+  --sys-line-height-hero: var(--ref-line-height-hero);         /* 28px */
+
+  /* Semantic Letter Spacing */
+  --sys-letter-spacing-header: var(--ref-letter-spacing-wide); /* +0.05em */
+  --sys-letter-spacing-body: var(--ref-letter-spacing-normal); /* 0 */
+  --sys-letter-spacing-price: var(--ref-letter-spacing-tight); /* -0.02em */
 
   /* --------------------------------------------------------------------------
    * 8. System Motion Roles

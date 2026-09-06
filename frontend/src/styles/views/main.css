@@ -22,7 +22,7 @@ body {
   background-color: var(--sys-color-surface);
   color: var(--sys-color-on-surface);
   font-family: var(--sys-font-sans);
-  font-size: 13px;
+  font-size: var(--sys-font-size-control);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
@@ -126,7 +126,7 @@ body {
 .btn-badge {
   background: rgba(255, 255, 255, 0.08);
   color: var(--sys-color-on-surface-muted);
-  font-size: 9px;
+  font-size: var(--sys-font-size-header);
   font-weight: 700;
   padding: 1px 5px;
   border-radius: var(--sys-radius-full);
@@ -144,7 +144,7 @@ body {
 }
 
 .btn-kbd {
-  font-size: 8px;
+  font-size: var(--sys-font-size-header);
   font-family: var(--sys-font-mono);
   color: var(--sys-color-on-surface-muted);
   border: 1px solid var(--sys-color-outline);
@@ -216,14 +216,14 @@ body {
 }
 
 .wc-badge-dot {
-  font-size: 7px;
+  font-size: var(--sys-font-size-header);
   color: #f59e0b;
   margin-left: 1px;
   line-height: 1;
 }
 
 .metric-mini-label {
-  font-size: 9px;
+  font-size: var(--sys-font-size-header);
   font-weight: 800;
   color: var(--sys-color-on-surface-muted);
   letter-spacing: 0.4px;
@@ -293,7 +293,7 @@ body {
 }
 
 .acc-popover-badge {
-  font-size: 9.5px;
+  font-size: var(--sys-font-size-header);
   font-weight: 800;
   padding: 2px 8px;
   border-radius: var(--sys-radius-sm);
@@ -332,7 +332,7 @@ body {
 }
 
 .acc-popover-label {
-  font-size: 9px;
+  font-size: var(--sys-font-size-header);
   font-weight: 700;
   color: var(--sys-color-on-surface-muted);
   text-transform: uppercase;
@@ -468,7 +468,7 @@ body {
 }
 
 .stats-popover-badge {
-  font-size: 9.5px;
+  font-size: var(--sys-font-size-header);
   font-weight: 800;
   padding: 2px 8px;
   border-radius: var(--sys-radius-sm);
@@ -551,7 +551,7 @@ body {
 }
 
 .stats-popover-label {
-  font-size: 9.5px;
+  font-size: var(--sys-font-size-header);
   font-weight: 700;
   color: var(--sys-color-on-surface-muted);
   text-transform: uppercase;
@@ -633,7 +633,7 @@ body {
 }
 
 .pill-arrow {
-  font-size: 9px;
+  font-size: var(--sys-font-size-header);
   color: var(--sys-color-on-surface-muted);
   opacity: 0.6;
   margin-left: 2px;
@@ -1634,3 +1634,89 @@ body {
     gap: 6px;
   }
 }
+
+/* ==========================================================================
+   HEADER ACTIONS: CVD COLORWAY TOGGLE & KEYBOARD SHORTCUTS TRIGGER
+   ========================================================================== */
+.btn-header-cvd {
+  transition: all 0.15s ease;
+}
+
+.btn-header-cvd.is-cvd {
+  background: rgba(0, 242, 254, 0.15);
+  border-color: var(--sys-color-buy);
+  color: var(--sys-color-buy);
+}
+
+.btn-header-shortcuts {
+  font-family: var(--sys-font-mono);
+  font-weight: 700;
+  padding: 3px 8px;
+}
+
+/* ==========================================================================
+   KEYBOARD SHORTCUTS MODAL SPECIFICATION
+   ========================================================================== */
+.shortcuts-modal-card {
+  max-width: 600px;
+}
+
+.shortcuts-category-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.shortcuts-category-title {
+  font-family: var(--sys-font-sans);
+  font-size: var(--sys-font-size-header);
+  font-weight: var(--sys-font-weight-semibold);
+  color: var(--sys-color-on-surface-variant);
+  text-transform: uppercase;
+  letter-spacing: var(--sys-letter-spacing-header);
+  border-bottom: 1px solid var(--sys-color-outline-subtle);
+  padding-bottom: 4px;
+}
+
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 6px;
+  border-radius: var(--sys-radius-sm);
+  transition: background-color 0.1s ease;
+}
+
+.shortcut-row:hover {
+  background: var(--sys-color-surface-container-hover);
+}
+
+.shortcut-desc {
+  font-family: var(--sys-font-sans);
+  font-size: var(--sys-font-size-body);
+  color: var(--sys-color-on-surface);
+}
+
+.shortcut-keys {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.shortcut-key-badge {
+  font-family: var(--sys-font-mono);
+  font-size: var(--sys-font-size-header);
+  font-weight: var(--sys-font-weight-bold);
+  color: var(--sys-color-on-surface);
+  background: var(--sys-color-surface-inset);
+  border: 1px solid var(--sys-color-outline);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+  padding: 2px 7px;
+  border-radius: 4px;
+  min-width: 22px;
+  text-align: center;
+  display: inline-block;
+  line-height: 14px;
+}
+

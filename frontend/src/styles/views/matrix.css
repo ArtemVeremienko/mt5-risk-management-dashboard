@@ -274,7 +274,7 @@ th.cursor-pointer:hover {
 
 .ag-filter-count {
   font-family: var(--sys-font-mono);
-  font-size: 9px;
+  font-size: var(--sys-font-size-header);
   font-weight: 700;
   color: var(--sys-color-on-surface-muted);
   background: rgba(255, 255, 255, 0.06);
@@ -516,7 +516,7 @@ tr.drag-over {
 }
 
 .spread-pill-mini {
-  font-size: 9.5px;
+  font-size: var(--sys-font-size-header);
   font-weight: 600;
   font-family: var(--sys-font-mono);
   font-variant-numeric: tabular-nums;
@@ -559,7 +559,7 @@ tr.drag-over {
 }
 
 .adr-pct-badge {
-  font-size: 9.5px;
+  font-size: var(--sys-font-size-header);
   font-weight: 600;
   font-family: var(--sys-font-mono);
   font-variant-numeric: tabular-nums;
@@ -660,7 +660,7 @@ tr.drag-over {
 }
 
 .adr-popover-status-badge {
-  font-size: 9px;
+  font-size: var(--sys-font-size-header);
   font-weight: 800;
   padding: 1.5px 6px;
   border-radius: var(--sys-radius-sm);
@@ -961,7 +961,7 @@ tr.drag-over {
   padding: 0;
   border-radius: var(--sys-radius-sm);
   font-weight: 700;
-  font-size: 11.5px;
+  font-size: var(--sys-font-size-body);
   letter-spacing: 0.5px;
   cursor: pointer;
   display: inline-flex;

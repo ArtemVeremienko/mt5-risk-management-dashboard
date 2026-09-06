@@ -12,7 +12,7 @@ The **MT5 Risk Management & Dynamic Lot Sizing Dashboard** is an institutional-g
 - **Backend**: Python 3.10+ / FastAPI / Clean Hexagonal Architecture (`domain/`, `application/`, `infrastructure/`, `presentation/`) / `MetaTrader5` IPC library / Asyncio WebSockets.
 - **Frontend**: [Solid.js 1.9+](./frontend/package.json) (Zero-VDOM Fine-Grained Reactive Framework) / [TypeScript 5.7+](./frontend/package.json) / [Vite 6.2+](./frontend/package.json).
 - **Styling**: Vanilla CSS Design System with Institutional Dark Mode tokens (`#0b0e14` canvas, `#131722` card, `#161b26` inset) and zero-jitter tabular typography (`font-variant-numeric: tabular-nums`).
-- **Build Output**: Compiled via Vite directly into `risk_management_dashboard/static/dist/`, served automatically by FastAPI with fallback to legacy `static/index.html`.
+- **Build Output**: Compiled via Vite directly into `static/dist/`, served automatically by FastAPI.
 - **Testing Suites**: Pytest for backend (`uv run pytest`), Vitest + JSDOM for frontend (`npm test` in `frontend/`).
 - **License**: [PolyForm Noncommercial License 1.0.0](./LICENSE) (`PolyForm-Noncommercial-1.0.0`). Free for individuals (personal trading & individual prop evaluations); paid commercial license required for enterprise/commercial use.
 

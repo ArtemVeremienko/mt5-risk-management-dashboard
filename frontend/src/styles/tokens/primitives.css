@@ -100,10 +100,38 @@
   --ref-shadow-dropdown: 0 8px 24px rgba(0, 0, 0, 0.5);
 
   /* --------------------------------------------------------------------------
-   * 6. Typography Stacks
+   * 6. Typography Stacks & Modular Scale
    * -------------------------------------------------------------------------- */
-  --ref-font-mono: 'JetBrains Mono', monospace;
+  --ref-font-mono: 'JetBrains Mono', 'Berkeley Mono', 'Roboto Mono', Menlo, monospace;
   --ref-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* Modular Font Sizes (Strict 10px Minimum Floor per WCAG/Dark Mode Standard) */
+  --ref-font-size-2xs: 10px;
+  --ref-font-size-sm: 11px;
+  --ref-font-size-base: 12px;
+  --ref-font-size-md: 13px;
+  --ref-font-size-lg: 14px;
+  --ref-font-size-xl: 16px;
+  --ref-font-size-2xl: 20px;
+  --ref-font-size-3xl: 24px;
+
+  /* Font Weights */
+  --ref-font-weight-regular: 400;
+  --ref-font-weight-medium: 500;
+  --ref-font-weight-semibold: 600;
+  --ref-font-weight-bold: 700;
+
+  /* Line Heights */
+  --ref-line-height-tight: 14px;
+  --ref-line-height-base: 16px;
+  --ref-line-height-control: 18px;
+  --ref-line-height-title: 22px;
+  --ref-line-height-hero: 28px;
+
+  /* Letter Spacing */
+  --ref-letter-spacing-tight: -0.02em;
+  --ref-letter-spacing-normal: 0;
+  --ref-letter-spacing-wide: 0.05em;
 
   /* --------------------------------------------------------------------------
    * 7. Motion & Transitions

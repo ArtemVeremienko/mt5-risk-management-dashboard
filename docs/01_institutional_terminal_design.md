@@ -52,6 +52,14 @@ Institutional trading interfaces operate under psychophysical constraints radica
 |                      | Native / TradingVW | Neon Green/Red/Cyan | TradingView Library | loss kill-switch), drag-and-drop|
 |                      |                    | execution buttons   | + Canvas DOM)       | bracket orders on chart/DOM     |
 +----------------------+--------------------+---------------------+---------------------+---------------------------------+
+| TradingView          | Spatial Charting & | Modern Slate Base,  | HTML5 Canvas, WebGL,| Draggable chart orders, visual  |
+|                      | Discretionary Desk | Vivid Pine Green &  | High-perf Web Core  | R:R risk brackets, smooth       |
+|                      |                    | Coral Red Semantics |                     | multi-timeframe canvas scaling  |
++----------------------+--------------------+---------------------+---------------------+---------------------------------+
+| ThinkorSwim (Schwab) | Multi-Asset Option | Dark Charcoal Base, | Java Swing / Native | Modular grid docking, PoP prob- |
+|                      | & Derivatives Desk | High-vis Neon Accnt | Desktop Core        | ability telemetry, fast multi-  |
+|                      |                    | Yellow/Orange/Red   |                     | leg spread order staging blotter|
++----------------------+--------------------+---------------------+---------------------+---------------------------------+
 ```
 
 ### 2.1 Bloomberg Professional (Terminal)
@@ -85,6 +93,10 @@ Institutional trading interfaces operate under psychophysical constraints radica
 ### 2.7 Modern Prop Platforms (TopstepX / ProjectX)
 * **Web-Native Trading Architecture:** Built on high-performance web stacks (React/Vue with HTML5 Canvas / WebGL charting, WebSocket binary streaming).
 * **Risk Engine Interlocks:** Real-time visual tracking of daily loss limits, maximum trailing drawdown lines overlaid on account balances, and automated lockout states where execution buttons visually morph into locked padlocks when risk rules are breached.
+
+### 2.8 TradingView & ThinkorSwim (Discretionary & Derivatives Standards)
+* **TradingView Ergonomics:** Pioneers in high-framerate HTML5 Canvas interaction. Solves spatial order placement via interactive chart handles: stop-loss and take-profit orders drag directly from the fill price line, computing real-time risk-to-reward (R:R) ratios and dollar exposure floats directly beside the cursor.
+* **ThinkorSwim (Schwab) Multi-Leg Blotters:** Institutional standard for complex options order staging. Separates underlying market quote streaming from staged order drafts in a dedicated order staging blotter, allowing traders to verify probability of profit (PoP) and delta-neutral balance before releasing multi-leg spreads to market.
 
 ---
 
@@ -136,15 +148,58 @@ Elevation is achieved strictly through **perceptual surface luminance steps** co
   * Secondary / Meta Text: Target contrast between **5:1 and 7:1** (APCA Lc 60–75).
   * Inactive / Hairline Elements: Target contrast between **2.5:1 and 3:5:1** (APCA Lc 35–45).
 
-### 3.4 Text Hierarchy & Design Tokens
-```css
-/* Typography Scale Tokens */
---font-family-mono: 'Berkeley Mono', 'JetBrains Mono', 'Roboto Mono', Menlo, monospace;
---font-family-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+### 3.4 Institutional Typography Architecture & Modular Scale
 
-/* Numeric Engine Formatting */
---font-tabular-nums: 'tnum' 1, 'lnum' 1, 'zero' 1;
+Trading terminals demand a strict separation between textual UI chrome (navigation, settings, column headers) and high-precision financial data (prices, quantities, P&L, timestamps):
+
+#### 3.4.1 Font Family Selection Matrix: Sans-Serif vs. Tabular Monospace
+
 ```
+┌───────────────────────────┬──────────────────────────────────────────────────────────────────┐
+│ Usage Category            │ Recommended Font Family Stack                                    │
+├───────────────────────────┼──────────────────────────────────────────────────────────────────┤
+│ UI Shell, Labels, Modals, │ 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text',       │
+│ Table Headers, Navigation │ 'Roboto', 'Segoe UI', sans-serif                                 │
+├───────────────────────────┼──────────────────────────────────────────────────────────────────┤
+│ Numerical Prices, Lots,   │ 'JetBrains Mono', 'Berkeley Mono', 'Roboto Mono', 'DIN Next',    │
+│ P&L, Timestamps, R-Values │ 'Industry', Menlo, monospace                                     │
+└───────────────────────────┴──────────────────────────────────────────────────────────────────┘
+```
+
+* **When to Use Sans-Serif (`Inter`)**:
+  UI navigation, category filter tabs, dialog titles, settings descriptions, and table header labels. Modern neo-grotesque sans typefaces provide superior legibility at compact sizes ($10\text{–}12\text{px}$) due to optimized x-heights, neutral letterforms, and wide open apertures.
+* **When to Use Monospace (`JetBrains Mono` / `Berkeley Mono`)**:
+  All financial figures (Bids, Asks, Spreads, Lots, Dollar Risks, R-Multiples, Timestamps). JetBrains Mono offers unmistakable visual distinction between ambiguous glyphs (`0` vs `O`, `1` vs `l` vs `I`), clear decimal dot prominence, and native lining numerals.
+
+#### 3.4.2 Recommended Modular Font Scale
+
+| UI Hierarchy Role | Font Size (px / pt) | Weight | Line Height | Letter Spacing | Styling & Feature Flags | Applied Usage |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Table Column Headers** | `10px` / `7.5pt` | `600` (Semi-Bold) | `14px` | `+0.05em` | `uppercase`, Muted Slate | Grid column titles (`SYMBOL`, `LOT SIZE`, `MARGIN`), field labels |
+| **Secondary Telemetry** | `11px` / `8.5pt` | `400` / `500` | `14px` | `0` | Tabular Mono (`tabular-nums`) | Pip distances, ADR remaining, margin percentages, timestamps |
+| **Table Cells & General Body**| `12px` / `9pt` | `500` (Medium) | `16px` | `-0.01em` | Normal Sans / Tabular Mono | Symbol tickers, account metadata, dropdown options, toast body |
+| **Primary Execution & Prices** | `13–14px` / `10pt`| `600` / `700` | `18px` | `-0.02em` | `tabular-nums lining-nums`, Bold | Live Bids/Asks, calculated Lot sizes, BUY/SELL button text |
+| **Hero Metrics & Summary** | `20–24px` / `16pt`| `700` (Bold) | `28px` | `-0.03em` | Tabular Mono, High-Luminance | Total Account Balance, Floating Equity, Daily P&L, Total Heat |
+
+#### 3.4.3 Tabular Numerals & Text Alignment Rules
+1. **OpenType Feature Ensembles**:
+   ```css
+   .tabular-numeric {
+     font-family: var(--font-family-mono);
+     font-variant-numeric: tabular-nums lining-nums;
+     font-feature-settings: "tnum" 1, "lnum" 1, "zero" 1;
+     text-align: right;
+     white-space: nowrap;
+   }
+   ```
+   Every numeral from 0 to 9 occupies an identical character cell width, eliminating horizontal shifting ("jitter") during high-velocity quote streaming.
+2. **Horizontal Alignment Determinism**:
+   * **Prices & Currency Figures ($)**: Strictly **Right-Aligned**. Preserves decimal point alignment across rows, allowing rapid vertical scanning of price depth.
+   * **Volume, Quantities & Lots**: Strictly **Right-Aligned**.
+   * **Status & Direction Badges**: Strictly **Center-Aligned**.
+   * **Symbol Tickers & Asset Descriptions**: Strictly **Left-Aligned**.
+3. **Fixed Decimal Precision Invariant**:
+   Financial quotes must always render with complete fixed precision matching instrument specifications (e.g., `1.08500`, not `1.085`). Missing trailing zeros cause numeric jumping and misreading of fractional pips.
 
 ---
 
@@ -188,12 +243,27 @@ Executing orders in institutional environments requires distinct physical button
    * Initiated on `mouseup` as the FIX message leaves the gateway.
    * Button enters an immutable pending state (`pointer-events: none`) to prevent double execution.
    * Label shifts to `ROUTING...` with an animated subtle diagonal marquee bar.
-5. **State 5: Execution Acknowledged / Filled:**
-   * Rapid 400ms flash decay returning the button to the Resting state.
+5. **State 5: Execution Acknowledged (Cognitive Asymmetry):**
+   * **Successful Fill (`✓`)**: Rapid **400ms** exponential decay back to Resting state. The trader needs the interface cleared immediately to manage the live open trade.
+   * **Rejection / Error (`✕`)**: Sustained dwell time (**1500ms**) with an accompanying amber/red toast detailing the broker return code (e.g., `TRADE_RETCODE_REQUOTE`, `TRADE_RETCODE_INVALID_STOPS`, `TRADE_RETCODE_OFF_QUOTES`) to guarantee human cognitive perception under stress.
 
-### 4.2 Fitts' Law Optimization & Safety Interlocks
-* **Fitts' Law ($T = a + b \log_2(1 + D/W)$):** Execution targets in price ladders (DOMTrader) span the full width of the bid/ask column (minimum 80–120px) with uniform cell heights of 20–22px. This maximizes target width $W$ and minimizes movement time $T$.
-* **The "Flatten All & Cancel" Interlock:** Emergency risk liquidation controls are isolated from regular buy/sell flows. They employ either a physical flip-cover UX guard or require a dual-action continuous mouse-drag slider (slide-to-cancel) to eliminate misclicks.
+### 4.2 Invariant Hitbox Ergonomics & Fitts's Law
+* **Fitts's Law ($T = a + b \log_2(1 + D/W)$):** Target width $W$ must remain constant. In fast-paced screeners, expanding or resizing an armed button shifts adjacent elements, causing subsequent misclicks.
+* **Strict Invariant Hitbox Rule**:
+  - Execution cluster: Fixed `136px` container with `gap: 8px`.
+  - Individual buttons: Fixed geometry `width: 64px; min-width: 64px; max-width: 64px; height: 30px`.
+  - State transitions are communicated solely via border color, inner glows, centered glyphs (`✓`/`✕`), and hairline countdown dwell bars along the bottom edge, **never by altering element dimensions or expanding label strings**.
+
+### 4.3 Instant Pivot Execution Contract
+* In the dual-arm safety system, arming `BUY` dims the opposing `SELL` button (`opacity: 0.4`) but **strictly preserves its pointer events** (`pointer-events: auto`).
+* If market order flow abruptly reverses, clicking the opposing `SELL` button immediately disarms `BUY` and arms `SELL` in a single gesture, bypassing confirmation dialogs or manual cancel steps.
+
+### 4.4 Emergency Liquidation Controls ("Flatten All 0Δ")
+* **Unified Action Principle:** Emergency liquidation is a single unified action: **"Flatten All ($0\Delta$)"** (Net Delta $\to 0.00$), isolated from standard order entry.
+* **Two-Phase Safety Arming:** Protected by a 4-second safety countdown arming phase or slide-to-confirm rail.
+* **Deterministic Execution Sequence:**
+  $$\text{1. Cancel All Pending Orders} \longrightarrow \text{2. Close All Open Positions}$$
+  Guarantees that pending working orders do not fill into open positions after liquidation has completed.
 
 ---
 
@@ -542,6 +612,100 @@ Tokens are structured in a three-tier hierarchy:
   );
 }
 ```
+
+### 8.3 Harmonized 7-Column Matrix Schedule & Viewport Eye Drift Containment
+
+High-density multi-asset risk screeners require an exact column budget to prevent horizontal overflow while displaying micro-visualizations and execution controls:
+
+```
+┌──────────────┬──────────────────┬───────────┬────────────┬───────────┬──────────────────────┬──────────────┐
+│ Symbol (165) │ Price/Spread(190)│ 14D ADR   │ Stop Loss  │ Lot Size  │ Risk & Margin (170px)│ Execute      │
+│              │ [Sparkline Ribbon│ (110px)   │ (120px)    │ (115px)   │                      │ (170px)      │
+│ EURUSD 📌    │ 1.08450 / 0.8    │ 42p (68%) │ [ 25.0 ] ↺ │ 0.85 Lots │ $85.00 (1.00% WC)    │ [BUY] [SELL] │
+└──────────────┴──────────────────┴───────────┴────────────┴───────────┴──────────────────────┴──────────────┘
+```
+
+* **Schedule Columns (1040px Baseline)**:
+  - `Symbol (165px)`: Drag handle, pin toggle (`📌`), bold ticker (13px), asset category badge.
+  - `Market Price (Spread) (190px)`: $60\text{px}$ micro-sparkline ribbon + $10\text{px}$ gap + multi-digit bid/ask stack.
+  - `14D ADR (110px)`: Tactile pips remaining, session exhaustion %, hairline progress track.
+  - `Stop Loss (120px)`: $76\text{px}$ numeric input well, auto-select on focus, unit suffix (`p`), reset `↺` badge.
+  - `Lot Size (115px)`: **Single Source of Truth** for calculated lot volume, sort trigger, smart deviation alert (`⚠️`).
+  - `Effective Risk (Margin) (170px)`: Stacked `$85.00 (1.00% WC)` on top + `Margin: 0.4%` below.
+  - `Execute (170px)`: Invariant dual-button cluster (`136px` total button group + padding).
+* **Viewport Eye Drift Containment**:
+  On ultra-wide monitors (e.g. 34" 21:9 or 49" 32:9), unbounded table grids stretch across the entire horizontal field of view, forcing continuous saccadic eye strain. Screener wrappers must strictly declare:
+  ```css
+  .matrix-section {
+    max-width: 1440px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  ```
+
+### 8.4 Invariant Dual-Arm Execution Cluster Geometry
+
+Execution triggers in the screener table must never resize or shift neighboring cells during state transitions (Fitts's Law):
+
+```css
+.execution-cluster {
+  display: flex;
+  align-items: center;
+  width: 136px;
+  min-width: 136px;
+  max-width: 136px;
+  gap: 8px;
+}
+
+.execution-btn {
+  width: 64px;
+  min-width: 64px;
+  max-width: 64px;
+  height: 30px;
+  padding: 0;
+  border-radius: var(--sys-radius-sm, 4px);
+  position: relative;
+  font-family: var(--font-family-mono);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums lining-nums;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 80ms ease, background-color 80ms ease, box-shadow 80ms ease, opacity 80ms ease;
+}
+
+/* Hairline Countdown Dwell Bar (State 2: Armed) */
+.execution-btn.is-armed::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  width: 100%;
+  background: currentColor;
+  animation: dwell-countdown 5000ms linear forwards;
+}
+
+@keyframes dwell-countdown {
+  from { width: 100%; }
+  to   { width: 0%; }
+}
+```
+
+### 8.5 Circular Buffer Zero-Allocation Sparklines & Focus Shielding
+
+1. **Circular Price Buffer Architecture**:
+   - High-frequency tick counts distort time. Sparklines sample a fixed 60-second time window backed by a `Float32Array(120)` ring buffer.
+   - Calling `getChronological()` yields views and pre-calculated min/max metrics in $<3\mu\text{s}$ with **zero heap allocations** on incoming ticks.
+   - Rendering is strictly throttled to **Pinned (`📌`)** and **Hovered** rows, maintaining a locked 60 FPS ($<0.05\text{ms}$ rendering overhead).
+2. **Inline Editing Focus Shielding**:
+   - Editable Stop Loss / quantity inputs track an `isFocused` boolean state paired with a local drafting signal (`localVal`).
+   - External WebSocket updates are blocked while `isFocused === true`, protecting keystrokes and caret position.
+   - Pressing `Enter` commits the value and drops focus (`e.currentTarget.blur()`). `Escape` discards drafts.
+   - Changes undergo an epsilon check ($|v_{\text{new}} - v_{\text{old}}| > 10^{-5}$) before emitting state notifications.
 
 ---
 

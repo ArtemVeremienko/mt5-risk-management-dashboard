@@ -160,18 +160,25 @@ def create_app(
 
     # Mount static assets
     if os.path.exists(DIST_DIR):
-        application.mount("/assets", StaticFiles(directory=os.path.join(DIST_DIR, "assets")), name="assets")
-    application.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+        assets_dir = os.path.join(DIST_DIR, "assets")
+        if os.path.exists(assets_dir):
+            application.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+        application.mount("/static", StaticFiles(directory=DIST_DIR), name="static")
 
     @application.get("/", response_class=HTMLResponse)
     async def serve_index():
         dist_index = os.path.join(DIST_DIR, "index.html")
         if os.path.exists(dist_index):
             return FileResponse(dist_index)
-        index_path = os.path.join(STATIC_DIR, "index.html")
-        if os.path.exists(index_path):
-            return FileResponse(index_path)
-        return HTMLResponse("<h1>Risk Management Dashboard UI Loading...</h1>")
+        return HTMLResponse(
+            "<!DOCTYPE html><html><body style='background:#0b0e14;color:#f0f3fa;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;'>"
+            "<div style='text-align:center;'>"
+            "<h1>MT5 Risk Management Terminal</h1>"
+            "<p style='color:#9598a1;'>Compiled frontend not found. Please build the frontend bundle:</p>"
+            "<pre style='background:#1e222d;padding:12px 20px;border-radius:6px;border:1px solid #2a2e39;'>cd frontend &amp;&amp; npm run build</pre>"
+            "</div></body></html>",
+            status_code=503
+        )
 
     return application
 

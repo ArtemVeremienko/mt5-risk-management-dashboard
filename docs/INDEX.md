@@ -28,11 +28,13 @@ docs/
 * **Core Content**: 10-Minute architectural overview, 7 deadly execution UI sins, the 90-7-3 chromatic budget cheat sheet, dual-arm execution safety guide, and a production readiness checklist for deploying MT5 execution matrix systems.
 
 ### 2. [01. Institutional & Quant Terminal Design Systems](./01_institutional_terminal_design.md)
-* **Benchmark Terminals Analyzed**: Bloomberg Professional, Trading Technologies (TT / MD Trader), Sterling Trader Pro, CQG (DOMTrader / HOT), FlexTrade (FlexTRADER EMS), Jane Street / Citadel internal tools, and TopstepX.
+* **Benchmark Terminals Analyzed**: Bloomberg Professional, Trading Technologies (TT / MD Trader), Sterling Trader Pro, CQG (DOMTrader / HOT), FlexTrade (FlexTRADER EMS), Jane Street / Citadel internal tools, TopstepX, TradingView, and ThinkorSwim.
 * **Design Systems Principles**:
   * The **90-7-3 Chromatic Budget Rule** (90% structural neutrals, 7% functional accents, 3% high-chroma semantic signals).
   * Dark mode surface luminance elevation (4%–17% luminance steps; halation avoidance; 9:1 to 12:1 APCA contrast).
-  * **The 5-State Execution Button Paradigm** (Ghost/Outline $\to$ Armed $\to$ Depressed $\to$ In-Flight $\to$ Fill Flash).
+  * **Typography & Modular Scale Architecture**: Sans UI stacks (Inter, SF Pro) vs Tabular Monospace (JetBrains Mono, Berkeley Mono); complete modular font scale table ($10\text{px}$ headers to $24\text{px}$ hero metrics), tabular alignments, and fixed decimal precision invariants.
+  * **The 5-State Execution Button Paradigm** (Ghost/Outline $\to$ Armed $\to$ Depressed $\to$ In-Flight $\to$ Fill Flash vs Rejection Dwell) with invariant hitbox ergonomics ($136\text{px}$ cluster, $64\text{px}$ buttons, Fitts's Law) and instant pivot execution.
+  * **Matrix Dashboard Scheduling**: 7-column schedule ($1040\text{px}$ baseline), ultra-wide eye drift containment ($1440\text{px}$ max-width), zero-allocation circular buffer sparklines, and inline focus shielding.
   * Long-session ergonomics: Chromostereopsis elimination, blue-light mitigation (amber vs blue), 350–450ms hardware-accelerated tick flash-decay micro-animations.
   * Universal Color Vision Deficiency (CVD) support: Cyan-Amber dual-coded semantic channels.
   * Complete CSS token registry ("Apex Terminal Tokens").

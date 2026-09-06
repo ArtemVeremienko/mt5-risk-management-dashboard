@@ -13,3 +13,62 @@
 @import './styles/views/main.css';
 @import './styles/views/matrix.css';
 @import './styles/views/positions.css';
+
+/* ----------------------------------------------------------------------------
+ * Universal Typography & Tabular Alignment Utilities
+ * ---------------------------------------------------------------------------- */
+.tabular-numeric,
+.tabular-num {
+  font-family: var(--sys-font-mono);
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1, "zero" 1;
+  letter-spacing: var(--sys-letter-spacing-price);
+}
+
+.text-header {
+  font-family: var(--sys-font-sans);
+  font-size: var(--sys-font-size-header);
+  font-weight: var(--sys-font-weight-semibold);
+  line-height: var(--sys-line-height-tight);
+  letter-spacing: var(--sys-letter-spacing-header);
+  text-transform: uppercase;
+  color: var(--sys-color-on-surface-variant);
+}
+
+.text-telemetry {
+  font-family: var(--sys-font-mono);
+  font-size: var(--sys-font-size-telemetry);
+  font-weight: var(--sys-font-weight-regular);
+  line-height: var(--sys-line-height-tight);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.text-body {
+  font-family: var(--sys-font-sans);
+  font-size: var(--sys-font-size-body);
+  line-height: var(--sys-line-height-body);
+}
+
+.text-control {
+  font-size: var(--sys-font-size-control);
+  line-height: var(--sys-line-height-control);
+}
+
+.text-price {
+  font-family: var(--sys-font-mono);
+  font-size: var(--sys-font-size-price);
+  font-weight: var(--sys-font-weight-bold);
+  line-height: var(--sys-line-height-control);
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: var(--sys-letter-spacing-price);
+}
+
+.text-hero {
+  font-family: var(--sys-font-mono);
+  font-size: var(--sys-font-size-hero);
+  font-weight: var(--sys-font-weight-bold);
+  line-height: var(--sys-line-height-hero);
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: var(--sys-letter-spacing-price);
+}
+
