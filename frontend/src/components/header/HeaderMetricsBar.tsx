@@ -530,6 +530,7 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
 
       {/* Right Zone: Compact Toggles & Pulsing Connection Indicator */}
       <div class="header-right-zone">
+        {/* Sub-group A: Display & Stream Modes */}
         <button
           class="btn-toggle-compact"
           classList={{ active: preferencesStore.pnlDisplayMode() !== 'currency' }}
@@ -549,31 +550,6 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
               : preferencesStore.pnlDisplayMode() === 'r_multiple'
               ? '🕶️ R'
               : '🔒 ***'}
-          </span>
-        </button>
-
-        <button
-          class="btn-toggle-compact"
-          classList={{ active: preferencesStore.turboMode() }}
-          onClick={handleTurboToggle}
-          title={preferencesStore.turboMode() ? 'Turbo Mode (500ms streaming)' : 'Standard Mode (2.0s streaming)'}
-        >
-          <span class="toggle-indicator"></span>
-          <span class="toggle-text">{preferencesStore.turboMode() ? '⚡ 500ms' : '🐢 2s'}</span>
-        </button>
-
-        <button
-          class="btn-toggle-compact btn-header-settings"
-          classList={{ 'has-one-click': preferencesStore.oneClickEnabled() }}
-          onClick={() => props.onOpenRiskModal()}
-          title={
-            preferencesStore.oneClickEnabled()
-              ? 'Terminal Settings (⚡ 1-Click Instant Execution Active)'
-              : 'Terminal Settings & Risk Configuration'
-          }
-        >
-          <span class="toggle-text">
-            {preferencesStore.oneClickEnabled() ? '⚡ Settings' : '⚙️ Settings'}
           </span>
         </button>
 
@@ -603,6 +579,35 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
           </span>
         </button>
 
+        <button
+          class="btn-toggle-compact"
+          classList={{ active: preferencesStore.turboMode() }}
+          onClick={handleTurboToggle}
+          title={preferencesStore.turboMode() ? 'Turbo Mode (500ms streaming)' : 'Standard Mode (2.0s streaming)'}
+        >
+          <span class="toggle-indicator"></span>
+          <span class="toggle-text">{preferencesStore.turboMode() ? '⚡ 500ms' : '🐢 2s'}</span>
+        </button>
+
+        {/* Sub-group Divider */}
+        <div class="header-divider" />
+
+        {/* Sub-group B: Modals & Global Tools */}
+        <button
+          class="btn-toggle-compact btn-header-settings"
+          classList={{ 'has-one-click': preferencesStore.oneClickEnabled() }}
+          onClick={() => props.onOpenRiskModal()}
+          title={
+            preferencesStore.oneClickEnabled()
+              ? 'Terminal Settings (⚡ 1-Click Instant Execution Active)'
+              : 'Terminal Settings & Risk Configuration'
+          }
+        >
+          <span class="toggle-text">
+            {preferencesStore.oneClickEnabled() ? '⚡ Settings' : '⚙️ Settings'}
+          </span>
+        </button>
+
         {/* Keyboard Shortcuts Cheat Sheet Button */}
         <button
           class="btn-toggle-compact btn-header-shortcuts"
@@ -612,7 +617,10 @@ export const HeaderMetricsBar: Component<Props> = (props) => {
           <span class="toggle-text">⌨️ ?</span>
         </button>
 
-        {/* Connection Status Pill with Account Telemetry */}
+        {/* Sub-group Divider */}
+        <div class="header-divider" />
+
+        {/* Sub-group C: Connection Status Pill with Account Telemetry */}
         <div class="connection-status-wrapper" ref={accountInfoRef}>
           <button
             type="button"

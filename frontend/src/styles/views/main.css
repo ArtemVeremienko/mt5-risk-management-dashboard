@@ -666,6 +666,15 @@ body {
   flex-shrink: 0;
 }
 
+.header-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--sys-color-outline-subtle);
+  margin: 0 2px;
+  flex-shrink: 0;
+}
+
+
 .btn-toggle-compact {
   display: flex;
   align-items: center;
