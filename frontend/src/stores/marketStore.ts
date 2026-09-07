@@ -68,6 +68,12 @@ function createMarketStore() {
     return calculatedResultsMap().get(symbol);
   };
 
+  const getSymbolSpec = (symbol: string): SymbolSpec | undefined => {
+    const calc = calculatedResultsMap().get(symbol);
+    if (calc) return calc.spec;
+    return rawSymbols().find((s) => s.symbol === symbol);
+  };
+
   const categoryCounts = createMemo<Record<string, number>>(() => {
     const counts: Record<string, number> = { All: rawSymbols().length };
     rawSymbols().forEach((s) => {
@@ -281,6 +287,7 @@ function createMarketStore() {
     categories,
     calculatedResultsMap,
     getCalculatedResult,
+    getSymbolSpec,
     categoryCounts,
     selectedCategories,
     setSelectedCategories,

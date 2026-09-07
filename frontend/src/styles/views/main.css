@@ -1466,21 +1466,34 @@ body {
   right: 24px;
   display: flex;
   flex-direction: column;
+  align-items: flex-end;
   gap: 10px;
   z-index: 2000;
-  max-width: 360px;
+  max-width: 380px;
   pointer-events: none;
 }
 
 .toast-card {
   pointer-events: auto;
-  background: #181c27;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 260px;
+  max-width: 380px;
+  box-sizing: border-box;
+  background: var(--sys-color-surface-container);
   border: 1px solid var(--sys-color-outline);
   border-left: 4px solid;
   border-radius: var(--sys-radius-md);
-  padding: 12px 14px;
+  padding: 10px 14px;
   box-shadow: var(--sys-shadow-modal);
   cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.toast-card:hover {
+  background: var(--sys-color-surface-container-hover);
 }
 
 .toast-card.toast-success {
@@ -1503,25 +1516,48 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 4px;
+  gap: 12px;
+  width: 100%;
 }
 
 .toast-title {
-  font-weight: 700;
-  font-size: 12px;
-  color: #ffffff;
+  font-weight: var(--sys-font-weight-bold);
+  font-size: var(--sys-font-size-body);
+  color: var(--sys-color-on-surface);
+  line-height: var(--sys-line-height-tight);
+  flex: 1;
+  min-width: 0;
 }
 
 .toast-close-btn {
-  background: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  margin: 0;
+  background: transparent;
   border: none;
+  border-radius: var(--sys-radius-xs);
   color: var(--sys-color-on-surface-muted);
-  font-size: 12px;
+  font-size: var(--sys-font-size-telemetry);
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.toast-close-btn:hover {
+  color: var(--sys-color-on-surface);
+  background: var(--sys-color-surface-container-hover);
 }
 
 .toast-body {
-  font-size: 11px;
+  font-size: var(--sys-font-size-telemetry);
   color: var(--sys-color-on-surface-variant);
+  line-height: var(--sys-line-height-body);
+  word-break: break-word;
 }
 
 /* Utilities */

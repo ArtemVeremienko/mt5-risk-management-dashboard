@@ -6,6 +6,7 @@ shielded by a dedicated single-threaded worker queue (MT5IPCWorker).
 
 import os
 import time
+import math
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional, Tuple, Any
@@ -207,6 +208,41 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
             majors = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "USDCHF", "NZDUSD"]
             return "Forex Majors" if s in majors else "Forex Minors"
         return "Forex Majors"
+
+    def _resolve_filling_modes(self, info: Any, mt5_lib: Any) -> List[int]:
+        """
+        Inspects symbol specification bitmask to select valid filling modes in priority order.
+        MT5 ENUM_SYMBOL_FILLING_MODE bitmask:
+          Bit 1 (val 2) = ORDER_FILLING_IOC
+          Bit 0 (val 1) = ORDER_FILLING_FOK
+        Fallback: ORDER_FILLING_RETURN (val 2 in ENUM_ORDER_TYPE_FILLING)
+        """
+        fok = getattr(mt5_lib, "ORDER_FILLING_FOK", 0)
+        ioc = getattr(mt5_lib, "ORDER_FILLING_IOC", 1)
+        ret = getattr(mt5_lib, "ORDER_FILLING_RETURN", 2)
+
+        modes = []
+        if info is not None and hasattr(info, "filling_mode"):
+            mask = int(info.filling_mode)
+            if mask & 2:
+                modes.append(ioc)
+            if mask & 1:
+                modes.append(fok)
+            if mask & 4:
+                modes.append(ret)
+
+        if not modes:
+            modes = [ioc, fok, ret]
+        else:
+            # Ensure return fallback is always present if not already added
+            if ret not in modes:
+                modes.append(ret)
+            if ioc not in modes:
+                modes.append(ioc)
+            if fok not in modes:
+                modes.append(fok)
+
+        return modes
 
     def compute_step_rule(
         self,
@@ -869,6 +905,9 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
                 sl_price = round(price + (sl_pips * pip_size), digits)
                 tp_price = round(price - (sl_pips * rr_ratio * pip_size), digits) if rr_ratio > 0 else 0.0
 
+            filling_modes = self._resolve_filling_modes(info, mt5_lib)
+            primary_filling = filling_modes[0] if filling_modes else mt5_lib.ORDER_FILLING_IOC
+
             req = {
                 "action": mt5_lib.TRADE_ACTION_DEAL,
                 "symbol": symbol,
@@ -881,7 +920,7 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
                 "magic": 123456,
                 "comment": comment,
                 "type_time": mt5_lib.ORDER_TIME_GTC,
-                "type_filling": mt5_lib.ORDER_FILLING_IOC,
+                "type_filling": primary_filling,
             }
 
             result = mt5_lib.order_send(req)
@@ -889,11 +928,19 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
                 err = mt5_lib.last_error()
                 return {"success": False, "error": f"order_send failed with code {err}"}
 
+            # If rejected due to unsupported filling mode, try remaining valid modes
             if result.retcode != mt5_lib.TRADE_RETCODE_DONE:
-                # Retry with RETURN filling mode if IOC rejected
                 if result.retcode in (mt5_lib.TRADE_RETCODE_INVALID_FILL, mt5_lib.TRADE_RETCODE_REJECT):
-                    req["type_filling"] = mt5_lib.ORDER_FILLING_RETURN
-                    result = mt5_lib.order_send(req)
+                    for alt_filling in filling_modes[1:]:
+                        req["type_filling"] = alt_filling
+                        alt_res = mt5_lib.order_send(req)
+                        if alt_res and alt_res.retcode == mt5_lib.TRADE_RETCODE_DONE:
+                            result = alt_res
+                            break
+                        elif alt_res and alt_res.retcode not in (mt5_lib.TRADE_RETCODE_INVALID_FILL, mt5_lib.TRADE_RETCODE_REJECT):
+                            # Encountered different terminal error (e.g. invalid volume or price)
+                            result = alt_res
+                            break
 
             if result and result.retcode == mt5_lib.TRADE_RETCODE_DONE:
                 ticket = int(result.order)
@@ -996,7 +1043,29 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
             pos = positions[0]
             symbol = pos.symbol
             pos_vol = float(pos.volume)
-            close_vol = min(float(volume), pos_vol) if volume is not None and volume > 0 else pos_vol
+            info = mt5_lib.symbol_info(symbol)
+            vol_min = float(info.volume_min) if (info and hasattr(info, "volume_min") and info.volume_min > 0) else 0.01
+            vol_step = float(info.volume_step) if (info and hasattr(info, "volume_step") and info.volume_step > 0) else 0.01
+
+            is_partial = volume is not None and 0 < float(volume) < pos_vol
+            if is_partial:
+                req_vol = float(volume)
+                steps = math.floor((req_vol / vol_step) + 1e-9)
+                close_vol = round(steps * vol_step, 6)
+                remaining_vol = round(pos_vol - close_vol, 6)
+
+                if close_vol < vol_min:
+                    return {
+                        "success": False,
+                        "error": f"Requested partial volume ({close_vol} lots) is below broker minimum ({vol_min} lots)"
+                    }
+                if remaining_vol < vol_min:
+                    return {
+                        "success": False,
+                        "error": f"Remaining volume ({remaining_vol} lots) would fall below broker minimum ({vol_min} lots)"
+                    }
+            else:
+                close_vol = pos_vol
 
             tick = mt5_lib.symbol_info_tick(symbol)
             if not tick:
@@ -1005,6 +1074,9 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
             is_buy = (pos.type == mt5_lib.ORDER_TYPE_BUY)
             opp_type = mt5_lib.ORDER_TYPE_SELL if is_buy else mt5_lib.ORDER_TYPE_BUY
             price = float(tick.bid) if is_buy else float(tick.ask)
+
+            filling_modes = self._resolve_filling_modes(info, mt5_lib)
+            primary_filling = filling_modes[0] if filling_modes else mt5_lib.ORDER_FILLING_IOC
 
             req = {
                 "action": mt5_lib.TRADE_ACTION_DEAL,
@@ -1017,14 +1089,21 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
                 "magic": 123456,
                 "comment": "Close Position",
                 "type_time": mt5_lib.ORDER_TIME_GTC,
-                "type_filling": mt5_lib.ORDER_FILLING_IOC
+                "type_filling": primary_filling
             }
 
             result = mt5_lib.order_send(req)
             if result and result.retcode != mt5_lib.TRADE_RETCODE_DONE:
                 if result.retcode in (mt5_lib.TRADE_RETCODE_INVALID_FILL, mt5_lib.TRADE_RETCODE_REJECT):
-                    req["type_filling"] = mt5_lib.ORDER_FILLING_RETURN
-                    result = mt5_lib.order_send(req)
+                    for alt_filling in filling_modes[1:]:
+                        req["type_filling"] = alt_filling
+                        alt_res = mt5_lib.order_send(req)
+                        if alt_res and alt_res.retcode == mt5_lib.TRADE_RETCODE_DONE:
+                            result = alt_res
+                            break
+                        elif alt_res and alt_res.retcode not in (mt5_lib.TRADE_RETCODE_INVALID_FILL, mt5_lib.TRADE_RETCODE_REJECT):
+                            result = alt_res
+                            break
 
             if result and result.retcode == mt5_lib.TRADE_RETCODE_DONE:
                 if ticket in self._initial_risk_cache and close_vol >= pos_vol:
@@ -1261,8 +1340,11 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
 
             curr_vol = float(volume)
             half_vol_raw = curr_vol / 2.0
+            steps = math.floor((half_vol_raw / vol_step) + 1e-9)
+            close_vol = round(steps * vol_step, 6)
+            remaining_vol = round(curr_vol - close_vol, 6)
 
-            if curr_vol <= vol_min:
+            if curr_vol <= vol_min or close_vol < vol_min or remaining_vol < vol_min:
                 mod_res = self.modify_position_sltp(ticket=ticket, sl=target_be, tp=tp)
                 if mod_res.get("success"):
                     be_locked_count += 1
@@ -1277,9 +1359,6 @@ class MT5NativeProvider(IMarketDataProvider, IExecutionProvider):
                     skipped_count += 1
                     results.append(mod_res)
             else:
-                steps = round(half_vol_raw / vol_step)
-                close_vol = max(vol_min, round(steps * vol_step, 6))
-
                 close_res = self.close_position(ticket=ticket, volume=close_vol)
                 if close_res.get("success"):
                     scaled_out_count += 1

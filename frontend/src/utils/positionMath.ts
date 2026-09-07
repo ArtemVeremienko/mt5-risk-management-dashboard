@@ -398,3 +398,60 @@ export function calculateTpRowInfo(
     isGain,
   };
 }
+
+export interface ScaleOutResult {
+  canScaleOut: boolean;
+  scaleOutVolume: number;
+  reason?: string;
+}
+
+/**
+ * Calculates conservative floored volume for scaling out 50% of an open position.
+ * Enforces broker minimum volume and volume step requirements for both the closed volume
+ * and the remaining volume.
+ */
+export function calculateScaleOutVolume(
+  currentVolume: number,
+  volumeMin: number = 0.01,
+  volumeStep: number = 0.01
+): ScaleOutResult {
+  const vol = Number(currentVolume) || 0;
+  const minVol = Number(volumeMin) > 0 ? Number(volumeMin) : 0.01;
+  const step = Number(volumeStep) > 0 ? Number(volumeStep) : 0.01;
+
+  if (vol <= minVol) {
+    return {
+      canScaleOut: false,
+      scaleOutVolume: 0,
+      reason: `Position is at minimum tradeable volume (${vol.toFixed(2)} lots).`,
+    };
+  }
+
+  const rawHalf = vol / 2.0;
+  // Floor to step with small epsilon to prevent precision artifacts
+  const steps = Math.floor((rawHalf / step) + 1e-9);
+  const closeVol = Math.round(steps * step * 1e6) / 1e6;
+  const remainingVol = Math.round((vol - closeVol) * 1e6) / 1e6;
+
+  if (closeVol < minVol) {
+    return {
+      canScaleOut: false,
+      scaleOutVolume: 0,
+      reason: `Half volume (${closeVol.toFixed(2)} lots) is below minimum lot (${minVol.toFixed(2)}).`,
+    };
+  }
+
+  if (remainingVol < minVol) {
+    return {
+      canScaleOut: false,
+      scaleOutVolume: 0,
+      reason: `Remaining volume (${remainingVol.toFixed(2)} lots) would fall below minimum lot (${minVol.toFixed(2)}).`,
+    };
+  }
+
+  return {
+    canScaleOut: true,
+    scaleOutVolume: closeVol,
+  };
+}
+

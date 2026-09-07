@@ -75,3 +75,65 @@ def test_mock_provider_order_and_position_lifecycle():
 
     # Confirm position is removed
     assert not any(p.ticket == ticket for p in provider.get_open_positions())
+
+
+def test_filling_mode_resolution():
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+    from infrastructure.providers.mt5_provider import MT5NativeProvider
+
+    provider = MT5NativeProvider(mock_mode=True)
+
+    mock_mt5 = SimpleNamespace(
+        ORDER_FILLING_FOK=0,
+        ORDER_FILLING_IOC=1,
+        ORDER_FILLING_RETURN=2,
+    )
+
+    # Symbol with FOK only (bit 0 = 1, e.g. SUGAR / WHEAT)
+    info_fok = SimpleNamespace(filling_mode=1)
+    modes_fok = provider._resolve_filling_modes(info_fok, mock_mt5)
+    assert modes_fok[0] == 0  # FOK should be first
+
+    # Symbol with IOC (bit 1 = 2) and FOK (bit 0 = 1) -> 3 (e.g. EURUSD)
+    info_both = SimpleNamespace(filling_mode=3)
+    modes_both = provider._resolve_filling_modes(info_both, mock_mt5)
+    assert modes_both[0] == 1  # IOC preferred first
+    assert modes_both[1] == 0  # FOK second
+
+    # None info fallback
+    modes_none = provider._resolve_filling_modes(None, mock_mt5)
+    assert modes_none[0] == 1  # IOC default
+
+
+def test_close_position_stepping_and_validation():
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+    from infrastructure.providers.mt5_provider import MT5NativeProvider
+
+    provider = MT5NativeProvider(mock_mode=True)
+
+    pos_sugar = SimpleNamespace(
+        ticket=531503145,
+        symbol="SUGAR",
+        type=1, # SELL
+        volume=1.0,
+    )
+    info_sugar = SimpleNamespace(
+        volume_min=1.0,
+        volume_step=1.0,
+        filling_mode=1,
+    )
+
+    mock_mt5 = MagicMock()
+    mock_mt5.positions_get.return_value = [pos_sugar]
+    mock_mt5.symbol_info.return_value = info_sugar
+
+    provider._get_mt5 = lambda: mock_mt5
+
+    # Attempting to scale out 0.5 lots on a 1.0 lot SUGAR position should fail with clean error
+    res = provider._close_position_sync(ticket=531503145, volume=0.5)
+    assert res["success"] is False
+    assert "below broker minimum" in res["error"]
+
+

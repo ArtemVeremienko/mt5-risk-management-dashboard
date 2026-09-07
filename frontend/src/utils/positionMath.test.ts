@@ -11,6 +11,7 @@ import {
   calculateBreakEvenPrice,
   calculateSlRowInfo,
   calculateTpRowInfo,
+  calculateScaleOutVolume,
 } from './positionMath';
 
 describe('positionMath', () => {
@@ -209,4 +210,45 @@ describe('positionMath', () => {
       expect(info!.isGain).toBe(true);
     });
   });
+
+  describe('calculateScaleOutVolume', () => {
+    it('disables scale out when position is at minimum volume (e.g. SUGAR 1.0 lot)', () => {
+      const res = calculateScaleOutVolume(1.0, 1.0, 1.0);
+      expect(res.canScaleOut).toBe(false);
+      expect(res.scaleOutVolume).toBe(0);
+      expect(res.reason).toContain('minimum tradeable volume');
+    });
+
+    it('disables scale out when position is at forex min volume (e.g. EURUSD 0.01 lot)', () => {
+      const res = calculateScaleOutVolume(0.01, 0.01, 0.01);
+      expect(res.canScaleOut).toBe(false);
+      expect(res.scaleOutVolume).toBe(0);
+      expect(res.reason).toContain('minimum tradeable volume');
+    });
+
+    it('allows scaling out 50% for standard forex volumes (0.10 -> 0.05)', () => {
+      const res = calculateScaleOutVolume(0.10, 0.01, 0.01);
+      expect(res.canScaleOut).toBe(true);
+      expect(res.scaleOutVolume).toBe(0.05);
+    });
+
+    it('floors to step when halving an odd number of steps (0.05 -> 0.02 with 0.01 step)', () => {
+      const res = calculateScaleOutVolume(0.05, 0.01, 0.01);
+      expect(res.canScaleOut).toBe(true);
+      expect(res.scaleOutVolume).toBe(0.02);
+    });
+
+    it('allows scaling out for larger commodity position (SUGAR 2.0 -> 1.0)', () => {
+      const res = calculateScaleOutVolume(2.0, 1.0, 1.0);
+      expect(res.canScaleOut).toBe(true);
+      expect(res.scaleOutVolume).toBe(1.0);
+    });
+
+    it('floors commodity position with odd steps (SUGAR 3.0 -> 1.0)', () => {
+      const res = calculateScaleOutVolume(3.0, 1.0, 1.0);
+      expect(res.canScaleOut).toBe(true);
+      expect(res.scaleOutVolume).toBe(1.0);
+    });
+  });
 });
+

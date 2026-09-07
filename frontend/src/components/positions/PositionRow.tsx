@@ -10,6 +10,7 @@ import {
   calculateBreakEvenPrice,
   calculateSlRowInfo,
   calculateTpRowInfo,
+  calculateScaleOutVolume,
 } from '../../utils/positionMath';
 import { SltpEditHub } from './SltpEditHub';
 
@@ -35,6 +36,15 @@ export const PositionRow: Component<Props> = (props) => {
     if (!p) return 10.0;
     const calcResult = marketStore.getCalculatedResult(p.symbol);
     return calcResult?.calc?.pip_value_per_lot || 10.0;
+  });
+
+  const scaleOutInfo = createMemo(() => {
+    const p = position();
+    if (!p) return { canScaleOut: false, scaleOutVolume: 0, reason: '' };
+    const spec = marketStore.getSymbolSpec(p.symbol);
+    const volMin = spec?.volume_min || 0.01;
+    const volStep = spec?.volume_step || 0.01;
+    return calculateScaleOutVolume(p.volume, volMin, volStep);
   });
 
   const startEditing = (side: 'SL' | 'TP') => {
@@ -394,9 +404,13 @@ export const PositionRow: Component<Props> = (props) => {
               <button
                 type="button"
                 class="btn-pos-action btn-pos-half"
-                onClick={() => handleClosePosition(pos().volume / 2)}
-                disabled={isSubmitting()}
-                title={`Scale Out: Close 50% volume (${(pos().volume / 2).toFixed(2)} Lots) for #${pos().ticket}`}
+                onClick={() => handleClosePosition(scaleOutInfo().scaleOutVolume)}
+                disabled={isSubmitting() || !scaleOutInfo().canScaleOut}
+                title={
+                  scaleOutInfo().canScaleOut
+                    ? `Scale Out: Close 50% volume (${scaleOutInfo().scaleOutVolume.toFixed(2)} Lots) for #${pos().ticket}`
+                    : `Cannot scale out: ${scaleOutInfo().reason}`
+                }
               >
                 <svg class="btn-pos-svg" viewBox="0 0 20 20" fill="currentColor">
                   <path fill-rule="evenodd" d="M5.5 2a3.5 3.5 0 101.996 6.368l2.584 2.584a3.5 3.5 0 101.414-1.414L8.91 6.954A3.5 3.5 0 005.5 2zm-1.5 3.5a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zm10 8a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0z" clip-rule="evenodd" />
