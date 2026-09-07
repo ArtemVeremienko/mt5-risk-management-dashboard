@@ -641,20 +641,24 @@ export const SymbolRow: Component<Props> = (props) => {
           <td class="text-right">
             <div class="lot-cell-wrapper" title={`Exact calculation: ${data().calc.exact_lot_display} Lot`}>
               <span class="executable-lot-val tabular-num">{data().calc.lot_display} Lot</span>
-              <Show when={isRiskDeviated()}>
-                <span
-                  class="risk-alert-icon"
-                  title={`Risk deviation warning: Min/Max broker lot clamp caused effective risk to deviate (${effectiveRiskDisplay()})`}
-                >
-                  ⚠️
-                </span>
-              </Show>
-              <Show when={isMaxRiskExceeded()}>
-                <span
-                  class="risk-ceiling-icon"
-                  title={`Risk alert: Effective risk exceeds configured ceiling (${preferencesStore.maxRiskCeilingPct().toFixed(1)}%)`}
-                >
-                  🛑
+              <Show when={isRiskDeviated() || isMaxRiskExceeded()}>
+                <span class="lot-icons-group">
+                  <Show when={isRiskDeviated()}>
+                    <span
+                      class="risk-alert-icon"
+                      title={`Risk deviation warning: Min/Max broker lot clamp caused effective risk to deviate (${effectiveRiskDisplay()})`}
+                    >
+                      ⚠️
+                    </span>
+                  </Show>
+                  <Show when={isMaxRiskExceeded()}>
+                    <span
+                      class="risk-ceiling-icon"
+                      title={`Risk alert: Effective risk exceeds configured ceiling (${preferencesStore.maxRiskCeilingPct().toFixed(1)}%)`}
+                    >
+                      🛑
+                    </span>
+                  </Show>
                 </span>
               </Show>
             </div>

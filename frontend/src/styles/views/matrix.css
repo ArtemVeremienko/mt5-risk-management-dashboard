@@ -836,13 +836,6 @@ tr.drag-over {
 /* ==========================================================================
    STOP LOSS INPUT - EXPANDED & ERGONOMIC (84px + Tabular Alignment)
    ========================================================================== */
-.risk-ceiling-icon {
-  font-size: 11px;
-  cursor: help;
-  display: inline-block;
-  margin-left: 3px;
-}
-
 .sl-input-cell-wrapper {
   position: relative;
   display: inline-flex;
@@ -922,7 +915,7 @@ tr.drag-over {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 6px;
+  gap: 5px;
   cursor: default;
 }
 
@@ -930,11 +923,26 @@ tr.drag-over {
   font-size: 13px;
   font-weight: 700;
   color: #ffffff;
+  line-height: 1;
 }
 
-.risk-alert-icon {
-  font-size: 12px;
+.lot-icons-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  line-height: 1;
+}
+
+.risk-alert-icon,
+.risk-ceiling-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  line-height: 1;
   cursor: help;
+  user-select: none;
+  margin-top: -1px;
 }
 
 /* Stacked Risk & Required Margin */

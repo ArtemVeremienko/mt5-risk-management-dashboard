@@ -408,7 +408,7 @@ def test_execute_order_endpoint(monkeypatch):
     payload = {
         "symbol": "EURUSD",
         "action": "BUY",
-        "volume": 0.1,
+        "volume": 0.01,
         "sl_pips": 25.0,
         "rr_ratio": 2.0,
         "comment": "TestExecution"
